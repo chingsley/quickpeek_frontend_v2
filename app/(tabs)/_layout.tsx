@@ -1,45 +1,66 @@
+import { colors } from '@/constants/colors';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+const CustomTabIcon = ({ focused, ...props }: any) => {
+  return focused ?
+    <Ionicons {...props} />
+    :
+    <></>;
+};
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
 
+const _layout = () => {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
-          },
-          default: {},
-        }),
-      }}>
+        tabBarShowLabel: true,
+        tabBarLabelStyle: {
+          fontSize: 12,
+          marginTop: 2,
+          color: colors.PRIMARY,
+        },
+        tabBarItemStyle: {
+          // borderWidth: 1,
+        },
+        tabBarStyle: {
+          // borderWidth: 1,
+          // borderColor: 'red',
+          height: 100,
+          backgroundColor: colors.DARK_WHITE
+        }
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Profile, Settings, etc), they will show by default
+          tabBarIcon: ({ focused, size }) => <Ionicons name="home-outline" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="Profile"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Profile',
+          // headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Profile, Settings, etc), they will show by default
+          tabBarIcon: ({ focused, size }) => <Ionicons name="person-outline" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />,
+          tabBarLabel: 'Profile'
+        }}
+      />
+      <Tabs.Screen
+        name="Settings"
+        options={{
+          title: 'Settings',
+          // headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Profile, Settings, etc), they will show by default
+          tabBarIcon: ({ focused, size }) => <Ionicons name="settings-outline" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />,
+          tabBarLabel: 'Settings'
         }}
       />
     </Tabs>
   );
-}
+};
+
+export default _layout;
+

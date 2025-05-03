@@ -1,75 +1,115 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import Searchbar from "@/components/Searchbar";
+import { colors } from "@/constants/colors";
+import { images } from "@/constants/images";
+import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-
-export default function HomeScreen() {
+export default function Index() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View
+      style={styles.homeScreen}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <View style={{
+          borderWidth: 1,
+          height: 50,
+          width: 50,
+          borderRadius: '50%',
+          position: 'absolute',
+        }}>
+          <Text>menu</Text>
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.locationPrompt}>Find the location for your question</Text>
+          <View style={styles.location}>
+            <View style={styles.locationMap}>
+              <Image style={styles.locationMapImage} source={images.map} />
+              <View style={styles.locationMapSearchArea}>
+                <View style={styles.locationMapSearchContainer}>
+                  <Searchbar placeholder="Enter Address" />
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.question}>
+            <Text>Ask your question</Text>
+          </View>
+          <View style={styles.extras}>
+            <Text>Ask your question</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  homeScreen: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: 'red',
+    backgroundColor: colors.BG_WHITE,
+    fontFamily: 'Roboto' // TODO: setup font
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  safeArea: {
+    flex: 1,
+    marginTop: 60,
+    marginBottom: 40,
+    marginLeft: 20,
+    marginRight: 20,
+    borderWidth: 1,
+    borderColor: 'blue',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  content: {
+    flex: 1,
+    padding: 2, // for outline. could be removed,
+    marginTop: 50,
+    borderWidth: 1,
+  },
+  location: {
+    height: '40%',
+    // marginTop: 20,
+    borderWidth: 1,
+  },
+  question: {
+    borderWidth: 1,
+    borderColor: 'red'
+    // height: '20%',
+  },
+  extras: {
+    borderWidth: 1,
+    // height: '30%',
+  },
+  locationPrompt: {
+    fontSize: 20,
+    color: '#333',
+    fontFamily: 'Roboto',
+    fontStyle: 'normal',
+    fontWeight: '400',
+    letterSpacing: -0.16,
+    marginVertical: 20,
+  },
+  locationMap: {
+    // backgroundImage: images.map,
+    height: '100%',
+    borderWidth: 1,
+    borderColor: 'blue'
+    // position: 'relative',
+  },
+  locationMapImage: {
+    height: '100%',
+    width: '100%',
+  },
+  locationMapSearchArea: {
     position: 'absolute',
+    width: '100%',
+    flex: 1,
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // borderWidth: 1,
+  },
+  locationMapSearchContainer: {
+    width: '95%',
+    // borderWidth: 1,
   },
 });
