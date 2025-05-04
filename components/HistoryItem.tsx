@@ -22,7 +22,7 @@ const HistoryItem = ({ address, question, onClick }: Props) => {
           justifyContent: 'center',
           alignItems: 'center',
           borderRadius: 10,
-          backgroundColor: colors.LIGHT_GREEN,
+          backgroundColor: colors.LIGHT_BLUE,
           marginRight: 10,
         }}>
           <Ionicons name="time-outline" size={24} color="black" />

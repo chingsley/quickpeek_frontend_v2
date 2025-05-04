@@ -1,10 +1,12 @@
+import CustomTextInput from "@/components/CustomTextInput";
 import HistoryItem from "@/components/HistoryItem";
+import RoundButton from "@/components/RoundButton";
 import Searchbar from "@/components/Searchbar";
 import { colors } from "@/constants/colors";
 import { images } from "@/constants/images";
 import { drawBorder } from "@/utils";
 import { useState } from "react";
-import { Image, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 export default function Index() {
   const [address, setAddress] = useState('');
@@ -13,6 +15,10 @@ export default function Index() {
   const onRecentHistoryClick = (addr: string, questn: string) => {
     setAddress(addr);
     setQuestion(questn);
+  };
+
+  const postQuestion = () => {
+    console.log({ address, question });
   };
 
   return (
@@ -45,15 +51,19 @@ export default function Index() {
             <View>
               <Text style={styles.questionContentCaption}>What do you want to ask</Text>
               <View style={{
-                height: 50,
+                flexDirection: 'row',
+                justifyContent: 'space-between'
               }}>
-                <TextInput
-                  placeholder={'Enter your question'}
-                  placeholderTextColor='#a8b5db'
-                  value={question}
-                  onChangeText={(value) => setQuestion(value)}
-                  style={styles.questionContentInput}
-                />
+                <View style={{
+                  width: '85%'
+                }}>
+                  <CustomTextInput
+                    placeholder="Enter your question"
+                    value={question}
+                    handleTextChange={setQuestion}
+                  />
+                </View>
+                <RoundButton onPress={postQuestion} />
               </View>
             </View>
           </View>
@@ -147,15 +157,5 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#333',
     marginBottom: 20,
-  },
-  questionContentInput: {
-    ...drawBorder(),
-    ...drawBorder(),
-    color: '#333',
-    height: '100%',
-    fontSize: 18,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    paddingHorizontal: 10,
   },
 });
