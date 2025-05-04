@@ -2,5 +2,9 @@ export const colors = {
   PRIMARY: "#1573FE",
   ACTIVE: '#CB2AF7',
   DARK_WHITE: '##F0F0F0',
-  BG_WHITE: '#FFFFFF'
+  BG_WHITE: '#FFFFFF',
+  BG_BLACK: '#000000',
+  LIGHT_BLUE: '#DFF1FF',
+  LIGHT_GREEN: '#E8FFEB',
+  LIGHT_PINK: '#FFECEF',
 };

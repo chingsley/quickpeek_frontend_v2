@@ -1,22 +1,24 @@
 import { colors } from '@/constants/colors';
 import { icons } from '@/constants/icons';
-import React, { useState } from 'react';
+import React from 'react';
 import { Image, StyleSheet, TextInput, View } from 'react-native';
 
 interface Props {
   placeholder: string;
+  inputValue: string;
+  setValue: (value: string) => void;
 }
 
-const Searchbar = ({ placeholder }: Props) => {
-  const [value, setValue] = useState('');
+const Searchbar = ({ placeholder, inputValue, setValue }: Props) => {
+  // const [value, setValue] = useState(inputValue);
   return (
     <View style={styles.container}>
       <Image style={styles.searchIcon} source={icons.search} resizeMode="contain" tintColor='#333' />
       <TextInput
         placeholder={placeholder}
-        value={value}
-        onChangeText={(value) => setValue(value)}
         placeholderTextColor='#a8b5db'
+        value={inputValue}
+        onChangeText={(value) => setValue(value)}
         style={styles.input}
       />
     </View>
@@ -33,7 +35,6 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     backgroundColor: colors.BG_WHITE,
     height: 50
-    // borderWidth: 1,
   },
   searchIcon: {
     width: 20,
@@ -46,7 +47,6 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 20,
     paddingRight: 10,
-    // borderWidth: 1,
   },
   label: {
     // default Text styling

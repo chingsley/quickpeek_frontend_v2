@@ -1,16 +1,27 @@
+import HistoryItem from "@/components/HistoryItem";
 import Searchbar from "@/components/Searchbar";
 import { colors } from "@/constants/colors";
 import { images } from "@/constants/images";
-import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { drawBorder } from "@/utils";
+import { useState } from "react";
+import { Image, SafeAreaView, StyleSheet, Text, TextInput, View } from "react-native";
 
 export default function Index() {
+  const [address, setAddress] = useState('');
+  const [question, setQuestion] = useState('');
+
+  const onRecentHistoryClick = (addr: string, questn: string) => {
+    setAddress(addr);
+    setQuestion(questn);
+  };
+
   return (
     <View
       style={styles.homeScreen}
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={{
-          borderWidth: 1,
+          ...drawBorder(),
           height: 50,
           width: 50,
           borderRadius: '50%',
@@ -20,21 +31,48 @@ export default function Index() {
         </View>
         <View style={styles.content}>
           <Text style={styles.locationPrompt}>Find the location for your question</Text>
-          <View style={styles.location}>
-            <View style={styles.locationMap}>
-              <Image style={styles.locationMapImage} source={images.map} />
-              <View style={styles.locationMapSearchArea}>
-                <View style={styles.locationMapSearchContainer}>
-                  <Searchbar placeholder="Enter Address" />
+          <View style={styles.locationContent}>
+            <View style={styles.locationContentMap}>
+              <Image style={styles.locationContentImage} source={images.map} />
+              <View style={styles.locationContentSearchArea}>
+                <View style={styles.locationContentSearchContainer}>
+                  <Searchbar placeholder="Enter Address" inputValue={address} setValue={setAddress} />
                 </View>
               </View>
             </View>
           </View>
-          <View style={styles.question}>
-            <Text>Ask your question</Text>
+          <View style={styles.questionContent}>
+            <View>
+              <Text style={styles.questionContentCaption}>What do you want to ask</Text>
+              <View style={{
+                height: 50,
+              }}>
+                <TextInput
+                  placeholder={'Enter your question'}
+                  placeholderTextColor='#a8b5db'
+                  value={question}
+                  onChangeText={(value) => setQuestion(value)}
+                  style={styles.questionContentInput}
+                />
+              </View>
+            </View>
           </View>
-          <View style={styles.extras}>
-            <Text>Ask your question</Text>
+          <View style={styles.historyConent}>
+            <HistoryItem
+              address={'CBS Plaza, Wuse 2, Abuja'}
+              question={'Is there space to park a car?'}
+              onClick={onRecentHistoryClick}
+            />
+            <HistoryItem
+              address={'First Bank PLC, CBD, Abuja'}
+              question={'How crowded is the bank?'}
+              onClick={onRecentHistoryClick}
+            />
+            <HistoryItem
+              address={'Nnamdi Azikiwe Airport, Abuja'}
+              question={'Is there traffic at the toll gate?'}
+              onClick={onRecentHistoryClick}
+            />
           </View>
         </View>
       </SafeAreaView>
@@ -45,8 +83,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   homeScreen: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: 'red',
+    ...drawBorder('red'),
     backgroundColor: colors.BG_WHITE,
     fontFamily: 'Roboto' // TODO: setup font
   },
@@ -56,28 +93,24 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     marginLeft: 20,
     marginRight: 20,
-    borderWidth: 1,
-    borderColor: 'blue',
+    ...drawBorder('blue'),
   },
   content: {
     flex: 1,
     padding: 2, // for outline. could be removed,
     marginTop: 50,
-    borderWidth: 1,
+    ...drawBorder(),
   },
-  location: {
+  locationContent: {
     height: '40%',
-    // marginTop: 20,
-    borderWidth: 1,
+    ...drawBorder(),
   },
-  question: {
-    borderWidth: 1,
-    borderColor: 'red'
-    // height: '20%',
+  questionContent: {
+    ...drawBorder('red'),
+    marginVertical: 40,
   },
-  extras: {
-    borderWidth: 1,
-    // height: '30%',
+  historyConent: {
+    // ...drawBorder(),
   },
   locationPrompt: {
     fontSize: 20,
@@ -88,28 +121,41 @@ const styles = StyleSheet.create({
     letterSpacing: -0.16,
     marginVertical: 20,
   },
-  locationMap: {
-    // backgroundImage: images.map,
+  locationContentMap: {
     height: '100%',
-    borderWidth: 1,
-    borderColor: 'blue'
-    // position: 'relative',
+    ...drawBorder('blue'),
   },
-  locationMapImage: {
+  locationContentImage: {
     height: '100%',
     width: '100%',
+    borderRadius: 20,
   },
-  locationMapSearchArea: {
+  locationContentSearchArea: {
     position: 'absolute',
     width: '100%',
     flex: 1,
     marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    // borderWidth: 1,
+    // ...drawBorder(),
   },
-  locationMapSearchContainer: {
+  locationContentSearchContainer: {
     width: '95%',
-    // borderWidth: 1,
+    // ...drawBorder(),
+  },
+  questionContentCaption: {
+    fontSize: 20,
+    color: '#333',
+    marginBottom: 20,
+  },
+  questionContentInput: {
+    ...drawBorder(),
+    ...drawBorder(),
+    color: '#333',
+    height: '100%',
+    fontSize: 18,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 10,
   },
 });
