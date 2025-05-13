@@ -27,10 +27,10 @@ export default function Index() {
     >
       <SafeAreaView style={styles.safeArea}>
         <View style={{
-          ...drawBorder(),
           height: 50,
           width: 50,
           borderRadius: '50%',
+          borderWidth: 1,
           position: 'absolute',
         }}>
           <Text>menu</Text>
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...drawBorder('red'),
     backgroundColor: colors.BG_WHITE,
-    fontFamily: 'Roboto' // TODO: setup font
+    fontFamily: 'roboto' // TODO: setup font
   },
   safeArea: {
     flex: 1,

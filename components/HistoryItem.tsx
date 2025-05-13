@@ -52,14 +52,15 @@ const styles = StyleSheet.create({
   },
   textLocation: {
     color: '#333',
-    fontFamily: 'Roboto',
+    fontFamily: 'roboto',
     fontSize: 20,
     fontStyle: 'normal',
     fontWeight: '400',
     letterSpacing: 0.14,
   },
   textQuestion: {
-    color: '#8C8C8C',
-    fontSize: 16
+    // color: '#8C8C8C',
+    fontSize: 16,
+    fontFamily: 'roboto-light',
   }
 });
