@@ -31,9 +31,11 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 0.4,
     borderRadius: 10,
     paddingLeft: 20,
     backgroundColor: colors.BG_WHITE,
+    // backgroundColor: '#F5F5F5',
     height: 50
   },
   searchIcon: {

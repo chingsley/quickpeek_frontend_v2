@@ -1,12 +1,12 @@
 import CustomTextInput from "@/components/CustomTextInput";
 import HistoryItem from "@/components/HistoryItem";
-import RoundButton from "@/components/RoundButton";
 import Searchbar from "@/components/Searchbar";
+import Button from "@/components/shared/Button";
 import { colors } from "@/constants/colors";
 import { images } from "@/constants/images";
 import { drawBorder } from "@/utils";
 import { useState } from "react";
-import { Image, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 export default function Index() {
   const [address, setAddress] = useState('');
@@ -25,47 +25,20 @@ export default function Index() {
     <View
       style={styles.homeScreen}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <View style={{
-          height: 50,
-          width: 50,
-          borderRadius: '50%',
-          borderWidth: 1,
-          position: 'absolute',
-        }}>
-          <Text>menu</Text>
+      <Image style={styles.locationContentImage} source={images.map} />
+      <View style={styles.content}>
+        <View style={styles.locationContent}>
+          <Searchbar placeholder="Find the location for your question" inputValue={address} setValue={setAddress} />
         </View>
-        <View style={styles.content}>
-          <Text style={styles.locationPrompt}>Find the location for your question</Text>
-          <View style={styles.locationContent}>
-            <View style={styles.locationContentMap}>
-              <Image style={styles.locationContentImage} source={images.map} />
-              <View style={styles.locationContentSearchArea}>
-                <View style={styles.locationContentSearchContainer}>
-                  <Searchbar placeholder="Enter Address" inputValue={address} setValue={setAddress} />
-                </View>
-              </View>
-            </View>
-          </View>
-          <View style={styles.questionContent}>
-            <View>
-              <Text style={styles.questionContentCaption}>What do you want to ask</Text>
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between'
-              }}>
-                <View style={{
-                  width: '85%'
-                }}>
-                  <CustomTextInput
-                    placeholder="Enter your question"
-                    value={question}
-                    handleTextChange={setQuestion}
-                  />
-                </View>
-                <RoundButton onPress={postQuestion} />
-              </View>
-            </View>
+        <View style={styles.bottomContainer}>
+          <View style={styles.qnItemsBox}>
+            <Text style={styles.questionContentCaption}>What do you want to ask</Text>
+            <CustomTextInput
+              placeholder="Enter your question"
+              value={question}
+              handleTextChange={setQuestion}
+            />
+            <Button text="Submit" onPress={() => console.log('testing')} />
           </View>
           <View style={styles.historyConent}>
             <HistoryItem
@@ -78,14 +51,14 @@ export default function Index() {
               question={'How crowded is the bank?'}
               onClick={onRecentHistoryClick}
             />
-            <HistoryItem
+            {/* <HistoryItem
               address={'Nnamdi Azikiwe Airport, Abuja'}
               question={'Is there traffic at the toll gate?'}
               onClick={onRecentHistoryClick}
-            />
+            /> */}
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -93,69 +66,55 @@ export default function Index() {
 const styles = StyleSheet.create({
   homeScreen: {
     flex: 1,
-    ...drawBorder('red'),
     backgroundColor: colors.BG_WHITE,
-    fontFamily: 'roboto' // TODO: setup font
-  },
-  safeArea: {
-    flex: 1,
-    marginTop: 60,
-    marginBottom: 40,
-    marginLeft: 20,
-    marginRight: 20,
+    fontFamily: 'roboto', // TODO: setup font
     ...drawBorder('blue'),
+    // padding: 20,
+    // borderWidth: 5,
   },
   content: {
     flex: 1,
     padding: 2, // for outline. could be removed,
-    marginTop: 50,
-    ...drawBorder(),
+    ...drawBorder('red'),
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
   },
   locationContent: {
-    height: '40%',
     ...drawBorder(),
+    marginHorizontal: 5,
+    height: '50%',
+    display: 'flex',
+    justifyContent: 'center',
   },
-  questionContent: {
-    ...drawBorder('red'),
-    marginVertical: 40,
+  bottomContainer: {
+    ...drawBorder('yellow'),
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    left: 0,
+    height: '50%',
+    backgroundColor: colors.BG_WHITE,
+    borderTopRightRadius: 25,
+    borderTopLeftRadius: 25,
+  },
+  qnItemsBox: {
+    padding: 15,
   },
   historyConent: {
-    // ...drawBorder(),
-  },
-  locationPrompt: {
-    fontSize: 20,
-    color: '#333',
-    fontFamily: 'Roboto',
-    fontStyle: 'normal',
-    fontWeight: '400',
-    letterSpacing: -0.16,
-    marginVertical: 20,
-  },
-  locationContentMap: {
-    height: '100%',
-    ...drawBorder('blue'),
+    marginTop: 20,
+    borderTopWidth: 2,
+    borderTopColor: '#999',
+    paddingTop: 10,
   },
   locationContentImage: {
     height: '100%',
     width: '100%',
     borderRadius: 20,
   },
-  locationContentSearchArea: {
-    position: 'absolute',
-    width: '100%',
-    flex: 1,
-    marginTop: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // ...drawBorder(),
-  },
-  locationContentSearchContainer: {
-    width: '95%',
-    // ...drawBorder(),
-  },
   questionContentCaption: {
     fontSize: 20,
     color: '#333',
-    marginBottom: 20,
+    marginVertical: 20,
   },
 });
