@@ -1,7 +1,7 @@
 import CustomTextInput from "@/components/CustomTextInput";
 import HistoryItem from "@/components/HistoryItem";
 import Searchbar from "@/components/Searchbar";
-import Button from "@/components/shared/Button";
+import CustomButton from "@/components/shared/CustomButton";
 import { colors } from "@/constants/colors";
 import { images } from "@/constants/images";
 import { drawBorder } from "@/utils";
@@ -38,7 +38,7 @@ export default function Index() {
               value={question}
               handleTextChange={setQuestion}
             />
-            <Button text="Submit" onPress={() => console.log('testing')} />
+            <CustomButton text="Submit" onPress={() => console.log('testing')} />
           </View>
           <View style={styles.historyConent}>
             <HistoryItem
@@ -67,10 +67,7 @@ const styles = StyleSheet.create({
   homeScreen: {
     flex: 1,
     backgroundColor: colors.BG_WHITE,
-    fontFamily: 'roboto', // TODO: setup font
     ...drawBorder('blue'),
-    // padding: 20,
-    // borderWidth: 5,
   },
   content: {
     flex: 1,
@@ -103,8 +100,8 @@ const styles = StyleSheet.create({
   },
   historyConent: {
     marginTop: 20,
-    borderTopWidth: 2,
-    borderTopColor: '#999',
+    // borderTopWidth: 2,
+    // borderTopColor: '#999',
     paddingTop: 10,
   },
   locationContentImage: {

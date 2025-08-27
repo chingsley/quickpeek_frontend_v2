@@ -12,7 +12,7 @@ const CustomTextInput = ({ value, placeholder, handleTextChange }: Props) => {
   return (
     <TextInput
       placeholder={placeholder}
-      placeholderTextColor='#a8b5db'
+      placeholderTextColor='#7a7b80ff'
       value={value}
       onChangeText={(value) => handleTextChange(value)}
       style={styles.textInput}

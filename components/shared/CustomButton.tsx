@@ -1,4 +1,4 @@
-// components / Shared / Button.tsx
+// components / Shared / CustomButton.tsx
 
 import { colors } from '@/constants/colors';
 import React from 'react';
@@ -9,14 +9,14 @@ import {
 } from 'react-native';
 
 
-interface ButtonProps {
+interface CustomButtonProps {
   text: string;
   onPress: ((event: GestureResponderEvent) => void) | undefined;
   loading?: boolean;
   disabled?: boolean;
   style?: Object;
 }
-const Button = ({ onPress, text, loading, disabled, style }: ButtonProps) => {
+const CustomButton = ({ onPress, text, loading, disabled, style }: CustomButtonProps) => {
   return (
     <View style={style}>
       <TouchableOpacity
@@ -36,7 +36,7 @@ const Button = ({ onPress, text, loading, disabled, style }: ButtonProps) => {
 };
 
 
-export default Button;
+export default CustomButton;
 
 const styles = StyleSheet.create({
   btn: {
