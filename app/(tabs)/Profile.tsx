@@ -9,9 +9,15 @@ const Profile = () => {
       <Text>Profile</Text>
       <TouchableOpacity
         style={styles.newAskBtn}
-        onPress={() => router.push('/newAsk')}
+        onPress={() => router.push('/newQuestion')}
       >
-        <Text>New Asks</Text>
+        <Text>New Question</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.newAskBtn}
+        onPress={() => router.push('/questionHistory')}
+      >
+        <Text>Question History</Text>
       </TouchableOpacity>
     </View>
   );

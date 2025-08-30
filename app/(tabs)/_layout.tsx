@@ -3,14 +3,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-const CustomTabIcon = ({ focused, ...props }: any) => {
-  return focused ?
-    <Ionicons {...props} />
-    :
-    <></>;
-};
-
-
 const _layout = () => {
   return (
     <Tabs
@@ -33,7 +25,7 @@ const _layout = () => {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="Home"
         options={{
           title: 'Home',
           headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Profile, Settings, etc), they will show by default

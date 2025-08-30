@@ -33,8 +33,8 @@ export default NewAsk;
 
 const styles = StyleSheet.create({
   newAskContainer: {
-    borderWidth: 1,
-    borderColor: 'red',
+    // borderWidth: 1,
+    // borderColor: 'red',
     height: '100%',
 
     display: 'flex',
