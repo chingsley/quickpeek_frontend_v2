@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   btn: {
     backgroundColor: colors.PRIMARY,
     height: 50,
-    borderRadius: 10,
+    borderRadius: 100,
     marginTop: 15,
     display: 'flex',
     justifyContent: 'center',

@@ -7,4 +7,8 @@ export const colors = {
   LIGHT_BLUE: '#DFF1FF',
   LIGHT_GREEN: '#E8FFEB',
   LIGHT_PINK: '#FFECEF',
+  DARK_GRAY: '#485460',
+  LIGHT_GRAY: '#d2dae2',
+  LIGHT_GRAY_THIN: '#dddddd80',
+  MEDIUM_GRAY: '#888888'
 };

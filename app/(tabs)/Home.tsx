@@ -38,7 +38,7 @@ export default function Index() {
               value={question}
               handleTextChange={setQuestion}
             />
-            <CustomButton text="Submit" onPress={() => console.log('testing')} />
+            <CustomButton text="Submit" onPress={postQuestion} />
           </View>
           <View style={styles.historyConent}>
             <HistoryItem

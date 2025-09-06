@@ -22,11 +22,7 @@ export default function RootLayout() {
       options={{ headerShown: false }}
     />
     <Stack.Screen
-      name="newQuestion/index"
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="questionHistory/index"
+      name="answer/index"
       options={{ headerShown: false }}
     />
   </Stack>;
