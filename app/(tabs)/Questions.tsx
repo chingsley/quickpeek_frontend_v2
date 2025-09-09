@@ -15,6 +15,7 @@ const Questions = () => {
 
   const newQuestions = questions.slice(0, 3);
   const pastQuestions = questions.slice(3);
+  const newQuestionsCount = newQuestions.filter(q => q.isNew).length;
 
   const handleHistoryItemClick = (item: (typeof questions)[0]) => {
     if (activeTab === 'Inbox') {
@@ -43,7 +44,14 @@ const Questions = () => {
         <View style={styles.tabContainer}>
           <View style={styles.tabHeader}>
             <TouchableOpacity onPress={() => setActiveTab('Inbox')} style={[styles.tab, activeTab === 'Inbox' && styles.activeTab]}>
-              <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>Inbox</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>Inbox</Text>
+                {newQuestionsCount > 0 && (
+                  <View style={styles.newBadge}>
+                    <Text style={styles.newBadgeText}>{newQuestionsCount}</Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setActiveTab('Outbox')} style={[styles.tab, activeTab === 'Outbox' && styles.activeTab]}>
               <Text style={[styles.tabText, activeTab === 'Outbox' && styles.activeTabText]}>Outbox</Text>
@@ -59,6 +67,7 @@ const Questions = () => {
                   address={item.address}
                   createdAt={item.createdAt}
                 />
+                {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
                 {activeTab === 'Outbox' && <Pressable style={styles.arrowRotateIconBtn}>
                   <View style={styles.arrowRotateIconBG}>
                     <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
@@ -138,5 +147,23 @@ const styles = StyleSheet.create({
     borderRadius: '50%',
     backgroundColor: colors.LIGHT_GRAY_THIN,
 
-  }
+  },
+  newBadge: {
+    backgroundColor: 'red',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+  },
+  newBadgeText: {
+    color: 'white',
+    fontSize: 12,
+  },
+  newTag: {
+    color: 'red',
+    fontSize: 16,
+    fontFamily: 'roboto-bold',
+  },
 });
