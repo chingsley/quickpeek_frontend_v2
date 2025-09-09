@@ -25,5 +25,9 @@ export default function RootLayout() {
       name="answer/index"
       options={{ headerShown: false }}
     />
+    <Stack.Screen
+      name="question-detail/index"
+      options={{ headerShown: false }}
+    />
   </Stack>;
 }

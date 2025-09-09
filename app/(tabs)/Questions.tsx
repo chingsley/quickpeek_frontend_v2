@@ -14,21 +14,55 @@ const Questions = () => {
   const openModal = () => { };
 
   const newQuestions = questions.slice(0, 3);
-  const pastQuestions = questions.slice(3);
+  const pastQuestions = questions.slice(3).sort((a, b) => {
+    if (a.isPending && !b.isPending) {
+      return -1;
+    }
+    if (!a.isPending && b.isPending) {
+      return 1;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
   const newQuestionsCount = newQuestions.filter(q => q.isNew).length;
 
   const handleHistoryItemClick = (item: (typeof questions)[0]) => {
     if (activeTab === 'Inbox') {
+      if (item.isNew) {
+        router.push({
+          pathname: '/answer',
+          params: {
+            address: item.address,
+            question: item.content,
+            createdAt: item.createdAt,
+          },
+        });
+      } else {
+        router.push({
+          pathname: '/question-detail',
+          params: {
+            address: item.address,
+            question: item.content,
+            createdAt: item.createdAt,
+            answer: item.answer,
+            answerRating: item.answerRating,
+            responderUsername: item.responderUsername,
+          },
+        });
+      }
+    } else {
       router.push({
-        pathname: '/answer',
+        pathname: '/question-detail',
         params: {
           address: item.address,
           question: item.content,
           createdAt: item.createdAt,
+          answer: item.answer,
+          answerRating: item.answerRating,
+          responderUsername: item.responderUsername,
+          isOutbox: 'true',
+          isPending: item.isPending ? 'true' : 'false',
         },
       });
-    } else {
-      console.log(item.address, ' - ', item.content);
     }
   };
 
@@ -68,11 +102,14 @@ const Questions = () => {
                   createdAt={item.createdAt}
                 />
                 {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
-                {activeTab === 'Outbox' && <Pressable style={styles.arrowRotateIconBtn}>
-                  <View style={styles.arrowRotateIconBG}>
-                    <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
-                  </View>
-                </Pressable>}
+                {item.isPending && activeTab === 'Outbox' && <Text style={styles.pendingTag}>pending</Text>}
+                {activeTab === 'Outbox' &&
+                  <Pressable style={styles.arrowRotateIconBtn}>
+                    <View style={styles.arrowRotateIconBG}>
+                      <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
+                    </View>
+                  </Pressable>
+                }
               </View>
             )}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -149,7 +186,7 @@ const styles = StyleSheet.create({
 
   },
   newBadge: {
-    backgroundColor: 'red',
+    backgroundColor: colors.RED,
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -158,11 +195,17 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   newBadgeText: {
-    color: 'white',
-    fontSize: 12,
+    color: colors.BG_WHITE,
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   newTag: {
-    color: 'red',
+    color: colors.RED,
+    fontSize: 16,
+    fontFamily: 'roboto-bold',
+  },
+  pendingTag: {
+    color: colors.PRIMARY,
     fontSize: 16,
     fontFamily: 'roboto-bold',
   },
