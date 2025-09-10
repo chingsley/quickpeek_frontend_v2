@@ -1,5 +1,11 @@
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+
+
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 export default function RootLayout() {
   useFonts({
@@ -16,18 +22,24 @@ export default function RootLayout() {
     'space-mono-regular': require('./../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  return <Stack>
-    <Stack.Screen
-      name="(tabs)"
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="answer/index"
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen
-      name="question-detail/index"
-      options={{ headerShown: false }}
-    />
-  </Stack>;
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <Stack>
+          <Stack.Screen
+            name="(tabs)"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="answer/index"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="question-detail/index"
+            options={{ headerShown: false }}
+          />
+        </Stack>
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
+  );
 }
