@@ -1,50 +1,68 @@
-# Welcome to your Expo app 👋
+# Quickpeek Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Folder structure
+/Users/kingsleyeneja/study_projects/my-app
+  s/quickpeek/quickpeek_frontend_v2/
+  ├───.gitignore
+  ├───app.json
+  ├───babel.config.js
+  ├───eslint.config.js
+  ├───package-lock.json
+  ├───package.json
+  ├───README.md
+  ├───scripts.py
+  ├───tsconfig.json
+  ├───app/
+  │   ├───_layout.tsx
+  │   ├───index.tsx
+  │   ├───(tabs)/
+  │   │   ├───_layout.tsx
+  │   │   ├───Home.tsx
+  │   │   ├───Questions.tsx
+  │   │   └───Settings.tsx
+  │   ├───answer/
+  │   │   └───index.tsx
+  │   └───question-detail/
+  │       └───index.tsx
+  ├───assets/
+  │   ├───fonts/
+  │   │   ├───Roboto_Condensed-Bold.ttf
+  │   │   ├───Roboto_Condensed-Light.ttf
+  │   │   ├───Roboto_Condensed-Medium.ttf
+  │   │   ├───Roboto_Condensed-Regular.ttf
+  │   │   ├───Roboto-Bold.ttf
+  │   │   ├───Roboto-ExtraBold.ttf
+  │   │   ├───Roboto-ExtraLight.ttf
+  │   │   ├───Roboto-Light.ttf
+  │   │   ├───Roboto-Medium.ttf
+  │   │   ├───Roboto-Regular.ttf
+  │   │   └───SpaceMono-Regular.ttf
+  │   ├───icons/
+  │   │   ├───home.png
+  │   │   ├───person.png
+  │   │   └───search.png
+  │   └───images/
+  │       ├───bg.png
+  │       ├───logo.png
+  │       └───map.png
+  ├───components/
+  │   ├───CustomTextInput.tsx
+  │   ├───CustomTextInput2.tsx
+  │   ├───HistoryItem.tsx
+  │   ├───RoundButton.tsx
+  │   ├───Searchbar.tsx
+  │   └───shared/
+  │       ├───BackButton.tsx
+  │       └───CustomButton.tsx
+  ├───constants/
+  │   ├───colors.ts
+  │   ├───icons.ts
+  │   └───images.ts
+  ├───interfaces/
+  │   └───interfaces.d.ts
+  ├───types/
+  │   └───images.d.ts
+  └───utils/
+      ├───date.ts
+      └───index.ts
