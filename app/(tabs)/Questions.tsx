@@ -1,6 +1,7 @@
 import questions from '@/_playground/questions.json';
 import HistoryItem from '@/components/HistoryItem';
 import { colors } from '@/constants/colors';
+import { fonts } from '@/constants/fonts';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   },
   newBadgeText: {
     color: colors.BG_WHITE,
-    fontSize: 14,
+    fontSize: fonts.FONT_SIZE_SMALL,
     fontWeight: 'bold',
   },
   newTag: {

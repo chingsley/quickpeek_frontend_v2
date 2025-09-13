@@ -1,108 +1,242 @@
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
-import BottomSheet from '@gorhom/bottom-sheet';
+import { fonts } from '@/constants/fonts';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+
 
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const [location, setLocation] = useState('');
-  const [question, setQuestion] = useState('');
+  const [question, setQuestion] = useState('Is there a long queue at the bank?');
   const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [location, setLocation] = useState('');
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
+  const [selectedLocation, setSelectedLocation] = useState({
+    addressName: '',
+    coordinates: {
+      latitude: 37.78825,
+      longitude: -122.4324,
+      latitudeDelta: 0.0922,
+      longitudeDelta: 0.0421,
+    }
+  });
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [addressSelected, setAddressSelected] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
 
-  const snapPoints = useMemo(() => ['33%', '66%'], []);
+  const snapPoints = useMemo(() => ['20%', '50%', '90%'], []);
 
   const handleSheetChanges = useCallback((index: number) => {
-    console.log('handleSheetChanges', index);
+    if (index === 0) {
+      setIsFocused(false);
+      Keyboard.dismiss();
+    }
   }, []);
 
   const handleFocus = () => {
-    bottomSheetRef.current?.snapToIndex(1);
+    bottomSheetRef.current?.snapToIndex(3);
     setIsFocused(true);
   };
 
-  const handleDone = () => {
-    bottomSheetRef.current?.snapToIndex(0);
+  const handleBlur = () => {
     setIsFocused(false);
+  };
+
+  const handleDone = () => {
+    console.log({ location, question }, 'testing');
+    setMode('preview');
+    Keyboard.dismiss();
+    bottomSheetRef.current?.snapToIndex(1);
+    setLocation(selectedLocation.addressName);
+    setRegion(selectedLocation.coordinates);
   };
 
   const handlePost = () => {
     console.log({ location, question });
+    // // Reset form after posting
+    // setLocation('');
+    // setQuestion('');
+    // setMode('edit');
+    // bottomSheetRef.current?.snapToIndex(0);
+  };
+
+  const handleEdit = () => {
+    setMode('edit');
+    bottomSheetRef.current?.snapToIndex(3);
   };
 
   const handleLocationChange = async (text: string) => {
-    setLocation(text);
+    if (addressSelected) setAddressSelected(false);
+    setSelectedLocation(prev => ({
+      ...prev,
+      addressName: text,
+    }));
+    setAddressSelected(false);
     if (text.length > 2) {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
-      );
-      const data = await response.json();
-      setSuggestions(data);
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
+        );
+        const data = await response.json();
+        setSuggestions(data);
+      } catch (error) {
+        console.error('Error fetching location suggestions:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setSuggestions([]);
     }
   };
 
   const onSuggestionPress = (item: any) => {
-    setLocation(item.display_name);
-    setRegion({
-      latitude: parseFloat(item.lat),
-      longitude: parseFloat(item.lon),
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    });
-    setSuggestions([]);
+    try {
+      setSelectedLocation({
+        addressName: item.display_name,
+        coordinates: {
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon),
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        }
+      });
+      setLocation(item.display_name);
+      setSuggestions([]);
+      setAddressSelected(true);
+    } catch (error) {
+      console.log('onSuggestionPress error', error);
+    }
   };
+
+  const renderSuggestionItem = ({ item }: { item: any; }) => (
+    <TouchableOpacity
+      style={styles.suggestionItem}
+      onPress={() => onSuggestionPress(item)}
+    >
+      <Text style={styles.suggestionText}>{item.display_name}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
         <Marker coordinate={region} />
       </MapView>
+
       <BottomSheet
         ref={bottomSheetRef}
         index={0}
         snapPoints={snapPoints}
         onChange={handleSheetChanges}
+        backgroundStyle={styles.bottomSheetBackground}
+        handleIndicatorStyle={styles.handleIndicator}
+        enablePanDownToClose={false}
       >
-        <View style={styles.contentContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter location"
-            value={location}
-            onChangeText={handleLocationChange}
-            onFocus={handleFocus}
-          />
-          {suggestions.length > 0 && isFocused && (
-            <FlatList
-              data={suggestions}
-              keyExtractor={(item) => String(item.place_id)}
-              renderItem={({ item }) => (
-                <TouchableOpacity onPress={() => onSuggestionPress(item)}>
-                  <Text style={styles.suggestion}>{item.display_name}</Text>
-                </TouchableOpacity>
-              )}
-            />
-          )}
-          {isFocused && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your question"
-                value={question}
-                onChangeText={setQuestion}
-              />
-              <CustomButton text="Done" onPress={handleDone} />
-            </>
-          )}
-          {!isFocused && <CustomButton text="Post" onPress={handlePost} />}
-        </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoidingView}
+        >
+          <BottomSheetView style={styles.contentContainer}>
+            {mode === 'edit' ? (
+              <>
+                <Text style={styles.inputLabel}>Choose a location for your question</Text>
+                <View style={styles.searchContainer}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Choose a location for your question"
+                    placeholderTextColor={colors.MEDIUM_GRAY}
+                    value={selectedLocation.addressName}
+                    onChangeText={handleLocationChange}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                  />
+                  {isLoading && <ActivityIndicator size="small" color={colors.PRIMARY} style={styles.loader} />}
+                </View>
+                <View style={styles.suggestionsContainerParent}>
+                  {suggestions.length > 0 && (
+                    <View style={styles.suggestionsContainer}>
+                      <FlatList
+                        data={suggestions}
+                        keyExtractor={(item) => String(item.place_id)}
+                        renderItem={renderSuggestionItem}
+                        keyboardShouldPersistTaps="handled"
+                      />
+                    </View>
+                  )}
+                </View>
+                <View style={styles.questNButtonContainer}>
+                  <Text style={styles.inputLabel}>What do you want to know about this location?</Text>
+                  <TextInput
+                    style={styles.questionInput}
+                    placeholder="Enter your question"
+                    placeholderTextColor={colors.MEDIUM_GRAY}
+                    value={question}
+                    onChangeText={setQuestion}
+                    multiline
+                    onFocus={handleFocus}
+                  />
+                  <CustomButton
+                    text="Done"
+                    onPress={handleDone}
+                    style={styles.postButton}
+                    disabled={!location || !question}
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.previewHeader}>
+                  <Text style={styles.previewTitle}>Preview</Text>
+                </View>
+
+                <View style={styles.previewSection}>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewValue}>{location}</Text>
+                    <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
+                      <FontAwesome name="pencil" size={16} color={colors.PRIMARY} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.previewSection}>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewValue}>{question}</Text>
+                    <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
+                      <FontAwesome name="pencil" size={16} color={colors.PRIMARY} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <CustomButton
+                  text="Post Question"
+                  onPress={handlePost}
+                  style={styles.postButton}
+                />
+              </>
+            )}
+          </BottomSheetView>
+        </KeyboardAvoidingView>
       </BottomSheet>
     </View>
   );
@@ -115,23 +249,124 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   contentContainer: {
     flex: 1,
-    alignItems: 'center',
     padding: 20,
+    paddingBottom: 30,
   },
-  input: {
-    width: '100%',
-    borderColor: colors.DARK_GRAY,
-    borderWidth: 1,
-    borderRadius: 5,
-    padding: 10,
+  inputLabel: {
+    fontFamily: 'roboto-bold',
+    fontSize: 18,
     marginBottom: 10,
+    color: colors.DARK_GRAY,
   },
-  suggestion: {
+  bottomSheetBackground: {
+    backgroundColor: colors.BG_WHITE,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  handleIndicator: {
+    backgroundColor: colors.LIGHT_GRAY,
+    width: 40,
+    height: 4,
+  },
+  searchContainer: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: colors.LIGHT_GRAY_THIN,
+    borderRadius: 8,
     padding: 10,
+    fontSize: 18,
+    fontFamily: 'roboto',
+    color: colors.DARK_GRAY,
+    backgroundColor: colors.BG_WHITE,
+    height: 50,
+  },
+  loader: {
+    position: 'absolute',
+    right: 12,
+  },
+  suggestionsContainerParent: {
+    position: 'relative',
+  },
+  suggestionsContainer: {
+    height: 550,
+    marginBottom: 12,
+    backgroundColor: colors.BG_WHITE,
+    elevation: 3,
+    position: 'absolute',
+    top: 1,
+    zIndex: 100,
+    width: '100%',
+  },
+  suggestionItem: {
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: colors.LIGHT_GRAY,
+    borderBottomColor: colors.LIGHT_GRAY_THIN,
+  },
+  suggestionText: {
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.DARK_GRAY,
+  },
+  questNButtonContainer: {
+    marginTop: 20,
+  },
+  questionInput: {
+    borderWidth: 1,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.DARK_GRAY,
+    backgroundColor: colors.BG_WHITE,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  postButton: {
+    marginTop: 0,
+  },
+  previewHeader: {
+    marginBottom: 20,
+  },
+  previewTitle: {
+    fontFamily: 'roboto-bold',
+    fontSize: 24,
+    color: colors.DARK_GRAY,
+  },
+  previewSection: {
+    marginBottom: 5,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.LIGHT_GRAY_THIN,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    backgroundColor: colors.BG_WHITE,
+  },
+  previewValue: {
+    flex: 1,
+    lineHeight: 22,
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    fontFamily: 'roboto',
+    color: colors.DARK_GRAY,
+    maxWidth: '90%',
+  },
+  editButton: {
+    padding: 8,
   },
 });
 

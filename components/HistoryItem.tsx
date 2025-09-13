@@ -1,4 +1,5 @@
 import { colors } from '@/constants/colors';
+import { fonts } from '@/constants/fonts';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   date: {
     color: colors.MEDIUM_GRAY,
     fontFamily: 'roboto-light',
-    fontSize: 14,
+    fontSize: fonts.FONT_SIZE_SMALL,
     marginBottom: 5,
   },
   address: {
