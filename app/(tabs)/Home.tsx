@@ -3,7 +3,8 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -45,6 +46,37 @@ const HomeScreen = () => {
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
 
   const snapPoints = useMemo(() => ['20%', '50%', '90%'], []);
+  const params = useLocalSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const { question: questionParam, address: addressParam, location: locationParam } = params;
+
+    if (questionParam && addressParam && locationParam && typeof locationParam === 'string') {
+      const [latitude, longitude] = locationParam.split(',').map(parseFloat);
+
+      setQuestion(questionParam as string);
+      setLocation(addressParam as string);
+      setSelectedLocation({
+        addressName: addressParam as string,
+        coordinates: {
+          latitude,
+          longitude,
+          latitudeDelta: 0.0922,
+          longitudeDelta: 0.0421,
+        },
+      });
+      setRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+      setMode('preview');
+      bottomSheetRef.current?.snapToIndex(1);
+      router.setParams({ question: '', address: '', location: '' });
+    }
+  }, [params]);
 
   const handleSheetChanges = useCallback((index: number) => {
     if (index === 0) {
@@ -137,7 +169,7 @@ const HomeScreen = () => {
       <Text style={styles.suggestionText}>{item.display_name}</Text>
     </TouchableOpacity>
   );
-
+  console.log('>>>>>', { region }, '\n******', { location });
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
@@ -200,7 +232,7 @@ const HomeScreen = () => {
                     text="Done"
                     onPress={handleDone}
                     style={styles.postButton}
-                    disabled={!location || !question}
+                    disabled={!addressSelected || !question}
                   />
                 </View>
               </>

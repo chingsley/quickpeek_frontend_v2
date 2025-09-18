@@ -50,7 +50,7 @@ const Questions = () => {
           },
         });
       }
-    } else {
+    } else { // An outbox history item is clicked
       router.push({
         pathname: '/question-detail',
         params: {
@@ -105,7 +105,19 @@ const Questions = () => {
                 {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
                 {item.isPending && activeTab === 'Outbox' && <Text style={styles.pendingTag}>pending</Text>}
                 {activeTab === 'Outbox' &&
-                  <Pressable style={styles.arrowRotateIconBtn}>
+                  <Pressable
+                    style={styles.arrowRotateIconBtn}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(tabs)/Home',
+                        params: {
+                          question: item.content,
+                          address: item.address,
+                          location: item.location,
+                        },
+                      })
+                    }
+                  >
                     <View style={styles.arrowRotateIconBG}>
                       <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
                     </View>
