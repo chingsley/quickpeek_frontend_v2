@@ -73,6 +73,7 @@ const HomeScreen = () => {
         longitudeDelta: 0.0421,
       });
       setMode('preview');
+      setAddressSelected(true);
       bottomSheetRef.current?.snapToIndex(1);
       router.setParams({ question: '', address: '', location: '' });
     }
