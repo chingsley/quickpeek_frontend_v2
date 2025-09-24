@@ -6,6 +6,8 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { AuthProvider } from './../context/AuthContext';
+import { Slot } from 'expo-router';
 
 export default function RootLayout() {
   useFonts({
@@ -23,23 +25,12 @@ export default function RootLayout() {
   });
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <Stack>
-          <Stack.Screen
-            name="(tabs)"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="answer/index"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="question-detail/index"
-            options={{ headerShown: false }}
-          />
-        </Stack>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
+    <AuthProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <Slot />
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
+    </AuthProvider>
   );
 }
