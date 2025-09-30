@@ -1,18 +1,129 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import React, { useState } from 'react';
+import { colors } from '@/constants/colors';
+import { loginUser } from '@/services/auth.services';
+import { useAuthStore } from '@/store/auth.store';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-const signin = () => {
+
+// Get device token for notifications
+async function registerForPushNotificationsAsync() {
+  let token = '';
+
+  try {
+    // Check if we're on a physical device
+    if (!Constants.isDevice) {
+      console.log('Must use physical device for Push Notifications');
+      return '';
+    }
+
+    console.log({
+      'Constants.expoConfig?.extra?.eas?.projectId': Constants.expoConfig?.extra?.eas?.projectId,
+      'Constants.expoConfig?.slug': Constants.expoConfig?.slug,
+    });
+
+    // Check permissions
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      alert('Failed to get push token for push notification!');
+      return '';
+    }
+
+    // Get the token - try multiple ways to get projectId
+    let projectId;
+
+    // Method 1: From app.json configuration (most reliable)
+    projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+    // Method 2: From slug (fallback)
+    if (!projectId) {
+      projectId = Constants.expoConfig?.slug;
+    }
+
+    // Method 3: Hardcoded as last resort (replace with your actual project ID)
+    if (!projectId) {
+      projectId = 'quickpeek_frontend_v2'; // This might need to be your actual EAS project ID
+    }
+
+    console.log('Using projectId:', projectId);
+
+    if (projectId) {
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: projectId as string
+      })).data;
+    } else {
+      // Final fallback - try without projectId (may work in development)
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+    }
+
+    console.log('Expo push token:', token);
+    return token;
+  } catch (error) {
+    console.error('Error getting push token:', error);
+    // Return empty string but don't block login
+    return '';
+  }
+}
+
+const SignIn = () => {
   const router = useRouter();
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { login } = useAuthStore();
+  const [email, setEmail] = useState('test3@quickpeek.com'); // TODO: Initialize to ''
+  const [password, setPassword] = useState('test3@quickpeek.com'); // TODO: Initialize to ''
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignIn = () => {
-    console.log('Email:', email);
-    console.log('Password:', password);
-    login(false);
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      console.log('Attempting sign in with:', { email });
+
+      // Get device token for notifications
+      const deviceToken = await registerForPushNotificationsAsync();
+      const deviceType = Constants.platform?.ios ? 'ios' : 'android';
+
+      const credentials = {
+        email,
+        password,
+        deviceType,
+        deviceToken: !!deviceToken, // || 'ExponentPushToken[ubw-MEPEIQgJdA3RQbGDrQ]',
+        notificationsEnabled: true, // Default to true, user can change later
+        locationSharingEnabled: false // Start with false, user can enable after login
+      };
+
+      console.log('Sending login request with credentials: ', credentials);
+      const response = await loginUser(credentials);
+      console.log('Login response:', JSON.stringify(response));
+
+      if (response && response.data) {
+        // Successful login - update auth store
+        const { user, token } = response.data;
+        await login(user.locationSharingEnabled, user, token);
+        console.log('Login successful, navigating to home');
+        router.replace('/(tabs)/Home');
+      } else {
+        Alert.alert('Error', 'Invalid response from server');
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Login failed';
+      console.error('Login error:', error, '\errorMessage: ', errorMessage);
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -32,6 +143,7 @@ const signin = () => {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="email"
             />
           </View>
           <View style={styles.inputContainer}>
@@ -42,10 +154,17 @@ const signin = () => {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="password"
             />
           </View>
-          <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-            <Text style={styles.buttonText}>Sign In</Text>
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleSignIn}
+            disabled={isLoading}
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
             <Text style={styles.link}>Don't have an account? Sign up</Text>
@@ -56,7 +175,7 @@ const signin = () => {
   );
 };
 
-export default signin;
+export default SignIn;
 
 const styles = StyleSheet.create({
   scrollContainer: {
@@ -94,11 +213,14 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: 50,
-    backgroundColor: 'blue',
+    backgroundColor: colors.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: colors.MEDIUM_GRAY,
   },
   buttonText: {
     color: 'white',

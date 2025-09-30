@@ -37,6 +37,12 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "83eb8615-b904-4d52-ac2c-fd4d498ff6d2"
+      }
+    },
+    "owner": "chingsley"
   }
 }

@@ -1,10 +1,9 @@
 
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Switch, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
-import React, { useState } from 'react';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Define the shape of the form data
 interface FormData {

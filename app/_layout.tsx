@@ -1,15 +1,20 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useAuthStore } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { AuthProvider } from './../context/AuthContext';
+import { useFonts } from "expo-font";
 import { Slot } from 'expo-router';
+import { useEffect } from 'react';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
+  const { initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
   useFonts({
     'roboto': require('./../assets/fonts/Roboto-Regular.ttf'),
     'roboto-bold': require('./../assets/fonts/Roboto-Bold.ttf'),
@@ -25,12 +30,10 @@ export default function RootLayout() {
   });
 
   return (
-    <AuthProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <BottomSheetModalProvider>
-          <Slot />
-        </BottomSheetModalProvider>
-      </GestureHandlerRootView>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <BottomSheetModalProvider>
+        <Slot />
+      </BottomSheetModalProvider>
+    </GestureHandlerRootView>
   );
 }
