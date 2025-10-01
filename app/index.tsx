@@ -6,6 +6,7 @@ const Index = () => {
   const { isAuthenticated } = useAuthStore();
 
   if (isAuthenticated) {
+    // <Redirect href="/(auth)/signin" />;
     return <Redirect href="/(tabs)/Home" />;
   }
 

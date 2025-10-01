@@ -1,9 +1,11 @@
 
+import { notifConfig } from '@/config';
+import { colors } from '@/constants/colors';
+import { registerUser } from '@/services/auth.services';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Define the shape of the form data
 interface FormData {
@@ -13,7 +15,6 @@ interface FormData {
   password: string;
   confirmPassword: string;
   locationSharingEnabled: boolean;
-  notificationsEnabled: boolean;
   deviceToken: string;
   deviceType: string | undefined;
 }
@@ -38,29 +39,16 @@ interface Step3Props {
   handleSignup: () => void;
 }
 
-async function registerForPushNotificationsAsync() {
-  let token;
-  if (Constants.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync({ projectId: 'quickpeek_frontend_v2' })).data;
-    console.log(token);
-  } else {
-    alert('Must use physical device for Push Notifications');
-  }
-
-  return token;
-}
-
 const Step1: React.FC<Step1Props> = ({ formData, setFormData, nextStep }) => {
+  const passwordsMatch = formData.password === formData.confirmPassword;
+  const isNextDisabled =
+    !formData.name ||
+    !formData.username ||
+    !formData.email ||
+    !formData.password ||
+    !formData.confirmPassword ||
+    !passwordsMatch;
+
   return (
     <View style={styles.stepContainer}>
       <View style={styles.inputContainer}>
@@ -95,7 +83,7 @@ const Step1: React.FC<Step1Props> = ({ formData, setFormData, nextStep }) => {
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, formData.confirmPassword.length > 0 && !passwordsMatch && styles.inputError]}
           placeholder="Password"
           value={formData.password}
           onChangeText={(text) => setFormData({ ...formData, password: text })}
@@ -105,14 +93,15 @@ const Step1: React.FC<Step1Props> = ({ formData, setFormData, nextStep }) => {
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Confirm Password</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, formData.confirmPassword.length > 0 && !passwordsMatch && styles.inputError]}
           placeholder="Confirm Password"
           value={formData.confirmPassword}
           onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
           secureTextEntry
         />
+        {formData.confirmPassword.length > 0 && !passwordsMatch && <Text style={styles.errorText}>The two passwords do not match</Text>}
       </View>
-      <TouchableOpacity style={styles.button} onPress={nextStep}>
+      <TouchableOpacity style={[styles.button, isNextDisabled && styles.buttonDisabled]} onPress={nextStep} disabled={isNextDisabled}>
         <Text style={styles.buttonText}>Next</Text>
       </TouchableOpacity>
     </View>
@@ -121,9 +110,8 @@ const Step1: React.FC<Step1Props> = ({ formData, setFormData, nextStep }) => {
 
 const Step2: React.FC<Step2Props> = ({ formData, setFormData, nextStep, prevStep }) => {
   const handleNotificationsToggle = async (value: boolean) => {
-    setFormData(prev => ({ ...prev, notificationsEnabled: value }));
     if (value) {
-      const token = await registerForPushNotificationsAsync();
+      const token = await notifConfig.registerForPushNotificationsAsync();
       if (token) {
         setFormData(prev => ({ ...prev, deviceToken: token }));
       }
@@ -142,7 +130,7 @@ const Step2: React.FC<Step2Props> = ({ formData, setFormData, nextStep, prevStep
       <View style={styles.switchContainer}>
         <Text>Enable Notifications</Text>
         <Switch
-          value={formData.notificationsEnabled}
+          value={!!formData.deviceToken}
           onValueChange={handleNotificationsToggle}
         />
       </View>
@@ -173,9 +161,10 @@ const Step3: React.FC<Step3Props> = ({ formData, prevStep, handleSignup }) => {
   );
 };
 
-const signup = () => {
+const Signup = () => {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     username: '',
@@ -183,7 +172,6 @@ const signup = () => {
     password: '',
     confirmPassword: '',
     locationSharingEnabled: false,
-    notificationsEnabled: false,
     deviceToken: '',
     deviceType: Constants.platform?.ios ? 'ios' : 'android',
   });
@@ -191,12 +179,30 @@ const signup = () => {
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
 
-  const { login } = useAuth();
 
-  const handleSignup = () => {
-    // In a real app, you'd send the formData to your backend
-    console.log(JSON.stringify(formData, null, 2));
-    login(formData.locationSharingEnabled);
+  const handleSignup = async () => {
+    const { name, email, username, password, confirmPassword, } = formData;
+    if (!name || !email || !password || !username || !confirmPassword) {
+      Alert.alert('Error', 'Missing required field');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const deviceToken = await notifConfig.registerForPushNotificationsAsync();
+      setFormData(prev => ({ ...prev, deviceToken, notificationsEnabled: !!deviceToken }));
+
+      const { confirmPassword: _, ...signupData } = formData;
+      const response = await registerUser(signupData);
+      console.log('Signup response:', JSON.stringify(response));
+      router.replace('/(auth)/signin');
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Signup failed';
+      console.error('Signup error:', error, '\errorMessage: ', errorMessage);
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderStep = () => {
@@ -227,7 +233,7 @@ const signup = () => {
   );
 };
 
-export default signup;
+export default Signup;
 
 const styles = StyleSheet.create({
   scrollContainer: {
@@ -268,14 +274,14 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: 50,
-    backgroundColor: 'blue',
+    backgroundColor: colors.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
     marginTop: 10,
   },
   buttonText: {
-    color: 'white',
+    color: colors.BG_WHITE,
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -285,5 +291,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     marginBottom: 20,
+  },
+  inputError: {
+    borderColor: 'red',
+  },
+  errorText: {
+    color: 'red',
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: colors.MEDIUM_GRAY,
   },
 });
