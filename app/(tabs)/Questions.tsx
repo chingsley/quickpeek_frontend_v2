@@ -32,17 +32,19 @@ const Questions = () => {
         router.push({
           pathname: '/answer',
           params: {
-            address: item.address,
-            question: item.content,
+            addressParam: item.address,
+            questionTextParam: item.content,
             createdAt: item.createdAt,
+            locationParam: item.location,
           },
         });
       } else {
         router.push({
           pathname: '/question-detail',
           params: {
-            address: item.address,
-            question: item.content,
+            addressParam: item.address,
+            questionTextParam: item.content,
+            locationParam: item.location,
             createdAt: item.createdAt,
             answer: item.answer,
             answerRating: item.answerRating,
@@ -54,8 +56,9 @@ const Questions = () => {
       router.push({
         pathname: '/question-detail',
         params: {
-          address: item.address,
-          question: item.content,
+          addressParam: item.address,
+          questionTextParam: item.content,
+          locationParam: item.location,
           createdAt: item.createdAt,
           answer: item.answer,
           answerRating: item.answerRating,
@@ -111,9 +114,9 @@ const Questions = () => {
                       router.push({
                         pathname: '/(tabs)/Home',
                         params: {
-                          question: item.content,
-                          address: item.address,
-                          location: item.location,
+                          questionTextParam: item.content,
+                          addressParam: item.address,
+                          locationParam: item.location,
                         },
                       })
                     }

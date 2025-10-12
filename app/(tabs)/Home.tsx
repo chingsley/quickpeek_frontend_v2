@@ -1,12 +1,15 @@
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { postQuestion } from '@/services/questions.services';
+import { useQuestionStore } from '@/store/question.store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -20,97 +23,101 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 
 
+
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const [question, setQuestion] = useState('Is there a long queue at the bank?');
-  const [isFocused, setIsFocused] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
+  const snapPoints = useMemo(() => ['20%', '50%', '90%'], []);
+  const params = useLocalSearchParams();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState('');
+  const { dispatchNewQuestion } = useQuestionStore();
+
+  const [questionText, setQuestionText] = useState('DELETE: Is there a long queue at the bank?');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isAddressSelected, setIsAddressSelected] = useState(false);
+  const [inputAddressText, setInputAddressText] = useState('');
+  const [addressCoordinates, setAddressCoordinates] = useState({
+    // determine what should be the best reasonable default
+    latitude: 37.78825,
+    longitude: -122.4324,
+  });
   const [region, setRegion] = useState({
     latitude: 37.78825,
     longitude: -122.4324,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
-  const [selectedLocation, setSelectedLocation] = useState({
-    addressName: '',
-    coordinates: {
-      latitude: 37.78825,
-      longitude: -122.4324,
-      latitudeDelta: 0.0922,
-      longitudeDelta: 0.0421,
-    }
-  });
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [addressSelected, setAddressSelected] = useState(false);
-  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
 
-  const snapPoints = useMemo(() => ['20%', '50%', '90%'], []);
-  const params = useLocalSearchParams();
-  const router = useRouter();
+
 
   useEffect(() => {
-    const { question: questionParam, address: addressParam, location: locationParam } = params;
-
-    if (questionParam && addressParam && locationParam && typeof locationParam === 'string') {
+    const { questionTextParam, addressParam, locationParam } = params;
+    if (questionTextParam && addressParam && locationParam && typeof locationParam === 'string') {
       const [latitude, longitude] = locationParam.split(',').map(parseFloat);
-
-      setQuestion(questionParam as string);
-      setLocation(addressParam as string);
-      setSelectedLocation({
-        addressName: addressParam as string,
-        coordinates: {
-          latitude,
-          longitude,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        },
+      console.log({ longitude, latitude, addressParam });
+      setInputAddressText(addressParam as string);
+      setAddressCoordinates({
+        latitude: 37.78825,
+        longitude: -122.4324,
       });
       setRegion({
         latitude,
         longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
+        latitudeDelta: 0.0922, // ??? what is this value? should it be static?
+        longitudeDelta: 0.0421, // ??? what is this value? should it be static?
       });
+      setQuestionText(questionTextParam as string);
       setMode('preview');
-      setAddressSelected(true);
+      setIsAddressSelected(true);
       bottomSheetRef.current?.snapToIndex(1);
-      router.setParams({ question: '', address: '', location: '' });
+      router.setParams({ questionTextParam: '', addressParam: '', locationParam: '' });
     }
   }, [params]);
 
+
   const handleSheetChanges = useCallback((index: number) => {
     if (index === 0) {
-      setIsFocused(false);
       Keyboard.dismiss();
     }
   }, []);
 
   const handleFocus = () => {
     bottomSheetRef.current?.snapToIndex(3);
-    setIsFocused(true);
   };
 
   const handleBlur = () => {
-    setIsFocused(false);
   };
 
   const handleDone = () => {
-    console.log({ location, question }, 'testing');
     setMode('preview');
     Keyboard.dismiss();
     bottomSheetRef.current?.snapToIndex(1);
-    setLocation(selectedLocation.addressName);
-    setRegion(selectedLocation.coordinates);
+    setRegion(prev => ({ ...prev, addressCoordinates }));
   };
 
-  const handlePost = () => {
-    console.log({ location, question });
-    // // Reset form after posting
-    // setLocation('');
-    // setQuestion('');
-    // setMode('edit');
-    // bottomSheetRef.current?.snapToIndex(0);
+  const handlePost = async () => {
+    const questionData = {
+      text: questionText,
+      address: inputAddressText,
+      ...addressCoordinates,
+    };
+
+    const response = await postQuestion(questionData);
+
+    if (response && response.data) {
+      const { data } = response;
+      await dispatchNewQuestion(data);
+      // Reset form after posting
+      setInputAddressText('');
+      setQuestionText('');
+      setMode('edit');
+      bottomSheetRef.current?.snapToIndex(0);
+    } else {
+      Alert.alert('Error', 'Invalid response from server');
+    }
+
+
   };
 
   const handleEdit = () => {
@@ -118,13 +125,11 @@ const HomeScreen = () => {
     bottomSheetRef.current?.snapToIndex(3);
   };
 
+  // TODO: Implelment debouncing to call map only if user stops typing for 300ms
   const handleLocationChange = async (text: string) => {
-    if (addressSelected) setAddressSelected(false);
-    setSelectedLocation(prev => ({
-      ...prev,
-      addressName: text,
-    }));
-    setAddressSelected(false);
+    if (isAddressSelected) setIsAddressSelected(false);
+    setInputAddressText(text);
+    setIsAddressSelected(false);
     if (text.length > 2) {
       setIsLoading(true);
       try {
@@ -145,18 +150,13 @@ const HomeScreen = () => {
 
   const onSuggestionPress = (item: any) => {
     try {
-      setSelectedLocation({
-        addressName: item.display_name,
-        coordinates: {
-          latitude: parseFloat(item.lat),
-          longitude: parseFloat(item.lon),
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        }
+      setInputAddressText(item.display_name);
+      setAddressCoordinates({
+        latitude: parseFloat(item.lat),
+        longitude: parseFloat(item.lon),
       });
-      setLocation(item.display_name);
       setSuggestions([]);
-      setAddressSelected(true);
+      setIsAddressSelected(true);
     } catch (error) {
       console.log('onSuggestionPress error', error);
     }
@@ -170,7 +170,7 @@ const HomeScreen = () => {
       <Text style={styles.suggestionText}>{item.display_name}</Text>
     </TouchableOpacity>
   );
-  console.log('>>>>>', { region }, '\n******', { location });
+
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
@@ -199,7 +199,7 @@ const HomeScreen = () => {
                     style={styles.searchInput}
                     placeholder="Choose a location for your question"
                     placeholderTextColor={colors.MEDIUM_GRAY}
-                    value={selectedLocation.addressName}
+                    value={inputAddressText}
                     onChangeText={handleLocationChange}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
@@ -224,8 +224,8 @@ const HomeScreen = () => {
                     style={styles.questionInput}
                     placeholder="Enter your question"
                     placeholderTextColor={colors.MEDIUM_GRAY}
-                    value={question}
-                    onChangeText={setQuestion}
+                    value={questionText}
+                    onChangeText={setQuestionText}
                     multiline
                     onFocus={handleFocus}
                   />
@@ -233,7 +233,7 @@ const HomeScreen = () => {
                     text="Done"
                     onPress={handleDone}
                     style={styles.postButton}
-                    disabled={!addressSelected || !question}
+                    disabled={!isAddressSelected || !questionText}
                   />
                 </View>
               </>
@@ -245,7 +245,7 @@ const HomeScreen = () => {
 
                 <View style={styles.previewSection}>
                   <View style={styles.previewRow}>
-                    <Text style={styles.previewValue}>{location}</Text>
+                    <Text style={styles.previewValue}>{inputAddressText}</Text>
                     <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
                       <FontAwesome name="pencil" size={16} color={colors.PRIMARY} />
                     </TouchableOpacity>
@@ -254,7 +254,7 @@ const HomeScreen = () => {
 
                 <View style={styles.previewSection}>
                   <View style={styles.previewRow}>
-                    <Text style={styles.previewValue}>{question}</Text>
+                    <Text style={styles.previewValue}>{questionText}</Text>
                     <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
                       <FontAwesome name="pencil" size={16} color={colors.PRIMARY} />
                     </TouchableOpacity>

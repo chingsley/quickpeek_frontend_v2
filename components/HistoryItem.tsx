@@ -13,11 +13,8 @@ interface Props {
 }
 
 const HistoryItem = ({ address, question, createdAt, onClick }: Props) => {
-  const handlePress = () => {
-    onClick();
-  };
   return (
-    <TouchableOpacity onPress={handlePress} style={styles.clickableContainer}>
+    <TouchableOpacity onPress={() => onClick()} style={styles.clickableContainer}>
       <Ionicons name="time-outline" size={15} color="black" />
       <View style={styles.textContainer}>
         <Text style={styles.date}>{formatDate(createdAt)}</Text>

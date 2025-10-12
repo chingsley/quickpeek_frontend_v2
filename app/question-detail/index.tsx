@@ -7,10 +7,10 @@ import React from 'react';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 const QuestionDetail = () => {
-  const { address, question, createdAt, answer, answerRating, responderUsername, isOutbox, isPending } = useLocalSearchParams();
+  const { address, questionText, createdAt, answer, answerRating, responderUsername, isOutbox, isPending } = useLocalSearchParams();
 
   const handleReask = () => {
-    console.log('Re-asking question:', question);
+    console.log('Re-asking question:', questionText);
   };
 
   const isPendingBool = isPending === 'true';
@@ -30,7 +30,7 @@ const QuestionDetail = () => {
               <Text style={styles.label}>Location:</Text>
               <Text style={styles.value}>{address}</Text>
               <Text style={styles.label}>Question:</Text>
-              <Text style={styles.value}>{question}</Text>
+              <Text style={styles.value}>{questionText}</Text>
               <Text style={styles.label}>Answer:</Text>
               <Text style={styles.value}>{answer}</Text>
               <Text style={styles.label}>Answer Rating:</Text>
