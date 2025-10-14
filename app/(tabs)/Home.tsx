@@ -2,6 +2,7 @@ import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { postQuestion } from '@/services/questions.services';
+import useAppStore from '@/store/app.store';
 import { useQuestionStore } from '@/store/question.store';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
@@ -32,6 +33,8 @@ const HomeScreen = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const { dispatchNewQuestion } = useQuestionStore();
+  const { loading, setLoading, setError } = useAppStore();
+
 
   const [questionText, setQuestionText] = useState('DELETE: Is there a long queue at the bank?');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -97,27 +100,33 @@ const HomeScreen = () => {
   };
 
   const handlePost = async () => {
-    const questionData = {
-      text: questionText,
-      address: inputAddressText,
-      ...addressCoordinates,
-    };
+    setLoading(true);
+    try {
+      const questionData = {
+        text: questionText,
+        address: inputAddressText,
+        ...addressCoordinates,
+      };
 
-    const response = await postQuestion(questionData);
+      const response = await postQuestion(questionData);
 
-    if (response && response.data) {
-      const { data } = response;
-      await dispatchNewQuestion(data);
-      // Reset form after posting
-      setInputAddressText('');
-      setQuestionText('');
-      setMode('edit');
-      bottomSheetRef.current?.snapToIndex(0);
-    } else {
-      Alert.alert('Error', 'Invalid response from server');
+      if (response && response.data) {
+        const { data } = response;
+        await dispatchNewQuestion(data);
+        // Reset form after posting
+        setInputAddressText('');
+        setQuestionText('');
+        setMode('edit');
+        bottomSheetRef.current?.snapToIndex(0);
+      } else {
+        Alert.alert('Error', 'Invalid response from server');
+      }
+    } catch (error: any) {
+      setError(error.message || 'An error occurred while posting the question.');
+      Alert.alert('Error', error.message || 'An error occurred while posting the question.');
+    } finally {
+      setLoading(false);
     }
-
-
   };
 
   const handleEdit = () => {
@@ -262,9 +271,10 @@ const HomeScreen = () => {
                 </View>
 
                 <CustomButton
-                  text="Post Question"
+                  text={loading ? 'sending...' : 'Post Question'}
                   onPress={handlePost}
                   style={styles.postButton}
+                  disabled={loading}
                 />
               </>
             )}
