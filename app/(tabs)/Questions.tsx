@@ -6,7 +6,8 @@ import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Questions = () => {
   const [activeTab, setActiveTab] = useState('Inbox');
@@ -96,40 +97,49 @@ const Questions = () => {
             </TouchableOpacity>
           </View>
           <FlatList
-            data={activeTab === 'Inbox' ? newQuestions : pastQuestions}
-            renderItem={({ item }) => (
-              <View style={styles.qnItemContainer}>
-                <HistoryItem
-                  onClick={() => handleHistoryItemClick(item)}
-                  question={item.content}
-                  address={item.address}
-                  createdAt={item.createdAt}
-                />
-                {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
-                {item.isPending && activeTab === 'Outbox' && <Text style={styles.pendingTag}>pending</Text>}
-                {activeTab === 'Outbox' &&
-                  <Pressable
-                    style={styles.arrowRotateIconBtn}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(tabs)/Home',
-                        params: {
-                          questionTextParam: item.content,
-                          addressParam: item.address,
-                          locationParam: item.location,
-                        },
-                      })
+            style={styles.scrollContainer}
+            data={[]}
+            renderItem={() => null}
+            ListHeaderComponent={
+
+              <FlatList
+                style={styles.itemsContainer}
+                data={activeTab === 'Inbox' ? newQuestions : pastQuestions}
+                renderItem={({ item }) => (
+                  <View style={styles.qnItemContainer}>
+                    <HistoryItem
+                      onClick={() => handleHistoryItemClick(item)}
+                      question={item.content}
+                      address={item.address}
+                      createdAt={item.createdAt}
+                    />
+                    {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
+                    {item.isPending && activeTab === 'Outbox' && <Text style={styles.pendingTag}>pending</Text>}
+                    {activeTab === 'Outbox' &&
+                      <Pressable
+                        style={styles.arrowRotateIconBtn}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/(tabs)/Home',
+                            params: {
+                              questionTextParam: item.content,
+                              addressParam: item.address,
+                              locationParam: item.location,
+                            },
+                          })
+                        }
+                      >
+                        <View style={styles.arrowRotateIconBG}>
+                          <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
+                        </View>
+                      </Pressable>
                     }
-                  >
-                    <View style={styles.arrowRotateIconBG}>
-                      <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
-                    </View>
-                  </Pressable>
-                }
-              </View>
-            )}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            contentContainerStyle={{ paddingTop: 20 }}
+                  </View>
+                )}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                contentContainerStyle={{ paddingTop: 20 }}
+              />
+            }
           />
         </View>
       </View>
@@ -156,6 +166,12 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontFamily: 'roboto-bold',
     fontSize: 28,
+  },
+  itemsContainer: {
+    marginBottom: 100,
+  },
+  scrollContainer: {
+
   },
   tabContainer: {
     marginTop: 25,

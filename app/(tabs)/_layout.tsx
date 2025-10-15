@@ -1,5 +1,4 @@
 import { colors } from '@/constants/colors';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
@@ -20,8 +19,13 @@ const _layout = () => {
         tabBarStyle: {
           // borderWidth: 1,
           // borderColor: 'red',
+          borderTopWidth: 2,
+          borderTopColor: colors.LIGHT_GRAY,
           height: 100,
-          backgroundColor: colors.DARK_WHITE
+          paddingTop: 10,
+          paddingBottom: 10,
+          backgroundColor: colors.BG_WHITE,
+          // display: 'none', // to hide the bottom tabs
         }
       }}
     >
@@ -30,7 +34,9 @@ const _layout = () => {
         options={{
           title: 'Home',
           headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Question, Settings, etc), they will show by default
-          tabBarIcon: ({ focused, size }) => <Ionicons name="home-outline" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />
+          tabBarIcon: ({ focused, size }) =>
+            focused ? <Ionicons name="home" size={size} color={colors.PRIMARY} /> :
+              <Ionicons name="home-outline" size={size} color={colors.PRIMARY} />
         }}
       />
       <Tabs.Screen
@@ -38,7 +44,9 @@ const _layout = () => {
         options={{
           title: 'Questions',
           headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Questions, Settings, etc), they will show by default
-          tabBarIcon: ({ focused, size }) => <FontAwesome6 name="person-circle-question" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />,
+          tabBarIcon: ({ focused, size }) =>
+            focused ? <Ionicons name="list-circle" size={size + 5} color={colors.PRIMARY} /> :
+              <Ionicons name="list-circle-outline" size={size + 5} color={colors.PRIMARY} />,
           tabBarLabel: 'Questions'
         }}
       />
@@ -47,7 +55,9 @@ const _layout = () => {
         options={{
           title: 'Settings',
           // headerShown: false, // comment this out to show 'Home' as title of this page. Note if Tabs.Screen is not provided for the rest of the routes (Question, Settings, etc), they will show by default
-          tabBarIcon: ({ focused, size }) => <Ionicons name="settings-outline" size={size} color={focused ? colors.ACTIVE : colors.PRIMARY} />,
+          tabBarIcon: ({ focused, size }) =>
+            focused ? <Ionicons name="settings" size={size} color={colors.PRIMARY} /> :
+              <Ionicons name="settings-outline" size={size} color={colors.PRIMARY} />,
           tabBarLabel: 'Settings'
         }}
       />

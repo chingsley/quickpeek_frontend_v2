@@ -4,7 +4,8 @@ import { colors } from '@/constants/colors';
 import { formatDate } from '@/utils/date';
 import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const QuestionDetail = () => {
   const { address, questionText, createdAt, answer, answerRating, responderUsername, isOutbox, isPending } = useLocalSearchParams();
