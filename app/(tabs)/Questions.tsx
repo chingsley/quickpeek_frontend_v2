@@ -9,32 +9,35 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { QuestionStatus } from '@/types/question.types';
+import { TabType } from '@/types/ui.types';
+
 const Questions = () => {
-  const [activeTab, setActiveTab] = useState('Inbox');
+  const [activeTab, setActiveTab] = useState(TabType.Inbox);
   const router = useRouter();
 
   const openModal = () => { };
 
   const newQuestions = questions.slice(0, 3);
   const pastQuestions = questions.slice(3).sort((a, b) => {
-    if (a.isPending && !b.isPending) {
+    if (a.status === QuestionStatus.Pending && b.status !== QuestionStatus.Pending) {
       return -1;
     }
-    if (!a.isPending && b.isPending) {
+    if (a.status !== QuestionStatus.Pending && b.status === QuestionStatus.Pending) {
       return 1;
     }
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-  const newQuestionsCount = newQuestions.filter(q => q.isNew).length;
+  const newQuestionsCount = newQuestions.filter(q => q.status === QuestionStatus.New).length;
 
   const handleHistoryItemClick = (item: (typeof questions)[0]) => {
-    if (activeTab === 'Inbox') {
-      if (item.isNew) {
+    if (activeTab === TabType.Inbox) {
+      if (item.status === QuestionStatus.New) {
         router.push({
           pathname: '/answer',
           params: {
             addressParam: item.address,
-            questionTextParam: item.content,
+            questionTextParam: item.text,
             createdAt: item.createdAt,
             locationParam: item.location,
           },
@@ -44,7 +47,7 @@ const Questions = () => {
           pathname: '/question-detail',
           params: {
             addressParam: item.address,
-            questionTextParam: item.content,
+            questionTextParam: item.text,
             locationParam: item.location,
             createdAt: item.createdAt,
             answer: item.answer,
@@ -58,14 +61,14 @@ const Questions = () => {
         pathname: '/question-detail',
         params: {
           addressParam: item.address,
-          questionTextParam: item.content,
+          questionTextParam: item.text,
           locationParam: item.location,
           createdAt: item.createdAt,
           answer: item.answer,
           answerRating: item.answerRating,
           responderUsername: item.responderUsername,
           isOutbox: 'true',
-          isPending: item.isPending ? 'true' : 'false',
+          isPending: item.status === QuestionStatus.Pending ? 'true' : 'false',
         },
       });
     }
@@ -82,9 +85,9 @@ const Questions = () => {
         </View>
         <View style={styles.tabContainer}>
           <View style={styles.tabHeader}>
-            <TouchableOpacity onPress={() => setActiveTab('Inbox')} style={[styles.tab, activeTab === 'Inbox' && styles.activeTab]}>
+            <TouchableOpacity onPress={() => setActiveTab(TabType.Inbox)} style={[styles.tab, activeTab === TabType.Inbox && styles.activeTab]}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>Inbox</Text>
+                <Text style={[styles.tabText, activeTab === TabType.Inbox && styles.activeTabText]}>Inbox</Text>
                 {newQuestionsCount > 0 && (
                   <View style={styles.newBadge}>
                     <Text style={styles.newBadgeText}>{newQuestionsCount}</Text>
@@ -92,8 +95,8 @@ const Questions = () => {
                 )}
               </View>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setActiveTab('Outbox')} style={[styles.tab, activeTab === 'Outbox' && styles.activeTab]}>
-              <Text style={[styles.tabText, activeTab === 'Outbox' && styles.activeTabText]}>Outbox</Text>
+            <TouchableOpacity onPress={() => setActiveTab(TabType.Outbox)} style={[styles.tab, activeTab === TabType.Outbox && styles.activeTab]}>
+              <Text style={[styles.tabText, activeTab === TabType.Outbox && styles.activeTabText]}>Outbox</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -104,25 +107,25 @@ const Questions = () => {
 
               <FlatList
                 style={styles.itemsContainer}
-                data={activeTab === 'Inbox' ? newQuestions : pastQuestions}
+                data={activeTab === TabType.Inbox ? newQuestions : pastQuestions}
                 renderItem={({ item }) => (
                   <View style={styles.qnItemContainer}>
-                    <HistoryItem
-                      onClick={() => handleHistoryItemClick(item)}
-                      question={item.content}
-                      address={item.address}
-                      createdAt={item.createdAt}
-                    />
-                    {item.isNew && activeTab === 'Inbox' && <Text style={styles.newTag}>new</Text>}
-                    {item.isPending && activeTab === 'Outbox' && <Text style={styles.pendingTag}>pending</Text>}
-                    {activeTab === 'Outbox' &&
+                    <View style={styles.historyItemBox}>
+                      <HistoryItem
+                        onClick={() => handleHistoryItemClick(item)}
+                        {...item}
+                        status={item.status as QuestionStatus}
+                        activeTab={activeTab}
+                      />
+                    </View>
+                    {activeTab === TabType.Outbox &&
                       <Pressable
                         style={styles.arrowRotateIconBtn}
                         onPress={() =>
                           router.push({
                             pathname: '/(tabs)/Home',
                             params: {
-                              questionTextParam: item.content,
+                              questionTextParam: item.text,
                               addressParam: item.address,
                               locationParam: item.location,
                             },
@@ -206,10 +209,15 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+  },
+  historyItemBox: {
+    flex: 1, // forces the question text to wrap if length is too long
+    marginRight: 10
   },
   arrowRotateIconBtn: {
-    padding: 10,
+    paddingVertical: 10,
+    paddingLeft: 10,
   },
   arrowRotateIconBG: {
     padding: 8,
@@ -230,15 +238,5 @@ const styles = StyleSheet.create({
     color: colors.BG_WHITE,
     fontSize: fonts.FONT_SIZE_SMALL,
     fontWeight: 'bold',
-  },
-  newTag: {
-    color: colors.RED,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-  },
-  pendingTag: {
-    color: colors.PRIMARY,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
   },
 });

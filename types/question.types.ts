@@ -1,6 +1,12 @@
 import TLocation from "./location.types";
 
-type TQuestion = {
+export enum QuestionStatus {
+  New = 'New',
+  Pending = 'Pending',
+  Resolved = 'Resolved',
+}
+
+export type TQuestion = {
   id: string;
   address: string;
   longitude: TLocation["longitude"];
@@ -9,6 +15,7 @@ type TQuestion = {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  status: QuestionStatus;
 };
 
 export default TQuestion;
