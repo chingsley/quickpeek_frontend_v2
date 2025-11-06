@@ -12,8 +12,8 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 const SignIn = () => {
   const router = useRouter();
   const { login } = useAuthStore();
-  const [email, setEmail] = useState('test3@quickpeek.com'); // TODO: Initialize to ''
-  const [password, setPassword] = useState('test3@quickpeek.com'); // TODO: Initialize to ''
+  const [email, setEmail] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
+  const [password, setPassword] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {

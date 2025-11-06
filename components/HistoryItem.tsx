@@ -14,6 +14,7 @@ interface Props extends TQuestion {
 
 const HistoryItem = (item: Props) => {
   const { address, text, createdAt, onClick, status, activeTab } = item;
+  console.log({ status });
   return (
     <TouchableOpacity onPress={() => onClick()} style={styles.clickableContainer}>
       <Ionicons name="time-outline" size={15} color="black" />

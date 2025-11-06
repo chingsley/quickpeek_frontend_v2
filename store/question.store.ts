@@ -1,31 +1,31 @@
-import TQuestion from '@/types/question.types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TQuestion } from '@/types/question.types';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 
-interface AuthState {
-  question: TQuestion | null;
+interface QuestionState {
+  inboxQuestions: TQuestion[];
+  outboxQuestions: TQuestion[];
+  postedQuestion: TQuestion | null;
+  setInboxQuestions: (questions: TQuestion[]) => void;
+  setOutboxQuestions: (questions: TQuestion[]) => void;
+  clearQuestions: () => void;
   dispatchNewQuestion: (questionData: TQuestion) => Promise<void>;
 }
 
-export const useQuestionStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      question: null,
+export const useQuestionStore = create<QuestionState>((set, get) => ({
+  inboxQuestions: [],
+  outboxQuestions: [],
+  postedQuestion: null,
 
-      dispatchNewQuestion: async (questionData: TQuestion) => {
-        set({
-          question: questionData,
-        });
-      },
-    }),
-    {
-      name: 'question-storage',
-      storage: createJSONStorage(() => AsyncStorage),
-      // Only persist these fields to avoid storing functions
-      partialize: (state) => ({
-        question: state.question,
-      }),
-    }
-  )
-);
+  setInboxQuestions: (questions) => set({ inboxQuestions: questions }),
+  setOutboxQuestions: (questions) => set({ outboxQuestions: questions }),
+  clearQuestions: () => set({ inboxQuestions: [], outboxQuestions: [] }),
+
+  dispatchNewQuestion: async (questionData: TQuestion) => {
+    const { outboxQuestions } = get();
+    // Add the new question to outboxQuestions
+    set({
+      outboxQuestions: [questionData, ...outboxQuestions],
+      postedQuestion: questionData,
+    });
+  },
+}));

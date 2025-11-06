@@ -11,7 +11,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const AnswerQuestion = () => {
-  const { address, question, createdAt } = useLocalSearchParams();
+  const { address, questionText, createdAt } = useLocalSearchParams();
   const [answer, setAnswer] = useState('');
   const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
@@ -61,7 +61,7 @@ const AnswerQuestion = () => {
               <Text style={styles.label}>Location:</Text>
               <Text style={styles.value}>{address}</Text>
               <Text style={styles.label}>Question:</Text>
-              <Text style={styles.value}>{question}</Text>
+              <Text style={styles.value}>{questionText}</Text>
             </View>
             <View style={styles.answerArea}>
               <View style={styles.inputContainer}>

@@ -1,6 +1,7 @@
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import useDebounce from '@/hooks/useDebounce';
 import { postQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import { useQuestionStore } from '@/store/question.store';
@@ -8,6 +9,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
   ActivityIndicator,
   Alert,
@@ -37,7 +39,7 @@ const HomeScreen = () => {
 
 
   const [questionText, setQuestionText] = useState('DELETE: Is there a long queue at the bank?');
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [isAddressSelected, setIsAddressSelected] = useState(false);
   const [inputAddressText, setInputAddressText] = useState('');
   const [addressCoordinates, setAddressCoordinates] = useState({
@@ -46,23 +48,29 @@ const HomeScreen = () => {
     longitude: -122.4324,
   });
   const [region, setRegion] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
+    latitude: 37.78825, // default to san fracisco latitude
+    longitude: -122.4324, // default to san fracisco longitude
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
 
+  // Create a debounced version of the search text.
+  // It will only update 300ms *after* inputAddressText stops changing.
+  const debouncedAddressText = useDebounce(inputAddressText, 600);
+
+
+  const { questionText: questionTextParam, address: addressParam, longitude: longitudeParam, latitude: latitudeParam } = params;
+
 
 
   useEffect(() => {
-    const { questionTextParam, addressParam, locationParam } = params;
-    if (questionTextParam && addressParam && locationParam && typeof locationParam === 'string') {
-      const [latitude, longitude] = locationParam.split(',').map(parseFloat);
+    if (questionTextParam && addressParam && longitudeParam && latitudeParam) {
+      const [latitude, longitude] = [latitudeParam as string, longitudeParam as string].map(parseFloat);
       console.log({ longitude, latitude, addressParam });
       setInputAddressText(addressParam as string);
       setAddressCoordinates({
-        latitude: 37.78825,
-        longitude: -122.4324,
+        latitude,
+        longitude,
       });
       setRegion({
         latitude,
@@ -76,7 +84,39 @@ const HomeScreen = () => {
       bottomSheetRef.current?.snapToIndex(1);
       router.setParams({ questionTextParam: '', addressParam: '', locationParam: '' });
     }
-  }, [params]);
+  }, [questionTextParam, addressParam, longitudeParam, latitudeParam]);
+
+  useEffect(() => {
+    if (debouncedAddressText.length > 2 && !isAddressSelected) {
+      setIsLoading(true);
+
+      const fetchSuggestions = async () => {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${debouncedAddressText}&format=json&limit=5`
+          );
+          const data = await response.json();
+          setAddressSuggestions(data);
+        } catch (error) {
+          console.error('Error fetching location addressSuggestions:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchSuggestions();
+    } else {
+      setAddressSuggestions([]);
+    }
+  }, [debouncedAddressText, isAddressSelected]);
+
+
+  const handleLocationChange = (text: string) => {
+    if (isAddressSelected) {
+      setIsAddressSelected(false);
+    }
+    setInputAddressText(text);
+  };
 
 
   const handleSheetChanges = useCallback((index: number) => {
@@ -134,29 +174,6 @@ const HomeScreen = () => {
     bottomSheetRef.current?.snapToIndex(3);
   };
 
-  // TODO: Implelment debouncing to call map only if user stops typing for 300ms
-  const handleLocationChange = async (text: string) => {
-    if (isAddressSelected) setIsAddressSelected(false);
-    setInputAddressText(text);
-    setIsAddressSelected(false);
-    if (text.length > 2) {
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${text}&format=json&limit=5`
-        );
-        const data = await response.json();
-        setSuggestions(data);
-      } catch (error) {
-        console.error('Error fetching location suggestions:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      setSuggestions([]);
-    }
-  };
-
   const onSuggestionPress = (item: any) => {
     try {
       setInputAddressText(item.display_name);
@@ -164,7 +181,7 @@ const HomeScreen = () => {
         latitude: parseFloat(item.lat),
         longitude: parseFloat(item.lon),
       });
-      setSuggestions([]);
+      setAddressSuggestions([]);
       setIsAddressSelected(true);
     } catch (error) {
       console.log('onSuggestionPress error', error);
@@ -216,10 +233,10 @@ const HomeScreen = () => {
                   {isLoading && <ActivityIndicator size="small" color={colors.PRIMARY} style={styles.loader} />}
                 </View>
                 <View style={styles.suggestionsContainerParent}>
-                  {suggestions.length > 0 && (
+                  {addressSuggestions.length > 0 && (
                     <View style={styles.suggestionsContainer}>
                       <FlatList
-                        data={suggestions}
+                        data={addressSuggestions}
                         keyExtractor={(item) => String(item.place_id)}
                         renderItem={renderSuggestionItem}
                         keyboardShouldPersistTaps="handled"
