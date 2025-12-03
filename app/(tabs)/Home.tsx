@@ -66,7 +66,6 @@ const HomeScreen = () => {
   useEffect(() => {
     if (questionTextParam && addressParam && longitudeParam && latitudeParam) {
       const [latitude, longitude] = [latitudeParam as string, longitudeParam as string].map(parseFloat);
-      console.log({ longitude, latitude, addressParam });
       setInputAddressText(addressParam as string);
       setAddressCoordinates({
         latitude,
@@ -184,7 +183,7 @@ const HomeScreen = () => {
       setAddressSuggestions([]);
       setIsAddressSelected(true);
     } catch (error) {
-      console.log('onSuggestionPress error', error);
+      console.error('onSuggestionPress error', error);
     }
   };
 

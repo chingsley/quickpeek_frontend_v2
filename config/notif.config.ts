@@ -9,7 +9,7 @@ async function registerForPushNotificationsAsync() {
   try {
     // Check if we're on a physical device
     if (!Constants.isDevice) {
-      console.log('Must use physical device for Push Notifications');
+      console.error('Must use physical device for Push Notifications');
       return '';
     }
 
@@ -48,8 +48,6 @@ async function registerForPushNotificationsAsync() {
       projectId = 'quickpeek_frontend_v2'; // This might need to be your actual EAS project ID
     }
 
-    console.log('Using projectId:', projectId);
-
     if (projectId) {
       token = (await Notifications.getExpoPushTokenAsync({
         projectId: projectId as string
@@ -58,8 +56,6 @@ async function registerForPushNotificationsAsync() {
       // Final fallback - try without projectId (may work in development)
       token = (await Notifications.getExpoPushTokenAsync()).data;
     }
-
-    console.log('Expo push token:', token);
     return token;
   } catch (error) {
     console.error('Error getting push token:', error);

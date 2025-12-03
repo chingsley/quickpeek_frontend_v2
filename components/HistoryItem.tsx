@@ -14,14 +14,13 @@ interface Props extends TQuestion {
 
 const HistoryItem = (item: Props) => {
   const { address, text, createdAt, onClick, status, activeTab } = item;
-  console.log({ status });
   return (
     <TouchableOpacity onPress={() => onClick()} style={styles.clickableContainer}>
       <Ionicons name="time-outline" size={15} color="black" />
       <View style={styles.textContainer}>
         <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
           <Text style={styles.date}>{formatDate(createdAt)}</Text>
-          {status === QuestionStatus.New && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
+          {status === QuestionStatus.Open && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
           {status === QuestionStatus.Pending && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
         </View>
         <Text style={styles.address} numberOfLines={2} ellipsizeMode='tail'>{address}</Text>

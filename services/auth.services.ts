@@ -11,10 +11,10 @@ export const registerUser = async (userData: any) => {
 
 export const loginUser = async (credentials: any) => {
   try {
-    console.log('\n>>>>>>>', Axios.getUri(), '\n>>>>>>>>>>>');
     const response = await Axios.post('/users/login', credentials);
     return response.data;
   } catch (error) {
+    console.error('\nAxios.getUri(): ', Axios.getUri(), '\n');
     throw error;
   }
 };

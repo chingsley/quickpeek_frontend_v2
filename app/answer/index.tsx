@@ -34,7 +34,7 @@ const AnswerQuestion = () => {
         setAttachment(result.assets[0]);
       }
     } catch (err) {
-      console.log('Error picking image:', err);
+      console.error('Error picking image:', err);
     }
   };
 

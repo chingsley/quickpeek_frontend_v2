@@ -24,8 +24,6 @@ const SignIn = () => {
 
     setIsLoading(true);
     try {
-      console.log('Attempting sign in with:', { email });
-
       // Get device token for notifications
       const deviceToken = await notifConfig.registerForPushNotificationsAsync();
       const deviceType = Constants.platform?.ios ? 'ios' : 'android';
@@ -38,16 +36,12 @@ const SignIn = () => {
         notificationsEnabled: !!deviceToken,
         locationSharingEnabled: false // Start with false, user can enable after login
       };
-
-      console.log('Sending login request with credentials: ', credentials);
       const response = await loginUser(credentials);
-      console.log('Login response:', JSON.stringify(response));
 
       if (response && response.data) {
         // Successful login - update auth store
         const { user, token } = response.data;
         await login(user.locationSharingEnabled, user, token);
-        console.log('Login successful, navigating to home');
         router.replace('/(tabs)/Home');
       } else {
         Alert.alert('Error', 'Invalid response from server');

@@ -1,7 +1,10 @@
+// app / _layout.tsx;
+
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { useAuthStore } from '@/store/auth.store';
+import SocketService from '@/services/socket.services';
+import { useAuthStore, } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
 import { Slot } from 'expo-router';
@@ -9,11 +12,19 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
-  const { initialize } = useAuthStore();
+  const { initialize, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      SocketService.connect();
+    } else {
+      SocketService.disconnect();
+    }
+  }, [isAuthenticated]);
 
   useFonts({
     'roboto': require('./../assets/fonts/Roboto-Regular.ttf'),

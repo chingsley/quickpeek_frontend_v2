@@ -35,7 +35,7 @@ export const initializeAuthToken = async () => {
       }
     }
   } catch (error) {
-    console.log('Error initializing auth token:', error);
+    console.error('Error initializing auth token:', error);
   }
 };
 
@@ -49,7 +49,7 @@ Axios.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.log('>> axios request error: ', error);
+    console.error('>> axios request error: ', error);
     return Promise.reject(error);
   }
 );
@@ -63,7 +63,6 @@ Axios.interceptors.response.use(
       setAuthToken(null);
       await AsyncStorage.removeItem('auth-storage');
       // You might want to redirect to login screen here
-      console.log('Authentication failed, redirect to login');
     }
     return Promise.reject(error);
   }

@@ -13,11 +13,11 @@ const Signup = () => {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<SignupFormData>({
-    name: 'test3 quickpeek',
-    username: 'test3',
-    email: 'test3@quickpeek.com',
-    password: 'test3@quickpeek.com',
-    confirmPassword: 'test3@quickpeek.com',
+    name: 'test03 quickpeek',
+    username: 'test03',
+    email: 'test03@quickpeek.com',
+    password: 'test03@quickpeek.com',
+    confirmPassword: 'test03@quickpeek.com',
     locationSharingEnabled: false,
     deviceToken: 'ExponentPushToken[ubw-MEPEIQgJdA3RQbGDrQ]',
     deviceType: Constants.platform?.ios ? 'ios' : 'android',
@@ -40,16 +40,10 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      console.log('Attempting sign up with:', { email });
-
       const { confirmPassword: _, ...signupData } = formData;
-
-      console.log('Sending signup request with credentials: ', signupData);
       const response = await registerUser(signupData);
-      console.log('Signup response:', JSON.stringify(response));
 
       if (response && response.data) {
-        console.log('Signup successful, navigating to signin');
         router.replace('/(auth)/signin');
       } else {
         Alert.alert('Error', 'Invalid response from server');
