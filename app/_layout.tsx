@@ -7,7 +7,7 @@ import SocketService from '@/services/socket.services';
 import { useAuthStore, } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -43,7 +43,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <BottomSheetModalProvider>
-        <Slot />
+        <Stack screenOptions={{ headerShown: false }} />
       </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );

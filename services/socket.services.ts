@@ -1,33 +1,40 @@
 // services / socket.services.ts
 
-import { API_URL } from '@/config';
+import { API_URL, USE_TUNNEL_PROXY } from '@/config';
 import { useAuthStore } from '@/store/auth.store';
 import { io, Socket } from 'socket.io-client';
 
 class SocketService {
   private socket: Socket | null = null;
 
-  /**
-   * Connect to the Socket.IO server.
-   * We retrieve the token and user ID directly from the Zustand store,
-   * The Zustand store handles the AsyncStorage hydration.
-   */
   connect() {
-    // Get the current state from the store (synchronously)
     const { token, user } = useAuthStore.getState();
-    if (!token || !user?.id || this.socket?.connected) {
+    if (!token || !user?.id) {
       return;
     }
-    // console.log('socket connection', { API_URL });
-    // Initialize connection
+
+    if (this.socket?.connected) {
+      return;
+    }
+
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
+    const isSecure = API_URL.startsWith('https://');
+
     this.socket = io(API_URL, {
-      auth: { token },      // Send JWT in auth object
-      query: { userId: user.id }, // Send userId in query params
-      transports: ['websocket'],
+      auth: { token },
+      query: { userId: user.id },
+      transports: USE_TUNNEL_PROXY ? ['polling', 'websocket'] : ['websocket', 'polling'],
+      secure: isSecure,
+      timeout: 20000,
+      reconnectionAttempts: 5,
     });
 
     this.socket.on('connect', () => {
-      console.log('Socket Connect.ed:', this.socket?.id);
+      console.log('Socket connected:', this.socket?.id);
     });
 
     this.socket.on('connect_error', (err: Error) => {
@@ -35,7 +42,7 @@ class SocketService {
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Socket Disconnected');
+      console.log('Socket disconnected');
     });
   }
 

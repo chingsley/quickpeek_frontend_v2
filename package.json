@@ -3,9 +3,10 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
-    "start-clear": "npx expo start --clear",
-    "start:tunnel": "npx expo start --clear  --tunnel",
+    "start": "expo start --lan",
+    "start:clear": "npx expo start --clear --lan",
+    "start:tunnel": "npx expo start --tunnel",
+    "start:tunnel:clear": "npx expo start --clear --tunnel",
     "simulator": "npx expo run:ios",
     "android": "expo run:android",
     "ios": "expo run:ios",

@@ -32,6 +32,9 @@ const Questions = () => {
   const inboxQuestions = useQuestionStore((state) => state.inboxQuestions);
   const outboxQuestions = useQuestionStore((state) => state.outboxQuestions);
   const setInboxQuestions = useQuestionStore((state) => state.setInboxQuestions);
+  const mergeInboxQuestions = useQuestionStore((state) => state.mergeInboxQuestions);
+  const prependInboxQuestion = useQuestionStore((state) => state.prependInboxQuestion);
+  const updateInboxQuestion = useQuestionStore((state) => state.updateInboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
 
   const user = useAuthStore(state => state.user);
@@ -45,8 +48,7 @@ const Questions = () => {
         user.location.longitude,
         user.location.latitude,
       );
-      // Merge these with existing inbox questions
-      setInboxQuestions([...response, ...inboxQuestions]);
+      mergeInboxQuestions(response);
     } catch (e) {
       console.log("Failed to load nearby questions");
     } finally {
@@ -110,19 +112,13 @@ const Questions = () => {
         const { questionId, status, claimedByUserId } = payload;
         console.log(`Update received for ${questionId}: ${status}`);
 
-        const currentInbox = useQuestionStore.getState().inboxQuestions;
-        const updatedList = currentInbox.map(q =>
-          q.id === questionId ? { ...q, status, claimedByUserId } : q
-        );
-        setInboxQuestions(updatedList);
+        updateInboxQuestion(questionId, { status, claimedByUserId });
       };
 
       // Listener 2: New Question Posted
       const handleNewQuestion = (newQuestionObj: any) => {
         console.log("New question received via socket!", newQuestionObj.id);
-        const currentInboxList = useQuestionStore.getState().inboxQuestions;
-        // Prepend the new question to the list
-        setInboxQuestions([newQuestionObj, ...currentInboxList]);
+        prependInboxQuestion(newQuestionObj);
       };
 
       console.log("Listening to socket events...");
@@ -246,6 +242,7 @@ const Questions = () => {
       <FlatList
         style={styles.itemsContainer}
         data={data}
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.qnItemContainer}>
             <View style={styles.historyItemBox}>

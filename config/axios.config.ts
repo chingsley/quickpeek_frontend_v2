@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { API_BASE_URL } from './api.config';
 
 // Create axios instance without interceptors first
 const Axios = axios.create({
-  baseURL: 'http://192.168.2.18:3000/api/v1', // To get this, on your PC, go to, 'apple icon (top right corner)', click on 'system settings', click on 'Network', click 'Details'. Then find similar IP.
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
