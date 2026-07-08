@@ -20,8 +20,10 @@ const HistoryItem = (item: Props) => {
       <View style={styles.textContainer}>
         <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
           <Text style={styles.date}>{formatDate(createdAt)}</Text>
-          {status === QuestionStatus.Open && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
-          {status === QuestionStatus.Pending && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
+          {status === QuestionStatus.Assigned && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
+          {status === QuestionStatus.Assigned && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
+          {status === QuestionStatus.Expired && activeTab === TabType.Outbox && <Text style={styles.expiredTag}>Expired</Text>}
+          {status === QuestionStatus.Answered && <Text style={styles.answeredTag}>Answered</Text>}
         </View>
         <Text style={styles.address} numberOfLines={2} ellipsizeMode='tail'>{address}</Text>
         <Text style={styles.question} numberOfLines={2} ellipsizeMode='tail'>{text}</Text>
@@ -38,7 +40,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    // borderWidth: 1,
   },
   textContainer: {
     maxWidth: 300,
@@ -68,6 +69,18 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   pendingTag: {
+    color: colors.PRIMARY,
+    fontSize: 16,
+    fontFamily: 'roboto-bold',
+    marginBottom: 5,
+  },
+  expiredTag: {
+    color: colors.ACTIVE,
+    fontSize: 16,
+    fontFamily: 'roboto-bold',
+    marginBottom: 5,
+  },
+  answeredTag: {
     color: colors.PRIMARY,
     fontSize: 16,
     fontFamily: 'roboto-bold',

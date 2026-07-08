@@ -13,7 +13,7 @@ const SignIn = () => {
   const router = useRouter();
   const { login } = useAuthStore();
   const [email, setEmail] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
-  const [password, setPassword] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
+  const [password, setPassword] = useState('password123'); // TODO: Initialize to ''
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSignIn = async () => {
@@ -26,7 +26,7 @@ const SignIn = () => {
     try {
       // Get device token for notifications
       const deviceToken = await notifConfig.registerForPushNotificationsAsync();
-      const deviceType = Constants.platform?.ios ? 'ios' : 'android';
+      const deviceType = Platform.OS === 'web' ? 'web' : (Constants.platform?.ios ? 'ios' : 'android');
 
       const credentials = {
         email,

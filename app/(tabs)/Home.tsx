@@ -2,9 +2,6 @@ import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import useDebounce from '@/hooks/useDebounce';
-import { postQuestion } from '@/services/questions.services';
-import useAppStore from '@/store/app.store';
-import { useQuestionStore } from '@/store/question.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, {
   BottomSheetScrollView,
@@ -13,9 +10,7 @@ import BottomSheet, {
 } from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
 import {
-  Alert,
   Keyboard,
   StyleSheet,
   Text,
@@ -24,38 +19,57 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker } from '@/components/MapViewWrapper';
+import * as Location from 'expo-location';
 
-const MAX_QUESTION_LENGTH = 200;
 const COLLAPSED_SNAP = 0;
 const EXPANDED_SNAP = 1;
 
+/** Fallback used only when device GPS is unavailable (permission denied or error). */
+const FALLBACK_COORDS = {
+  latitude: 44.6126,
+  longitude: -63.6193,
+};
+
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const scrollViewRef = useRef<any>(null);
-  const questionInputRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [isFormExpanded, setIsFormExpanded] = useState(false);
-  const snapPoints = useMemo(() => ['18%', '92%'], []);
+  const snapPoints = useMemo(() => ['18%', '72%'], []);
   const params = useLocalSearchParams();
   const router = useRouter();
-  const { dispatchNewQuestion } = useQuestionStore();
-  const { loading, setLoading, setError } = useAppStore();
 
-  const [questionText, setQuestionText] = useState('DELETE: Is there a long queue at the bank?');
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [isAddressSelected, setIsAddressSelected] = useState(false);
   const [inputAddressText, setInputAddressText] = useState('');
-  const [addressCoordinates, setAddressCoordinates] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
-  });
+  const [reaskQuestionText, setReaskQuestionText] = useState('');
+  const [addressCoordinates, setAddressCoordinates] = useState(FALLBACK_COORDS);
   const [region, setRegion] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
+    ...FALLBACK_COORDS,
     latitudeDelta: 0.0922,
     longitudeDelta: 0.0421,
   });
+  const [locationReady, setLocationReady] = useState(false);
+
+  // ── Get device GPS position on mount ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const { latitude, longitude } = pos.coords;
+        setAddressCoordinates({ latitude, longitude });
+        setRegion((prev) => ({ ...prev, latitude, longitude }));
+      } catch (_) {
+        // stay on fallback
+      } finally {
+        setLocationReady(true);
+      }
+    })();
+  }, []);
 
   const debouncedAddressText = useDebounce(inputAddressText, 600);
 
@@ -63,8 +77,9 @@ const HomeScreen = () => {
     params;
 
   useEffect(() => {
-    if (questionTextParam && addressParam && longitudeParam && latitudeParam) {
-      const [latitude, longitude] = [latitudeParam as string, longitudeParam as string].map(parseFloat);
+    if (addressParam && longitudeParam && latitudeParam) {
+      const latitude = parseFloat(latitudeParam as string);
+      const longitude = parseFloat(longitudeParam as string);
       setInputAddressText(addressParam as string);
       setAddressCoordinates({ latitude, longitude });
       setRegion({
@@ -73,12 +88,18 @@ const HomeScreen = () => {
         latitudeDelta: 0.0922,
         longitudeDelta: 0.0421,
       });
-      setQuestionText(questionTextParam as string);
-      setMode('preview');
+      if (questionTextParam) {
+        setReaskQuestionText(questionTextParam as string);
+      }
       setIsAddressSelected(true);
       setIsFormExpanded(true);
       bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-      router.setParams({ questionTextParam: '', addressParam: '', locationParam: '' });
+      router.setParams({
+        questionText: '',
+        address: '',
+        longitude: '',
+        latitude: '',
+      });
     }
   }, [questionTextParam, addressParam, longitudeParam, latitudeParam]);
 
@@ -128,60 +149,16 @@ const HomeScreen = () => {
     bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
   };
 
-  const handleQuestionFocus = () => {
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    });
-  };
-
-  const handleReview = () => {
-    setMode('preview');
+  const handleContinue = () => {
     Keyboard.dismiss();
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-    setRegion((prev) => ({ ...prev, ...addressCoordinates }));
-  };
-
-  const handlePost = async () => {
-    setLoading(true);
-    try {
-      const questionData = {
-        text: questionText,
+    router.push({
+      pathname: '/responders',
+      params: {
+        latitude: String(addressCoordinates.latitude),
+        longitude: String(addressCoordinates.longitude),
         address: inputAddressText,
-        ...addressCoordinates,
-      };
-
-      const response = await postQuestion(questionData);
-
-      if (response && response.data) {
-        const { data } = response;
-        await dispatchNewQuestion(data);
-        setInputAddressText('');
-        setQuestionText('');
-        setMode('edit');
-        setIsFormExpanded(false);
-        bottomSheetRef.current?.snapToIndex(COLLAPSED_SNAP);
-      } else {
-        Alert.alert('Error', 'Invalid response from server');
-      }
-    } catch (error: any) {
-      setError(error.message || 'An error occurred while posting the question.');
-      Alert.alert('Error', error.message || 'An error occurred while posting the question.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEdit = () => {
-    setMode('edit');
-    setIsFormExpanded(true);
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-  };
-
-  const focusQuestionInput = () => {
-    requestAnimationFrame(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-      questionInputRef.current?.focus();
+        questionText: reaskQuestionText,
+      },
     });
   };
 
@@ -201,17 +178,13 @@ const HomeScreen = () => {
         longitudeDelta: 0.0421,
       });
       Keyboard.dismiss();
-      setTimeout(focusQuestionInput, 150);
     } catch (error) {
       console.error('onSuggestionPress error', error);
     }
   };
 
-  const isEditValid = isAddressSelected && questionText.trim().length > 0;
-  const questionCharCount = questionText.length;
-  const isQuestionNearLimit = questionCharCount > MAX_QUESTION_LENGTH * 0.85;
-
-  const isCollapsed = mode === 'edit' && !isFormExpanded;
+  const isLocationValid = isAddressSelected && inputAddressText.trim().length > 0;
+  const isCollapsed = !isFormExpanded;
 
   return (
     <View style={styles.container}>
@@ -233,39 +206,38 @@ const HomeScreen = () => {
         enableBlurKeyboardOnGesture
       >
         <BottomSheetView style={styles.contentContainer}>
-          {/* ── Collapsed View ── */}
           {isCollapsed ? (
-              <View style={styles.collapsedContent}>
-                <TouchableOpacity
-                  style={styles.collapsedPrompt}
-                  onPress={expandSheet}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.sectionIconCircle}>
-                    <Ionicons name="add" size={22} color={colors.PRIMARY} />
-                  </View>
-                  <View style={styles.collapsedTextBlock}>
-                    <Text style={styles.collapsedTitle}>Ask a Question</Text>
-                    <Text style={styles.collapsedSubtitle}>
-                      Find out what's happening nearby
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-up" size={20} color={colors.MEDIUM_GRAY} />
-                </TouchableOpacity>
-              </View>
-          ) : mode === 'edit' ? (
-            /* ── Edit Mode (Expanded) ── */
+            <View style={styles.collapsedContent}>
+              <TouchableOpacity
+                style={styles.collapsedPrompt}
+                onPress={expandSheet}
+                activeOpacity={0.7}
+              >
+                <View style={styles.sectionIconCircle}>
+                  <Ionicons name="add" size={22} color={colors.PRIMARY} />
+                </View>
+                <View style={styles.collapsedTextBlock}>
+                  <Text style={styles.collapsedTitle}>Ask a Question</Text>
+                  <Text style={styles.collapsedSubtitle}>
+                    Find out what's happening nearby
+                  </Text>
+                </View>
+                <Ionicons name="chevron-up" size={20} color={colors.MEDIUM_GRAY} />
+              </TouchableOpacity>
+            </View>
+          ) : (
             <View style={styles.editContainer}>
               <BottomSheetScrollView
-                ref={scrollViewRef}
                 style={styles.editScroll}
                 contentContainerStyle={styles.editScrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
                 <Text style={styles.pageTitle}>Ask a Question</Text>
+                <Text style={styles.pageSubtitle}>
+                  First choose where you want to know about, then pick a nearby responder.
+                </Text>
 
-                {/* Location Section */}
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionIconCircle}>
                     <Ionicons name="location-outline" size={20} color={colors.PRIMARY} />
@@ -317,99 +289,16 @@ const HomeScreen = () => {
                     ))}
                   </View>
                 )}
-
-                {/* Question Section */}
-                <View style={styles.questionSectionHeader}>
-                  <View style={styles.sectionIconCircle}>
-                    <Ionicons name="help-circle-outline" size={20} color={colors.PRIMARY} />
-                  </View>
-                  <Text style={styles.sectionLabel}>What do you want to know?</Text>
-                </View>
-
-                <View style={styles.questionInputWrapper}>
-                  <BottomSheetTextInput
-                    ref={questionInputRef}
-                    style={styles.questionInput}
-                    placeholder="e.g. Is there a long queue at the bank?"
-                    placeholderTextColor={colors.LIGHT_GRAY}
-                    value={questionText}
-                    onChangeText={setQuestionText}
-                    multiline
-                    textAlignVertical="top"
-                    maxLength={MAX_QUESTION_LENGTH}
-                    onFocus={handleQuestionFocus}
-                  />
-                  <View style={styles.questionFooter}>
-                    <Text style={[styles.charCount, isQuestionNearLimit && styles.charCountWarn]}>
-                      {questionCharCount}/{MAX_QUESTION_LENGTH}
-                    </Text>
-                  </View>
-                </View>
               </BottomSheetScrollView>
 
               <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
                 <CustomButton
-                  text="Review & Continue"
-                  onPress={handleReview}
-                  disabled={!isEditValid}
+                  text="Browse responders"
+                  onPress={handleContinue}
+                  disabled={!isLocationValid}
                 />
               </View>
             </View>
-          ) : (
-            /* ── Preview Mode ── */
-            <BottomSheetScrollView
-              style={styles.editScroll}
-              contentContainerStyle={[
-                styles.previewScrollContent,
-                { paddingBottom: Math.max(insets.bottom, 24) },
-              ]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.previewHeader}>
-                <Ionicons name="checkmark-circle" size={28} color={colors.PRIMARY} />
-                <Text style={styles.previewTitle}>Your question is ready</Text>
-                <Text style={styles.previewSubtitle}>Review before posting</Text>
-              </View>
-
-              <View style={styles.previewCard}>
-                <View style={styles.previewCardHeader}>
-                  <View style={styles.previewLabelRow}>
-                    <View style={styles.iconCircleSmall}>
-                      <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
-                    </View>
-                    <Text style={styles.previewLabel}>Location</Text>
-                  </View>
-                  <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
-                    <Ionicons name="pencil" size={16} color={colors.PRIMARY} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.previewText}>{inputAddressText}</Text>
-              </View>
-
-              <View style={styles.previewCard}>
-                <View style={styles.previewCardHeader}>
-                  <View style={styles.previewLabelRow}>
-                    <View style={styles.iconCircleSmall}>
-                      <Ionicons name="help-circle-outline" size={16} color={colors.PRIMARY} />
-                    </View>
-                    <Text style={styles.previewLabel}>Question</Text>
-                  </View>
-                  <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
-                    <Ionicons name="pencil" size={16} color={colors.PRIMARY} />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.previewTextLarge}>{questionText}</Text>
-              </View>
-
-              <CustomButton
-                text={loading ? 'Posting...' : 'Post Question'}
-                onPress={handlePost}
-                style={[styles.actionButton, styles.previewActionButton]}
-                disabled={loading}
-                loading={loading}
-              />
-            </BottomSheetScrollView>
           )}
         </BottomSheetView>
       </BottomSheet>
@@ -429,8 +318,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
   },
-
-  /* Bottom Sheet */
   bottomSheetBackground: {
     backgroundColor: colors.BG_WHITE,
     borderTopLeftRadius: 20,
@@ -442,8 +329,6 @@ const styles = StyleSheet.create({
     height: 4,
     marginTop: 8,
   },
-
-  /* ── Collapsed View ── */
   collapsedContent: {
     paddingHorizontal: 24,
     paddingTop: 12,
@@ -473,8 +358,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
   },
-
-  /* ── Edit Mode ── */
   editContainer: {
     flex: 1,
   },
@@ -492,26 +375,22 @@ const styles = StyleSheet.create({
     borderTopColor: colors.CARD_BORDER,
     backgroundColor: colors.BG_WHITE,
   },
-  previewScrollContent: {
-    paddingBottom: 24,
-  },
-
   pageTitle: {
     fontFamily: 'roboto-bold',
     fontSize: 28,
     color: colors.TEXT_DARK,
-    marginBottom: 32,
+    marginBottom: 8,
   },
-
+  pageSubtitle: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    marginBottom: 28,
+    lineHeight: 22,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
-  },
-  questionSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 28,
     marginBottom: 14,
   },
   sectionIconCircle: {
@@ -528,8 +407,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.TEXT_DARK,
   },
-
-  /* Search */
   searchContainer: {
     position: 'relative',
   },
@@ -544,8 +421,6 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     backgroundColor: colors.BG_WHITE,
   },
-
-  /* Selected Chip */
   selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -562,8 +437,6 @@ const styles = StyleSheet.create({
     color: colors.PRIMARY,
     flex: 1,
   },
-
-  /* Suggestions */
   suggestionsContainer: {
     marginTop: 4,
     backgroundColor: colors.BG_WHITE,
@@ -593,119 +466,5 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.CARD_BORDER,
     marginHorizontal: 14,
-  },
-
-  /* Question Input */
-  questionInputWrapper: {
-    borderWidth: 1,
-    borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
-    backgroundColor: colors.BG_WHITE,
-    overflow: 'hidden',
-  },
-  questionInput: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 10,
-    minHeight: 100,
-    lineHeight: 22,
-  },
-  questionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  charCount: {
-    fontFamily: 'roboto-light',
-    fontSize: 12,
-    color: colors.MEDIUM_GRAY,
-  },
-  charCountWarn: {
-    color: colors.ACTIVE,
-  },
-
-  /* Action Button */
-  actionButton: {
-    marginTop: 20,
-  },
-  previewActionButton: {
-    marginHorizontal: 24,
-  },
-
-  /* ── Preview Mode ── */
-
-  previewHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-    paddingTop: 8,
-    paddingHorizontal: 24,
-  },
-  previewTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 24,
-    color: colors.TEXT_DARK,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  previewSubtitle: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
-  },
-
-  previewCard: {
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    marginBottom: 14,
-    marginHorizontal: 24,
-  },
-  previewCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  previewLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  iconCircleSmall: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.LIGHT_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewLabel: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  editButton: {
-    padding: 8,
-  },
-  previewText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    lineHeight: 24,
-  },
-  previewTextLarge: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    lineHeight: 26,
   },
 });

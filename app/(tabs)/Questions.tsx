@@ -1,11 +1,11 @@
 // app / (tabs) / Questions.tsx
 
 import HistoryItem from '@/components/HistoryItem';
+import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { questionService } from '@/services';
 import SocketService from '@/services/socket.services';
-import { useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
@@ -14,14 +14,17 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert,
+  ActivityIndicator,
+  Alert,
   AppState,
-  FlatList, Pressable, StyleSheet,
-  Text, TouchableOpacity, View
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-
 
 const Questions = () => {
   const [activeTab, setActiveTab] = useState(TabType.Inbox);
@@ -32,43 +35,22 @@ const Questions = () => {
   const inboxQuestions = useQuestionStore((state) => state.inboxQuestions);
   const outboxQuestions = useQuestionStore((state) => state.outboxQuestions);
   const setInboxQuestions = useQuestionStore((state) => state.setInboxQuestions);
-  const mergeInboxQuestions = useQuestionStore((state) => state.mergeInboxQuestions);
   const prependInboxQuestion = useQuestionStore((state) => state.prependInboxQuestion);
   const updateInboxQuestion = useQuestionStore((state) => state.updateInboxQuestion);
+  const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
-
-  const user = useAuthStore(state => state.user);
-
-  const loadNearbyQuestions = async () => {
-    if (!user?.location) return;
-
-    try {
-      setLoading(true);
-      const response = await questionService.getNearbyQuestions(
-        user.location.longitude,
-        user.location.latitude,
-      );
-      mergeInboxQuestions(response);
-    } catch (e) {
-      console.log("Failed to load nearby questions");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchQuestions = async () => {
     setLoading(true);
     setError(null);
 
-    const [lon, lat] = [user?.location?.longitude, user?.location?.latitude];
-
     try {
-      const [answeredQuestions, newNearbyQuestions, postedQuestions] = await Promise.all([
+      const [assignedQuestions, answeredQuestions, postedQuestions] = await Promise.all([
+        questionService.getAssignedQuestions(),
         questionService.getInboxQuestions(),
-        (lon && lat) ? questionService.getNearbyQuestions(lon, lat) : Promise.resolve([]),
         questionService.getOutboxQuestions(),
       ]);
-      setInboxQuestions([...newNearbyQuestions, ...answeredQuestions]);
+      setInboxQuestions([...assignedQuestions, ...answeredQuestions]);
       setOutboxQuestions(postedQuestions);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch questions. Please try again later.');
@@ -77,20 +59,15 @@ const Questions = () => {
     }
   };
 
-  // featch posted questions, answered questions and nearby questons on mount
   useEffect(() => {
     fetchQuestions();
   }, []);
 
-
-  // Handle App State Changes (Background -> Foreground)
-  // Load nearby questions when app comes to foreground
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        console.log('App has come to the foreground! Refreshing questions...');
-        loadNearbyQuestions();
-        SocketService.connect(); // Ensure socket reconnects
+        fetchQuestions();
+        SocketService.connect();
       }
     });
 
@@ -99,38 +76,40 @@ const Questions = () => {
     };
   }, []);
 
-  // Socket Event Listeners
   useEffect(() => {
     let socket = SocketService.getSocket();
-    let intervalId: number;
+    let intervalId: ReturnType<typeof setInterval>;
 
     const setupListener = () => {
       if (!socket) return;
 
-      // Listener 1: Status Updates (Fastest Finger)
       const handleUpdate = (payload: any) => {
-        const { questionId, status, claimedByUserId } = payload;
-        console.log(`Update received for ${questionId}: ${status}`);
-
-        updateInboxQuestion(questionId, { status, claimedByUserId });
+        const { questionId, status } = payload;
+        updateInboxQuestion(questionId, { status });
+        updateOutboxQuestion(questionId, { status });
       };
 
-      // Listener 2: New Question Posted
-      const handleNewQuestion = (newQuestionObj: any) => {
-        console.log("New question received via socket!", newQuestionObj.id);
+      const handleNewQuestion = (newQuestionObj: TQuestion) => {
         prependInboxQuestion(newQuestionObj);
       };
 
-      console.log("Listening to socket events...");
+      const handleExpired = (payload: { questionId: string }) => {
+        updateOutboxQuestion(payload.questionId, { status: QuestionStatus.Expired });
+        Alert.alert(
+          'No response in time',
+          'Your responder did not answer in time. You can re-choose someone else.',
+          [{ text: 'Re-choose responder', onPress: () => handleRechooseFromExpired(payload.questionId) }],
+        );
+      };
+
       socket.on('question:update', handleUpdate);
       socket.on('question:new', handleNewQuestion);
+      socket.on('question:expired', handleExpired);
     };
 
-    // LOGIC TO WAIT FOR SOCKET
     if (socket) {
       setupListener();
     } else {
-      // Poll every 500ms until socket is connected
       intervalId = setInterval(() => {
         socket = SocketService.getSocket();
         if (socket) {
@@ -140,75 +119,51 @@ const Questions = () => {
       }, 500);
     }
 
-    // CLEANUP ON UNMOUNT
     return () => {
       if (intervalId) clearInterval(intervalId);
       if (socket) {
         socket.off('question:update');
         socket.off('question:new');
+        socket.off('question:expired');
       }
     };
-  }, []); // Run once on mount
+  }, []);
 
-  const openModal = () => { };
-  const newQuestionsCount = inboxQuestions.filter((q) => q.status === QuestionStatus.Open).length;
+  const assignedCount = inboxQuestions.filter((q) => q.status === QuestionStatus.Assigned).length;
 
-  const handleHistoryItemClick = async (item: TQuestion) => {
+  const handleRechooseFromExpired = (questionId?: string) => {
+    const item = outboxQuestions.find((q) => q.id === questionId) ||
+      outboxQuestions.find((q) => q.status === QuestionStatus.Expired);
+    if (!item) return;
+
+    router.push({
+      pathname: '/responders',
+      params: {
+        latitude: String(item.latitude),
+        longitude: String(item.longitude),
+        address: item.address,
+        reassignQuestionId: item.id,
+      },
+    });
+  };
+
+  const handleHistoryItemClick = (item: TQuestion) => {
     if (activeTab === TabType.Inbox) {
-      // CASE 1: Question is New/Open -> Try to claim it
-      if (item.status === QuestionStatus.Open) {
-        try {
-          setLoading(true);
-          await questionService.claimQuestion(item.id);
-        } catch (error: any) {
-          if (error.response?.status === 409) {
-            Alert.alert("Too slow!", "Another user just picked this question.");
-            // We don't need to manually remove it; the socket event will likely do it
-          } else {
-            Alert.alert("Error", "Could not claim question.");
-          }
-        } finally {
-          setLoading(false);
-        }
+      if (item.status === QuestionStatus.Assigned) {
         router.push({
           pathname: '/answer',
           params: {
+            id: item.id,
             address: item.address,
             questionText: item.text,
             createdAt: item.createdAt,
-            longitude: item.longitude,
-            latitude: item.latitude
+            assignedAt: item.assignedAt || item.createdAt,
+            timeToRespondMs: String(item.timeToRespondMs || 600000),
           },
         });
-        // CASE 2: I already claimed it, I'm returning to answer it
-      } else if (item.status === QuestionStatus.Pending && item.claimedByUserId === user?.id) {
-        router.push({
-          pathname: '/answer',
-          params: {
-            address: item.address,
-            questionText: item.text,
-            createdAt: item.createdAt,
-            longitude: item.longitude,
-            latitude: item.latitude
-          },
-        });
-      } else {
-        router.push({
-          pathname: '/question-detail',
-          params: {
-            address: item.address,
-            questionText: item.text,
-            longitude: item.longitude,
-            latitude: item.latitude,
-            createdAt: item.createdAt,
-            answer: item.answer,
-            answerRating: item.answerRating,
-            responderUsername: item.responderUsername,
-          },
-        });
+        return;
       }
-    } else {
-      // An outbox history item is clicked
+
       router.push({
         pathname: '/question-detail',
         params: {
@@ -219,12 +174,38 @@ const Questions = () => {
           createdAt: item.createdAt,
           answer: item.answer,
           answerRating: item.answerRating,
+          answerId: item.answerId,
           responderUsername: item.responderUsername,
-          isOutbox: 'true',
-          isPending: item.status === QuestionStatus.Pending ? 'true' : 'false',
+          responderId: item.responderId,
+          responderAverageRating: item.responderAverageRating,
         },
       });
+      return;
     }
+
+    if (item.status === QuestionStatus.Expired) {
+      handleRechooseFromExpired(item.id);
+      return;
+    }
+
+    router.push({
+      pathname: '/question-detail',
+      params: {
+        address: item.address,
+        questionText: item.text,
+        longitude: item.longitude,
+        latitude: item.latitude,
+        createdAt: item.createdAt,
+        answer: item.answer,
+        answerRating: item.answerRating,
+        answerId: item.answerId,
+        responderUsername: item.responderUsername,
+        responderId: item.responderId,
+        responderAverageRating: item.responderAverageRating,
+        isOutbox: 'true',
+        isPending: item.status === QuestionStatus.Assigned ? 'true' : 'false',
+      },
+    });
   };
 
   const renderContent = () => {
@@ -252,8 +233,15 @@ const Questions = () => {
                 status={item.status as QuestionStatus}
                 activeTab={activeTab}
               />
+              {activeTab === TabType.Outbox && item.status === QuestionStatus.Expired && (
+                <CustomButton
+                  text="Re-choose responder"
+                  onPress={() => handleRechooseFromExpired(item.id)}
+                  style={styles.rechooseBtn}
+                />
+              )}
             </View>
-            {activeTab === TabType.Outbox && (
+            {activeTab === TabType.Outbox && item.status !== QuestionStatus.Expired && (
               <Pressable
                 style={styles.arrowRotateIconBtn}
                 onPress={() =>
@@ -263,7 +251,7 @@ const Questions = () => {
                       questionText: item.text,
                       address: item.address,
                       longitude: item.longitude,
-                      latitude: item.latitude
+                      latitude: item.latitude,
                     },
                   })
                 }
@@ -277,6 +265,13 @@ const Questions = () => {
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={{ paddingTop: 20 }}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            {activeTab === TabType.Inbox
+              ? 'No assigned questions yet.'
+              : 'You have not asked any questions yet.'}
+          </Text>
+        }
       />
     );
   };
@@ -286,7 +281,7 @@ const Questions = () => {
       <View style={styles.pageContentContainer}>
         <View style={styles.titleSection}>
           <Text style={styles.pageTitle}>Questions</Text>
-          <Pressable onPress={openModal}>
+          <Pressable onPress={() => {}}>
             <Ionicons name="information-circle-outline" size={28} color={colors.DARK_GRAY} />
           </Pressable>
         </View>
@@ -300,9 +295,9 @@ const Questions = () => {
                 <Text style={[styles.tabText, activeTab === TabType.Inbox && styles.activeTabText]}>
                   Inbox
                 </Text>
-                {newQuestionsCount > 0 && (
+                {assignedCount > 0 && (
                   <View style={styles.newBadge}>
-                    <Text style={styles.newBadgeText}>{newQuestionsCount}</Text>
+                    <Text style={styles.newBadgeText}>{assignedCount}</Text>
                   </View>
                 )}
               </View>
@@ -380,8 +375,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   historyItemBox: {
-    flex: 1, // forces the question text to wrap if length is too long
+    flex: 1,
     marginRight: 10,
+  },
+  rechooseBtn: {
+    marginTop: 12,
   },
   arrowRotateIconBtn: {
     paddingVertical: 10,
@@ -411,5 +409,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     color: colors.RED,
     fontSize: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 40,
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
   },
 });

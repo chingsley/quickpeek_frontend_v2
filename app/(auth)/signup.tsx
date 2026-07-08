@@ -16,11 +16,11 @@ const Signup = () => {
     name: 'test03 quickpeek',
     username: 'test03',
     email: 'test03@quickpeek.com',
-    password: 'test03@quickpeek.com',
-    confirmPassword: 'test03@quickpeek.com',
+    password: 'password123',
+    confirmPassword: 'password123',
     locationSharingEnabled: false,
     deviceToken: 'ExponentPushToken[ubw-MEPEIQgJdA3RQbGDrQ]',
-    deviceType: Constants.platform?.ios ? 'ios' : 'android',
+    deviceType: Platform.OS === 'web' ? 'web' : (Constants.platform?.ios ? 'ios' : 'android'),
   });
 
   const nextStep = () => setStep(step + 1);

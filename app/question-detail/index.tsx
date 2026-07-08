@@ -1,44 +1,76 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
+import StarRating from '@/components/StarRating';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { rateAnswer } from '@/services/ratings.services';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams } from 'expo-router';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const StarRating = ({ rating }: { rating: number }) => {
-  const fullStars = Math.floor(rating);
-  const halfStar = rating - fullStars >= 0.5;
-  const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
-
-  return (
-    <View style={styles.starRow}>
-      {Array.from({ length: fullStars }).map((_, i) => (
-        <Ionicons key={`full-${i}`} name="star" size={22} color={colors.STAR_GOLD} />
-      ))}
-      {halfStar && <Ionicons name="star-half" size={22} color={colors.STAR_GOLD} />}
-      {Array.from({ length: emptyStars }).map((_, i) => (
-        <Ionicons key={`empty-${i}`} name="star-outline" size={22} color={colors.LIGHT_GRAY} />
-      ))}
-    </View>
-  );
-};
+const TAP_STAR_SIZE = 38;
 
 const QuestionDetail = () => {
-  const { address, questionText, createdAt, answer, answerRating, responderUsername, isOutbox, isPending } =
-    useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const {
+    address,
+    questionText,
+    createdAt,
+    answer,
+    answerRating,
+    answerId,
+    responderUsername,
+    responderId,
+    responderAverageRating,
+    isOutbox,
+    isPending,
+  } = params;
 
-  const handleReask = () => {
-    console.log('Re-asking question:', questionText);
+  const isOutboxBool = isOutbox === 'true';
+  const isPendingBool = isPending === 'true';
+  const hasAnswer = answer && String(answer).trim().length > 0;
+  const existingRating = answerRating ? Number(answerRating) : 0;
+  const hasExistingRating = existingRating > 0;
+  const respAvgRating = responderAverageRating ? Number(responderAverageRating) : 0;
+  const answerIdStr = answerId as string | undefined;
+
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [submittedRating, setSubmittedRating] = useState(existingRating);
+  const [submitting, setSubmitting] = useState(false);
+
+  const canRate = isOutboxBool && hasAnswer && !hasExistingRating && submittedRating === 0 && !!answerIdStr;
+  const isRated = hasExistingRating || submittedRating > 0;
+  const displayRating = submittedRating > 0 ? submittedRating : existingRating;
+
+  const handleStarPress = (star: number) => {
+    if (!canRate) return;
+    setSelectedRating(star);
   };
 
-  const isPendingBool = isPending === 'true';
-  const isOutboxBool = isOutbox === 'true';
-  const hasAnswer = answer && String(answer).trim().length > 0;
-  const rating = answerRating ? Number(answerRating) : 0;
+  const handleSubmitRating = async () => {
+    if (!answerIdStr || selectedRating === 0) return;
+    setSubmitting(true);
+    try {
+      await rateAnswer(answerIdStr, selectedRating);
+      setSubmittedRating(selectedRating);
+      setSelectedRating(0);
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || 'Could not submit rating';
+      Alert.alert('Error', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
@@ -47,12 +79,10 @@ const QuestionDetail = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <BackButton color={colors.PRIMARY} />
         </View>
 
-        {/* Page Title */}
         <Text style={styles.pageTitle}>Question Details</Text>
 
         {/* Metadata Card */}
@@ -80,30 +110,49 @@ const QuestionDetail = () => {
           <Text style={styles.questionText}>{questionText}</Text>
         </View>
 
-        {/* Divider */}
         <View style={styles.sectionDivider} />
 
         {/* Answer Section */}
-        <Text style={styles.sectionTitle}>Answer</Text>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIconCircle}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.PRIMARY} />
+          </View>
+          <Text style={styles.sectionTitle}>Answer</Text>
+        </View>
 
         {hasAnswer ? (
           <View style={styles.card}>
-            <Text style={styles.answerText}>{answer}</Text>
+            <Text style={styles.answerText}>{String(answer)}</Text>
 
             <View style={styles.answerFooter}>
               {responderUsername && String(responderUsername).trim().length > 0 && (
                 <View style={styles.responderRow}>
-                  <Ionicons name="person-circle-outline" size={20} color={colors.DARK_GRAY} />
-                  <Text style={styles.responderText}>Responded by {String(responderUsername)}</Text>
+                  <View style={styles.responderAvatar}>
+                    <Ionicons name="person" size={16} color={colors.PRIMARY} />
+                  </View>
+                  <View style={styles.responderInfo}>
+                    <Text style={styles.responderName}>
+                      {String(responderUsername)}
+                    </Text>
+                    {respAvgRating > 0 && (
+                      <View style={styles.responderRatingRow}>
+                        <StarRating rating={respAvgRating} size={12} />
+                        <Text style={styles.responderRatingText}>
+                          {respAvgRating.toFixed(1)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               )}
 
-              {rating > 0 && (
+              {isRated && (
                 <View style={styles.ratingSection}>
-                  <StarRating rating={rating} />
-                  <Text style={styles.ratingText}>
-                    {rating.toFixed(1)} / 5
-                  </Text>
+                  <Text style={styles.ratingLabel}>Your rating</Text>
+                  <View style={styles.ratingDisplay}>
+                    <StarRating rating={displayRating} size={22} />
+                    <Text style={styles.ratingValue}>{displayRating}/5</Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -118,12 +167,55 @@ const QuestionDetail = () => {
           </View>
         )}
 
-        {/* Action Button */}
-        {isOutboxBool && (
+        {/* Rate Answer Section */}
+        {canRate && (
+          <View style={styles.rateCard}>
+            <Text style={styles.rateTitle}>How helpful was this answer?</Text>
+            <Text style={styles.rateSubtitle}>Tap a star to rate the responder</Text>
+
+            <View style={styles.tapStarRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => handleStarPress(star)}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                >
+                  <Ionicons
+                    name={star <= selectedRating ? 'star' : 'star-outline'}
+                    size={TAP_STAR_SIZE}
+                    color={star <= selectedRating ? colors.STAR_GOLD : colors.LIGHT_GRAY}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {selectedRating > 0 && (
+              <CustomButton
+                text={submitting ? 'Sending…' : `Rate ${selectedRating} star${selectedRating > 1 ? 's' : ''}`}
+                onPress={handleSubmitRating}
+                style={styles.submitRatingBtn}
+                loading={submitting}
+                disabled={submitting}
+              />
+            )}
+          </View>
+        )}
+
+        {/* Thank-you after rating */}
+        {submittedRating > 0 && !hasExistingRating && (
+          <View style={styles.thankYouCard}>
+            <Ionicons name="checkmark-circle" size={24} color={colors.PRIMARY} />
+            <Text style={styles.thankYouText}>Thanks for your feedback!</Text>
+          </View>
+        )}
+
+        {/* Action */}
+        {isOutboxBool && !hasAnswer && (
           <View style={styles.actionArea}>
             <CustomButton
-              text={isPendingBool ? 'Pending Response' : 'Re-ask Question'}
-              onPress={handleReask}
+              text={isPendingBool ? 'Awaiting Response…' : 'Re-ask Question'}
+              onPress={() => {}}
               style={styles.btnSubmit}
               disabled={isPendingBool}
             />
@@ -149,21 +241,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
-
-  /* Header */
   header: {
     marginBottom: 10,
   },
-
-  /* Page Title */
   pageTitle: {
     fontFamily: 'roboto-bold',
     fontSize: 28,
     color: colors.TEXT_DARK,
     marginBottom: 24,
   },
-
-  /* Metadata Card */
   metadataCard: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -203,8 +289,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
   },
-
-  /* Card (shared) */
   card: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -228,23 +312,30 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     lineHeight: 26,
   },
-
-  /* Section Divider */
   sectionDivider: {
     height: 1,
     backgroundColor: colors.CARD_BORDER,
     marginVertical: 28,
   },
-
-  /* Section Title */
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.LIGHT_GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   sectionTitle: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_XL,
     color: colors.TEXT_DARK,
-    marginBottom: 16,
   },
-
-  /* Answer */
   answerText: {
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_MEDIUM,
@@ -260,30 +351,57 @@ const styles = StyleSheet.create({
   responderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  responderText: {
-    fontFamily: 'roboto-light',
+  responderAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.LIGHT_GREEN,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  responderInfo: {
+    flex: 1,
+  },
+  responderName: {
+    fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.DARK_GRAY,
-    marginLeft: 8,
+    color: colors.TEXT_DARK,
+    marginBottom: 2,
+  },
+  responderRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  responderRatingText: {
+    fontFamily: 'roboto-light',
+    fontSize: 12,
+    color: colors.MEDIUM_GRAY,
   },
   ratingSection: {
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.CARD_BORDER,
+  },
+  ratingLabel: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    marginBottom: 8,
+  },
+  ratingDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  starRow: {
-    flexDirection: 'row',
-    gap: 3,
-  },
-  ratingText: {
-    fontFamily: 'roboto-medium',
+  ratingValue: {
+    fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.DARK_GRAY,
+    color: colors.TEXT_DARK,
   },
-
-  /* Empty State */
   emptyStateCard: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -309,8 +427,53 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-
-  /* Action */
+  rateCard: {
+    backgroundColor: colors.BG_WHITE,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.STAR_GOLD,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  rateTitle: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.TEXT_DARK,
+    marginBottom: 4,
+  },
+  rateSubtitle: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    marginBottom: 20,
+  },
+  tapStarRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  submitRatingBtn: {
+    minWidth: 180,
+  },
+  thankYouCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: colors.LIGHT_GREEN,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  thankYouText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
+  },
   actionArea: {
     marginTop: 24,
   },

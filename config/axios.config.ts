@@ -5,6 +5,7 @@ import { API_BASE_URL } from './api.config';
 // Create axios instance without interceptors first
 const Axios = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

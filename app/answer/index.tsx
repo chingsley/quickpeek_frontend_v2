@@ -2,28 +2,77 @@ import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { submitAnswer, submitAnswerWithImage } from '@/services/questions.services';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const MAX_ANSWER_LENGTH = 500;
 
+const formatCountdown = (ms: number): string => {
+  if (ms <= 0) return '0:00';
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
 const AnswerQuestion = () => {
-  const { address, questionText, createdAt } = useLocalSearchParams();
+  const router = useRouter();
+  const { id, address, questionText, createdAt, assignedAt, timeToRespondMs } = useLocalSearchParams();
+
+  const questionId = id as string;
+  const ttrMs = parseInt((timeToRespondMs as string) || '600000', 10);
+  const assignedTime = new Date((assignedAt as string) || (createdAt as string)).getTime();
+
   const [answer, setAnswer] = useState('');
   const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [remainingMs, setRemainingMs] = useState(() => {
+    const elapsed = Date.now() - assignedTime;
+    return Math.max(0, ttrMs - elapsed);
+  });
 
-  const isSendDisabled = answer.trim().length === 0;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - assignedTime;
+      setRemainingMs(Math.max(0, ttrMs - elapsed));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [assignedTime, ttrMs]);
 
-  const handleSend = () => {
-    if (isSendDisabled) return;
-    console.log('Answer:', answer);
-    console.log('Attachment:', attachment);
-    // Here you would typically send the answer and attachment to your backend
+  const isExpired = remainingMs <= 0;
+  const isSendDisabled = answer.trim().length === 0 || loading || isExpired;
+
+  const handleSend = async () => {
+    if (isSendDisabled || !questionId) return;
+    setLoading(true);
+    try {
+      if (attachment) {
+        await submitAnswerWithImage(questionId, answer.trim(), attachment.uri);
+      } else {
+        await submitAnswer(questionId, answer.trim());
+      }
+      Alert.alert('Response sent', 'Your answer has been delivered.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.message || 'Could not send your response.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePickAttachment = async () => {
@@ -63,15 +112,23 @@ const AnswerQuestion = () => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={styles.header}>
           <BackButton color={colors.PRIMARY} />
         </View>
 
-        {/* Page Title */}
         <Text style={styles.pageTitle}>Respond to this question</Text>
 
-        {/* Metadata Card */}
+        <View style={[styles.countdownCard, isExpired && styles.countdownExpired]}>
+          <Ionicons
+            name={isExpired ? 'timer-outline' : 'timer'}
+            size={20}
+            color={isExpired ? colors.ACTIVE : colors.PRIMARY}
+          />
+          <Text style={[styles.countdownText, isExpired && styles.countdownTextExpired]}>
+            {isExpired ? 'Time to respond has expired' : `Time left: ${formatCountdown(remainingMs)}`}
+          </Text>
+        </View>
+
         <View style={styles.metadataCard}>
           <View style={styles.metadataRow}>
             <View style={styles.iconCircle}>
@@ -90,19 +147,15 @@ const AnswerQuestion = () => {
           </View>
         </View>
 
-        {/* Question Card */}
         <View style={styles.questionCard}>
           <Text style={styles.cardLabel}>Question</Text>
           <Text style={styles.questionText}>{questionText}</Text>
         </View>
 
-        {/* Section Divider */}
         <View style={styles.sectionDivider} />
 
-        {/* Your Response */}
         <Text style={styles.sectionTitle}>Your Response</Text>
 
-        {/* Response Input Card */}
         <View style={styles.inputCard}>
           <TextInput
             style={styles.textArea}
@@ -113,6 +166,7 @@ const AnswerQuestion = () => {
             multiline
             textAlignVertical="top"
             maxLength={MAX_ANSWER_LENGTH}
+            editable={!isExpired}
           />
           <View style={styles.inputFooter}>
             <Text style={[styles.charCount, isNearLimit && styles.charCountWarn]}>
@@ -121,7 +175,6 @@ const AnswerQuestion = () => {
           </View>
         </View>
 
-        {/* Attachment */}
         {attachment ? (
           <View style={styles.attachmentChip}>
             <Ionicons name="image-outline" size={18} color={colors.PRIMARY} />
@@ -133,19 +186,24 @@ const AnswerQuestion = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.attachmentButton} onPress={handlePickAttachment} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.attachmentButton}
+            onPress={handlePickAttachment}
+            activeOpacity={0.7}
+            disabled={isExpired}
+          >
             <Ionicons name="attach-outline" size={20} color={colors.DARK_GRAY} />
             <Text style={styles.attachmentButtonText}>Attach an image (optional)</Text>
           </TouchableOpacity>
         )}
 
-        {/* Send Button */}
         <View style={styles.actionArea}>
           <CustomButton
-            text="Send Response"
+            text={loading ? 'Sending…' : 'Send Response'}
             onPress={handleSend}
             style={styles.btnSubmit}
             disabled={isSendDisabled}
+            loading={loading}
           />
         </View>
       </ScrollView>
@@ -168,21 +226,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
-
-  /* Header */
   header: {
     marginBottom: 10,
   },
-
-  /* Page Title */
   pageTitle: {
     fontFamily: 'roboto-bold',
     fontSize: 28,
     color: colors.TEXT_DARK,
-    marginBottom: 24,
+    marginBottom: 16,
   },
-
-  /* Metadata Card */
+  countdownCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.LIGHT_GREEN,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  countdownExpired: {
+    backgroundColor: colors.LIGHT_PINK,
+  },
+  countdownText: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
+  },
+  countdownTextExpired: {
+    color: colors.ACTIVE,
+  },
   metadataCard: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -222,8 +295,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
   },
-
-  /* Question Card */
   questionCard: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -247,23 +318,17 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     lineHeight: 26,
   },
-
-  /* Section Divider */
   sectionDivider: {
     height: 1,
     backgroundColor: colors.CARD_BORDER,
     marginVertical: 28,
   },
-
-  /* Section Title */
   sectionTitle: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_XL,
     color: colors.TEXT_DARK,
     marginBottom: 16,
   },
-
-  /* Response Input Card */
   inputCard: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -295,8 +360,6 @@ const styles = StyleSheet.create({
   charCountWarn: {
     color: colors.ACTIVE,
   },
-
-  /* Attachment */
   attachmentButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -315,8 +378,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.DARK_GRAY,
   },
-
-  /* Attachment Chip */
   attachmentChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,8 +394,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.DARK_GRAY,
   },
-
-  /* Action */
   actionArea: {
     marginTop: 8,
   },

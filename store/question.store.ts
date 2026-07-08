@@ -20,7 +20,9 @@ interface QuestionState {
   prependInboxQuestion: (question: TQuestion) => void;
   updateInboxQuestion: (questionId: string, updates: Partial<TQuestion>) => void;
   mergeInboxQuestions: (questions: TQuestion[]) => void;
+  removeInboxQuestion: (questionId: string) => void;
   setOutboxQuestions: (questions: TQuestion[]) => void;
+  updateOutboxQuestion: (questionId: string, updates: Partial<TQuestion>) => void;
   clearQuestions: () => void;
   dispatchNewQuestion: (questionData: TQuestion) => Promise<void>;
 }
@@ -52,7 +54,22 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     set({ inboxQuestions: dedupeQuestionsById([...questions, ...inboxQuestions]) });
   },
 
+  removeInboxQuestion: (questionId) => {
+    const { inboxQuestions } = get();
+    set({ inboxQuestions: inboxQuestions.filter((q) => q.id !== questionId) });
+  },
+
   setOutboxQuestions: (questions) => set({ outboxQuestions: dedupeQuestionsById(questions) }),
+
+  updateOutboxQuestion: (questionId, updates) => {
+    const { outboxQuestions } = get();
+    set({
+      outboxQuestions: outboxQuestions.map((question) =>
+        question.id === questionId ? { ...question, ...updates } : question
+      ),
+    });
+  },
+
   clearQuestions: () => set({ inboxQuestions: [], outboxQuestions: [] }),
 
   dispatchNewQuestion: async (questionData: TQuestion) => {

@@ -2,8 +2,10 @@ import TLocation from "./location.types";
 
 export enum QuestionStatus {
   Open = 'OPEN',
-  Pending = 'PENDING',
-  Resolved = 'RESOLVED',
+  Assigned = 'ASSIGNED',
+  Answered = 'ANSWERED',
+  Expired = 'EXPIRED',
+  Cancelled = 'CANCELLED',
 }
 
 export type TQuestion = {
@@ -18,8 +20,16 @@ export type TQuestion = {
   status: QuestionStatus;
   answer?: string;
   answerRating?: number;
+  answerId?: string;
   responderUsername?: string;
+  responderId?: string;
+  responderAverageRating?: number;
+  questionerUsername?: string;
   claimedByUserId?: string;
+  assignedResponderId?: string;
+  assignedAt?: string;
+  timeToRespondMs?: number;
+  expiredAt?: string;
 };
 
 export default TQuestion;
