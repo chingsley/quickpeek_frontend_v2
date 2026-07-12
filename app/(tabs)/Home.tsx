@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -34,7 +35,7 @@ const DEFAULT_MAP_REGION = {
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const insets = useSafeAreaInsets();
-  const snapPoints = useMemo(() => ['18%', '72%'], []);
+  const snapPoints = useMemo(() => ['38%', '62%'], []);
   const params = useLocalSearchParams();
   const router = useRouter();
 
@@ -112,9 +113,18 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const handleAddressFocus = () => {
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-  };
+  const handleAddressBlur = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
+
+  useEffect(() => {
+    const eventName = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subscription = Keyboard.addListener(eventName, () => {
+      bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const handleContinue = () => {
     Keyboard.dismiss();
@@ -166,8 +176,8 @@ const HomeScreen = () => {
         backgroundStyle={styles.bottomSheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
         enablePanDownToClose={false}
-        keyboardBehavior="extend"
-        keyboardBlurBehavior="restore"
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="none"
         android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
       >
@@ -198,19 +208,10 @@ const HomeScreen = () => {
                   placeholderTextColor={colors.MEDIUM_GRAY}
                   value={inputAddressText}
                   onChangeText={handleLocationChange}
-                  onFocus={handleAddressFocus}
+                  onBlur={handleAddressBlur}
                   returnKeyType="search"
                 />
               </View>
-
-              {isAddressSelected && (
-                <View style={styles.selectedChip}>
-                  <Ionicons name="checkmark-circle" size={18} color={colors.PRIMARY} />
-                  <Text style={styles.selectedChipText} numberOfLines={1}>
-                    Location selected
-                  </Text>
-                </View>
-              )}
 
               {addressSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>
@@ -235,15 +236,14 @@ const HomeScreen = () => {
                   ))}
                 </View>
               )}
+              {isLocationValid && (
+                <CustomButton
+                  text="Browse responders"
+                  onPress={handleContinue}
+                  style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+                />
+              )}
             </BottomSheetScrollView>
-
-            <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-              <CustomButton
-                text="Browse responders"
-                onPress={handleContinue}
-                disabled={!isLocationValid}
-              />
-            </View>
           </View>
         </BottomSheetView>
       </BottomSheet>
@@ -283,13 +283,6 @@ const styles = StyleSheet.create({
   editScrollContent: {
     paddingHorizontal: 24,
     paddingBottom: 16,
-  },
-  stickyFooter: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.CARD_BORDER,
-    backgroundColor: colors.BG_WHITE,
   },
   pageTitle: {
     fontFamily: 'roboto-bold',
@@ -336,22 +329,6 @@ const styles = StyleSheet.create({
     fontFamily: 'roboto',
     color: colors.TEXT_DARK,
     backgroundColor: colors.BG_WHITE,
-  },
-  selectedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.LIGHT_GREEN,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginTop: 12,
-  },
-  selectedChipText: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.PRIMARY,
-    flex: 1,
   },
   suggestionsContainer: {
     marginTop: 4,

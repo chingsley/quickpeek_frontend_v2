@@ -1,7 +1,6 @@
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { NativeModules, Platform } from 'react-native';
-import NativeSourceCode from 'react-native/Libraries/NativeModules/specs/NativeSourceCode';
 
 const BACKEND_PORT = 3000;
 const METRO_PORT = 8081;
@@ -59,7 +58,13 @@ export async function initApiConfigFromLinking(): Promise<void> {
 }
 
 function getScriptURL(): string | undefined {
+  if (Platform.OS === 'web') {
+    return typeof window !== 'undefined' ? window.location.href : undefined;
+  }
+
   try {
+    const NativeSourceCode =
+      require('react-native/Libraries/NativeModules/specs/NativeSourceCode').default;
     return NativeSourceCode.getConstants()?.scriptURL;
   } catch {
     return NativeModules?.SourceCode?.scriptURL as string | undefined;
