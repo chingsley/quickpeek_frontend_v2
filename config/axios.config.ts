@@ -1,10 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { API_BASE_URL } from './api.config';
+import { getApiBaseUrl } from './api.config';
 
 // Create axios instance without interceptors first
 const Axios = axios.create({
-  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -44,6 +43,8 @@ export const initializeAuthToken = async () => {
 // Request interceptor
 Axios.interceptors.request.use(
   (config) => {
+    config.baseURL = getApiBaseUrl();
+
     // Use the current token from memory
     if (authToken) {
       config.headers.Authorization = `Bearer ${authToken}`;

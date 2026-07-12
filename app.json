@@ -10,7 +10,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chingsley.quickpeek-frontend-v2"
+      "bundleIdentifier": "com.chingsley.quickpeek-frontend-v2",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Quickpeek uses your location in the background to keep your responder status up to date when location sharing is enabled."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -33,6 +37,14 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder.",
+          "locationAlwaysAndWhenInUsePermission": "Quickpeek uses your location in the background to keep your responder status up to date when location sharing is enabled.",
+          "isIosBackgroundLocationEnabled": true
         }
       ]
     ],

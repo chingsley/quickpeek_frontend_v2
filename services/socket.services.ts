@@ -1,6 +1,6 @@
 // services / socket.services.ts
 
-import { API_URL, USE_TUNNEL_PROXY } from '@/config';
+import { getSocketOrigin, getSocketTransports } from '@/config';
 import { useAuthStore } from '@/store/auth.store';
 import { io, Socket } from 'socket.io-client';
 
@@ -22,12 +22,13 @@ class SocketService {
       this.socket = null;
     }
 
-    const isSecure = API_URL.startsWith('https://');
+    const socketUrl = getSocketOrigin();
+    const isSecure = socketUrl.startsWith('https://');
 
-    this.socket = io(API_URL, {
+    this.socket = io(socketUrl, {
       auth: { token },
       query: { userId: user.id },
-      transports: USE_TUNNEL_PROXY ? ['polling', 'websocket'] : ['websocket', 'polling'],
+      transports: getSocketTransports(),
       secure: isSecure,
       timeout: 20000,
       reconnectionAttempts: 5,

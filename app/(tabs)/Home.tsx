@@ -19,21 +19,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker } from '@/components/MapViewWrapper';
-import * as Location from 'expo-location';
 
 const COLLAPSED_SNAP = 0;
 const EXPANDED_SNAP = 1;
 
-/** Fallback used only when device GPS is unavailable (permission denied or error). */
-const FALLBACK_COORDS = {
+/** Default map viewport before the user selects a question location. */
+const DEFAULT_MAP_REGION = {
   latitude: 44.6126,
   longitude: -63.6193,
+  latitudeDelta: 0.0922,
+  longitudeDelta: 0.0421,
 };
 
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const insets = useSafeAreaInsets();
-  const [isFormExpanded, setIsFormExpanded] = useState(false);
   const snapPoints = useMemo(() => ['18%', '72%'], []);
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -42,34 +42,11 @@ const HomeScreen = () => {
   const [isAddressSelected, setIsAddressSelected] = useState(false);
   const [inputAddressText, setInputAddressText] = useState('');
   const [reaskQuestionText, setReaskQuestionText] = useState('');
-  const [addressCoordinates, setAddressCoordinates] = useState(FALLBACK_COORDS);
-  const [region, setRegion] = useState({
-    ...FALLBACK_COORDS,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
+  const [addressCoordinates, setAddressCoordinates] = useState({
+    latitude: DEFAULT_MAP_REGION.latitude,
+    longitude: DEFAULT_MAP_REGION.longitude,
   });
-  const [locationReady, setLocationReady] = useState(false);
-
-  // ── Get device GPS position on mount ──
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        const { latitude, longitude } = pos.coords;
-        setAddressCoordinates({ latitude, longitude });
-        setRegion((prev) => ({ ...prev, latitude, longitude }));
-      } catch (_) {
-        // stay on fallback
-      } finally {
-        setLocationReady(true);
-      }
-    })();
-  }, []);
+  const [region, setRegion] = useState(DEFAULT_MAP_REGION);
 
   const debouncedAddressText = useDebounce(inputAddressText, 600);
 
@@ -92,7 +69,6 @@ const HomeScreen = () => {
         setReaskQuestionText(questionTextParam as string);
       }
       setIsAddressSelected(true);
-      setIsFormExpanded(true);
       bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
       router.setParams({
         questionText: '',
@@ -132,20 +108,11 @@ const HomeScreen = () => {
 
   const handleSheetChanges = useCallback((index: number) => {
     if (index === COLLAPSED_SNAP) {
-      setIsFormExpanded(false);
       Keyboard.dismiss();
-    } else {
-      setIsFormExpanded(true);
     }
   }, []);
 
-  const expandSheet = () => {
-    setIsFormExpanded(true);
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-  };
-
   const handleAddressFocus = () => {
-    setIsFormExpanded(true);
     bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
   };
 
@@ -184,17 +151,16 @@ const HomeScreen = () => {
   };
 
   const isLocationValid = isAddressSelected && inputAddressText.trim().length > 0;
-  const isCollapsed = !isFormExpanded;
 
   return (
     <View style={styles.container}>
       <MapView style={styles.map} region={region}>
-        <Marker coordinate={region} />
+        {isAddressSelected && <Marker coordinate={addressCoordinates} />}
       </MapView>
 
       <BottomSheet
         ref={bottomSheetRef}
-        index={COLLAPSED_SNAP}
+        index={EXPANDED_SNAP}
         snapPoints={snapPoints}
         onChange={handleSheetChanges}
         backgroundStyle={styles.bottomSheetBackground}
@@ -206,100 +172,79 @@ const HomeScreen = () => {
         enableBlurKeyboardOnGesture
       >
         <BottomSheetView style={styles.contentContainer}>
-          {isCollapsed ? (
-            <View style={styles.collapsedContent}>
-              <TouchableOpacity
-                style={styles.collapsedPrompt}
-                onPress={expandSheet}
-                activeOpacity={0.7}
-              >
+          <View style={styles.editContainer}>
+            <BottomSheetScrollView
+              style={styles.editScroll}
+              contentContainerStyle={styles.editScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.pageTitle}>Choose Question Location</Text>
+              <Text style={styles.pageSubtitle}>
+                First choose where you want to know about, then pick a nearby responder.
+              </Text>
+
+              <View style={styles.sectionHeader}>
                 <View style={styles.sectionIconCircle}>
-                  <Ionicons name="add" size={22} color={colors.PRIMARY} />
+                  <Ionicons name="location-outline" size={20} color={colors.PRIMARY} />
                 </View>
-                <View style={styles.collapsedTextBlock}>
-                  <Text style={styles.collapsedTitle}>Ask a Question</Text>
-                  <Text style={styles.collapsedSubtitle}>
-                    Find out what's happening nearby
-                  </Text>
-                </View>
-                <Ionicons name="chevron-up" size={20} color={colors.MEDIUM_GRAY} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.editContainer}>
-              <BottomSheetScrollView
-                style={styles.editScroll}
-                contentContainerStyle={styles.editScrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                <Text style={styles.pageTitle}>Ask a Question</Text>
-                <Text style={styles.pageSubtitle}>
-                  First choose where you want to know about, then pick a nearby responder.
-                </Text>
+                <Text style={styles.sectionLabel}>Choose a location</Text>
+              </View>
 
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionIconCircle}>
-                    <Ionicons name="location-outline" size={20} color={colors.PRIMARY} />
-                  </View>
-                  <Text style={styles.sectionLabel}>Choose a location</Text>
-                </View>
-
-                <View style={styles.searchContainer}>
-                  <BottomSheetTextInput
-                    style={styles.searchInput}
-                    placeholder="Search for a place or address"
-                    placeholderTextColor={colors.MEDIUM_GRAY}
-                    value={inputAddressText}
-                    onChangeText={handleLocationChange}
-                    onFocus={handleAddressFocus}
-                    returnKeyType="search"
-                  />
-                </View>
-
-                {isAddressSelected && (
-                  <View style={styles.selectedChip}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.PRIMARY} />
-                    <Text style={styles.selectedChipText} numberOfLines={1}>
-                      Location selected
-                    </Text>
-                  </View>
-                )}
-
-                {addressSuggestions.length > 0 && (
-                  <View style={styles.suggestionsContainer}>
-                    {addressSuggestions.map((item, index) => (
-                      <React.Fragment key={String(item.place_id)}>
-                        {index > 0 && <View style={styles.suggestionSeparator} />}
-                        <TouchableOpacity
-                          style={styles.suggestionItem}
-                          onPress={() => onSuggestionPress(item)}
-                        >
-                          <Ionicons
-                            name="location-outline"
-                            size={16}
-                            color={colors.MEDIUM_GRAY}
-                            style={styles.suggestionIcon}
-                          />
-                          <Text style={styles.suggestionText} numberOfLines={2}>
-                            {item.display_name}
-                          </Text>
-                        </TouchableOpacity>
-                      </React.Fragment>
-                    ))}
-                  </View>
-                )}
-              </BottomSheetScrollView>
-
-              <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-                <CustomButton
-                  text="Browse responders"
-                  onPress={handleContinue}
-                  disabled={!isLocationValid}
+              <View style={styles.searchContainer}>
+                <BottomSheetTextInput
+                  style={styles.searchInput}
+                  placeholder="Search for a place or address"
+                  placeholderTextColor={colors.MEDIUM_GRAY}
+                  value={inputAddressText}
+                  onChangeText={handleLocationChange}
+                  onFocus={handleAddressFocus}
+                  returnKeyType="search"
                 />
               </View>
+
+              {isAddressSelected && (
+                <View style={styles.selectedChip}>
+                  <Ionicons name="checkmark-circle" size={18} color={colors.PRIMARY} />
+                  <Text style={styles.selectedChipText} numberOfLines={1}>
+                    Location selected
+                  </Text>
+                </View>
+              )}
+
+              {addressSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {addressSuggestions.map((item, index) => (
+                    <React.Fragment key={String(item.place_id)}>
+                      {index > 0 && <View style={styles.suggestionSeparator} />}
+                      <TouchableOpacity
+                        style={styles.suggestionItem}
+                        onPress={() => onSuggestionPress(item)}
+                      >
+                        <Ionicons
+                          name="location-outline"
+                          size={16}
+                          color={colors.MEDIUM_GRAY}
+                          style={styles.suggestionIcon}
+                        />
+                        <Text style={styles.suggestionText} numberOfLines={2}>
+                          {item.display_name}
+                        </Text>
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  ))}
+                </View>
+              )}
+            </BottomSheetScrollView>
+
+            <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <CustomButton
+                text="Browse responders"
+                onPress={handleContinue}
+                disabled={!isLocationValid}
+              />
             </View>
-          )}
+          </View>
         </BottomSheetView>
       </BottomSheet>
     </View>
@@ -328,35 +273,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     marginTop: 8,
-  },
-  collapsedContent: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-  },
-  collapsedPrompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  collapsedTextBlock: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  collapsedTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    marginBottom: 2,
-  },
-  collapsedSubtitle: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
   },
   editContainer: {
     flex: 1,

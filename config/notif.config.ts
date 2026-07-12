@@ -1,15 +1,15 @@
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
-
+import { Platform } from 'react-native';
 
 // Get device token for notifications
 async function registerForPushNotificationsAsync() {
   let token = '';
 
   try {
-    // Check if we're on a physical device
-    if (!Constants.isDevice) {
-      console.error('Must use physical device for Push Notifications');
+    // Push is only supported on native iOS/Android. Constants.isDevice was removed
+    // from expo-constants and is always falsy in dev builds — do not use it here.
+    if (Platform.OS === 'web') {
       return '';
     }
 

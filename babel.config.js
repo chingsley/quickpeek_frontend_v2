@@ -4,7 +4,7 @@ module.exports = function (api) {
     presets: ['babel-preset-expo'],
     plugins: [
       './plugins/babel-plugin-transform-import-meta-env',
-      'react-native-reanimated/plugin',
+      'react-native-worklets/plugin',
     ],
   };
 };

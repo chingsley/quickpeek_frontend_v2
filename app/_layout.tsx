@@ -3,6 +3,7 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+import { initApiConfigFromLinking } from '@/config';
 import SocketService from '@/services/socket.services';
 import { useAuthStore, } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -15,6 +16,7 @@ export default function RootLayout() {
   const { initialize, isAuthenticated } = useAuthStore();
 
   useEffect(() => {
+    initApiConfigFromLinking();
     initialize();
   }, []);
 

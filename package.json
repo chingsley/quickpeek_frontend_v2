@@ -3,13 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start --lan",
-    "start:clear": "npx expo start --clear --lan",
+    "start": "bash scripts/start-metro.sh",
+    "start:clear": "bash scripts/start-metro.sh --clear",
     "start:tunnel": "npx expo start --tunnel",
     "start:tunnel:clear": "npx expo start --clear --tunnel",
-    "simulator": "npx expo run:ios",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "simulator": "bash scripts/run-ios.sh",
+    "android": "bash -c 'source scripts/dev-env.sh && exec expo run:android \"$@\"' --",
+    "ios": "bash scripts/run-ios.sh",
     "web": "expo start --web",
     "lint": "expo lint"
   },

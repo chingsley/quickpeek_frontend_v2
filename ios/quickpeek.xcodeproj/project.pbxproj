@@ -21,7 +21,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = quickpeek/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = quickpeek/Info.plist; sourceTree = "<group>"; };
 		37E61AAA886D217B7C09C84D /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-quickpeek/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		40339768C8ACA9A16E084A60 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = quickpeek/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		40339768C8ACA9A16E084A60 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = quickpeek/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		845D259FBE7AF402C5A4A55A /* Pods-quickpeek.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-quickpeek.debug.xcconfig"; path = "Target Support Files/Pods-quickpeek/Pods-quickpeek.debug.xcconfig"; sourceTree = "<group>"; };
 		A16FEC008A0B2DBBC7A35126 /* libPods-quickpeek.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-quickpeek.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A24FBC3C71200886F71C029A /* Pods-quickpeek.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-quickpeek.release.xcconfig"; path = "Target Support Files/Pods-quickpeek/Pods-quickpeek.release.xcconfig"; sourceTree = "<group>"; };
@@ -128,7 +128,6 @@
 				845D259FBE7AF402C5A4A55A /* Pods-quickpeek.debug.xcconfig */,
 				A24FBC3C71200886F71C029A /* Pods-quickpeek.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -351,6 +350,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = quickpeek/quickpeek.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WFN22KWP3Y;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -387,6 +387,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = quickpeek/quickpeek.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WFN22KWP3Y;
 				INFOPLIST_FILE = quickpeek/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
