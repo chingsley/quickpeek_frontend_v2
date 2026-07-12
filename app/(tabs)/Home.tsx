@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -34,7 +35,7 @@ const DEFAULT_MAP_REGION = {
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const insets = useSafeAreaInsets();
-  const snapPoints = useMemo(() => ['18%', '72%'], []);
+  const snapPoints = useMemo(() => ['18%', '62%'], []);
   const params = useLocalSearchParams();
   const router = useRouter();
 
@@ -112,9 +113,18 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const handleAddressFocus = () => {
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-  };
+  const handleAddressBlur = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
+
+  useEffect(() => {
+    const eventName = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subscription = Keyboard.addListener(eventName, () => {
+      bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const handleContinue = () => {
     Keyboard.dismiss();
@@ -166,8 +176,8 @@ const HomeScreen = () => {
         backgroundStyle={styles.bottomSheetBackground}
         handleIndicatorStyle={styles.handleIndicator}
         enablePanDownToClose={false}
-        keyboardBehavior="extend"
-        keyboardBlurBehavior="restore"
+        keyboardBehavior="interactive"
+        keyboardBlurBehavior="none"
         android_keyboardInputMode="adjustResize"
         enableBlurKeyboardOnGesture
       >
@@ -198,7 +208,7 @@ const HomeScreen = () => {
                   placeholderTextColor={colors.MEDIUM_GRAY}
                   value={inputAddressText}
                   onChangeText={handleLocationChange}
-                  onFocus={handleAddressFocus}
+                  onBlur={handleAddressBlur}
                   returnKeyType="search"
                 />
               </View>
