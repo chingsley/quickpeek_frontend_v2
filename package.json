@@ -10,6 +10,7 @@
     "simulator": "bash scripts/run-ios.sh",
     "android": "bash -c 'source scripts/dev-env.sh && exec expo run:android \"$@\"' --",
     "ios": "bash scripts/run-ios.sh",
+    "ios:device": "bash scripts/run-ios.sh --device",
     "web": "expo start --web",
     "lint": "expo lint"
   },

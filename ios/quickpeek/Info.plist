@@ -38,6 +38,8 @@
 	<string>12.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MetroPackagerHost</key>
+	<string>192.168.2.15</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -45,6 +47,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_react-native._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Quickpeek needs access to your local network to connect to the Metro development server during development.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Quickpeek uses your location in the background to keep your responder status up to date when location sharing is enabled.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
