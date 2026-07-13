@@ -117,6 +117,10 @@ const HomeScreen = () => {
     Keyboard.dismiss();
   }, []);
 
+  const handleAddressSubmit = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
     const eventName = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const subscription = Keyboard.addListener(eventName, () => {
@@ -209,7 +213,9 @@ const HomeScreen = () => {
                   value={inputAddressText}
                   onChangeText={handleLocationChange}
                   onBlur={handleAddressBlur}
-                  returnKeyType="search"
+                  onSubmitEditing={handleAddressSubmit}
+                  returnKeyType="done"
+                  blurOnSubmit
                 />
               </View>
 
