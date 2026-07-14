@@ -19,6 +19,7 @@ export type TQuestion = {
   updatedAt: string;
   status: QuestionStatus;
   answer?: string;
+  answerImageUrl?: string;
   answerRating?: number;
   answerId?: string;
   responderUsername?: string;

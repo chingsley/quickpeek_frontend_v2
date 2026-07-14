@@ -84,9 +84,17 @@ const Questions = () => {
       if (!socket) return;
 
       const handleUpdate = (payload: any) => {
-        const { questionId, status } = payload;
-        updateInboxQuestion(questionId, { status });
-        updateOutboxQuestion(questionId, { status });
+        const { questionId, status, answer, answerId } = payload;
+        updateInboxQuestion(questionId, {
+          status,
+          ...(answer !== undefined ? { answer } : {}),
+          ...(answerId !== undefined ? { answerId } : {}),
+        });
+        updateOutboxQuestion(questionId, {
+          status,
+          ...(answer !== undefined ? { answer } : {}),
+          ...(answerId !== undefined ? { answerId } : {}),
+        });
       };
 
       const handleNewQuestion = (newQuestionObj: TQuestion) => {
@@ -149,7 +157,7 @@ const Questions = () => {
 
   const handleHistoryItemClick = (item: TQuestion) => {
     if (activeTab === TabType.Inbox) {
-      if (item.status === QuestionStatus.Assigned) {
+      if (item.status === QuestionStatus.Assigned || item.status === QuestionStatus.Answered) {
         router.push({
           pathname: '/answer',
           params: {
@@ -159,6 +167,10 @@ const Questions = () => {
             createdAt: item.createdAt,
             assignedAt: item.assignedAt || item.createdAt,
             timeToRespondMs: String(item.timeToRespondMs || 600000),
+            status: item.status,
+            answer: item.answer || '',
+            answerImageUrl: item.answerImageUrl || '',
+            readOnly: item.status === QuestionStatus.Answered ? 'true' : 'false',
           },
         });
         return;

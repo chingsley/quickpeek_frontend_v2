@@ -23,7 +23,8 @@ const HistoryItem = (item: Props) => {
           {status === QuestionStatus.Assigned && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
           {status === QuestionStatus.Assigned && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
           {status === QuestionStatus.Expired && activeTab === TabType.Outbox && <Text style={styles.expiredTag}>Expired</Text>}
-          {status === QuestionStatus.Answered && <Text style={styles.answeredTag}>Answered</Text>}
+          {status === QuestionStatus.Answered && activeTab === TabType.Inbox && <Text style={styles.respondedTag}>Responded</Text>}
+          {status === QuestionStatus.Answered && activeTab === TabType.Outbox && <Text style={styles.answeredTag}>Answered</Text>}
         </View>
         <Text style={styles.address} numberOfLines={2} ellipsizeMode='tail'>{address}</Text>
         <Text style={styles.question} numberOfLines={2} ellipsizeMode='tail'>{text}</Text>
@@ -81,6 +82,12 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   answeredTag: {
+    color: colors.PRIMARY,
+    fontSize: 16,
+    fontFamily: 'roboto-bold',
+    marginBottom: 5,
+  },
+  respondedTag: {
     color: colors.PRIMARY,
     fontSize: 16,
     fontFamily: 'roboto-bold',

@@ -3,6 +3,8 @@ import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { submitAnswer, submitAnswerWithImage } from '@/services/questions.services';
+import { useQuestionStore } from '@/store/question.store';
+import { QuestionStatus } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
@@ -31,13 +33,26 @@ const formatCountdown = (ms: number): string => {
 
 const AnswerQuestion = () => {
   const router = useRouter();
-  const { id, address, questionText, createdAt, assignedAt, timeToRespondMs } = useLocalSearchParams();
+  const updateInboxQuestion = useQuestionStore((state) => state.updateInboxQuestion);
+  const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
+  const {
+    id,
+    address,
+    questionText,
+    createdAt,
+    assignedAt,
+    timeToRespondMs,
+    status,
+    answer: existingAnswer,
+    readOnly,
+  } = useLocalSearchParams();
 
   const questionId = id as string;
+  const isReadOnly = readOnly === 'true' || status === QuestionStatus.Answered;
   const ttrMs = parseInt((timeToRespondMs as string) || '600000', 10);
   const assignedTime = new Date((assignedAt as string) || (createdAt as string)).getTime();
 
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState((existingAnswer as string) || '');
   const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
   const [remainingMs, setRemainingMs] = useState(() => {
@@ -53,23 +68,42 @@ const AnswerQuestion = () => {
     return () => clearInterval(interval);
   }, [assignedTime, ttrMs]);
 
-  const isExpired = remainingMs <= 0;
-  const isSendDisabled = answer.trim().length === 0 || loading || isExpired;
+  const isExpired = !isReadOnly && remainingMs <= 0;
+  const isSendDisabled = isReadOnly || answer.trim().length === 0 || loading || isExpired;
 
   const handleSend = async () => {
     if (isSendDisabled || !questionId) return;
     setLoading(true);
     try {
+      let response;
       if (attachment) {
-        await submitAnswerWithImage(questionId, answer.trim(), attachment.uri);
+        response = await submitAnswerWithImage(questionId, answer.trim(), attachment.uri);
       } else {
-        await submitAnswer(questionId, answer.trim());
+        response = await submitAnswer(questionId, answer.trim());
       }
+
+      const submittedAnswer = response?.data?.text ?? answer.trim();
+      const submittedAnswerId = response?.data?.id;
+
+      updateInboxQuestion(questionId, {
+        status: QuestionStatus.Answered,
+        answer: submittedAnswer,
+        answerId: submittedAnswerId,
+      });
+      updateOutboxQuestion(questionId, {
+        status: QuestionStatus.Answered,
+        answer: submittedAnswer,
+        answerId: submittedAnswerId,
+      });
+
       Alert.alert('Response sent', 'Your answer has been delivered.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || 'Could not send your response.');
+      Alert.alert(
+        'Error',
+        error?.response?.data?.error || error?.response?.data?.message || 'Could not send your response.',
+      );
     } finally {
       setLoading(false);
     }
@@ -116,18 +150,22 @@ const AnswerQuestion = () => {
           <BackButton color={colors.PRIMARY} />
         </View>
 
-        <Text style={styles.pageTitle}>Respond to this question</Text>
+        <Text style={styles.pageTitle}>
+          {isReadOnly ? 'Your response' : 'Respond to this question'}
+        </Text>
 
-        <View style={[styles.countdownCard, isExpired && styles.countdownExpired]}>
-          <Ionicons
-            name={isExpired ? 'timer-outline' : 'timer'}
-            size={20}
-            color={isExpired ? colors.ACTIVE : colors.PRIMARY}
-          />
-          <Text style={[styles.countdownText, isExpired && styles.countdownTextExpired]}>
-            {isExpired ? 'Time to respond has expired' : `Time left: ${formatCountdown(remainingMs)}`}
-          </Text>
-        </View>
+        {!isReadOnly && (
+          <View style={[styles.countdownCard, isExpired && styles.countdownExpired]}>
+            <Ionicons
+              name={isExpired ? 'timer-outline' : 'timer'}
+              size={20}
+              color={isExpired ? colors.ACTIVE : colors.PRIMARY}
+            />
+            <Text style={[styles.countdownText, isExpired && styles.countdownTextExpired]}>
+              {isExpired ? 'Time to respond has expired' : `Time left: ${formatCountdown(remainingMs)}`}
+            </Text>
+          </View>
+        )}
 
         <View style={styles.metadataCard}>
           <View style={styles.metadataRow}>
@@ -157,55 +195,65 @@ const AnswerQuestion = () => {
         <Text style={styles.sectionTitle}>Your Response</Text>
 
         <View style={styles.inputCard}>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Type your answer here…"
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={answer}
-            onChangeText={setAnswer}
-            multiline
-            textAlignVertical="top"
-            maxLength={MAX_ANSWER_LENGTH}
-            editable={!isExpired}
-          />
-          <View style={styles.inputFooter}>
-            <Text style={[styles.charCount, isNearLimit && styles.charCountWarn]}>
-              {charCount}/{MAX_ANSWER_LENGTH}
-            </Text>
-          </View>
+          {isReadOnly ? (
+            <Text style={styles.readOnlyAnswer}>{answer}</Text>
+          ) : (
+            <TextInput
+              style={styles.textArea}
+              placeholder="Type your answer here…"
+              placeholderTextColor={colors.LIGHT_GRAY}
+              value={answer}
+              onChangeText={setAnswer}
+              multiline
+              textAlignVertical="top"
+              maxLength={MAX_ANSWER_LENGTH}
+              editable={!isExpired}
+            />
+          )}
+          {!isReadOnly && (
+            <View style={styles.inputFooter}>
+              <Text style={[styles.charCount, isNearLimit && styles.charCountWarn]}>
+                {charCount}/{MAX_ANSWER_LENGTH}
+              </Text>
+            </View>
+          )}
         </View>
 
-        {attachment ? (
-          <View style={styles.attachmentChip}>
-            <Ionicons name="image-outline" size={18} color={colors.PRIMARY} />
-            <Text style={styles.attachmentChipText} numberOfLines={1}>
-              {truncateFilename(attachment.uri)}
-            </Text>
-            <TouchableOpacity onPress={handleRemoveAttachment} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={20} color={colors.MEDIUM_GRAY} />
+        {!isReadOnly && (
+          attachment ? (
+            <View style={styles.attachmentChip}>
+              <Ionicons name="image-outline" size={18} color={colors.PRIMARY} />
+              <Text style={styles.attachmentChipText} numberOfLines={1}>
+                {truncateFilename(attachment.uri)}
+              </Text>
+              <TouchableOpacity onPress={handleRemoveAttachment} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={20} color={colors.MEDIUM_GRAY} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.attachmentButton}
+              onPress={handlePickAttachment}
+              activeOpacity={0.7}
+              disabled={isExpired}
+            >
+              <Ionicons name="attach-outline" size={20} color={colors.DARK_GRAY} />
+              <Text style={styles.attachmentButtonText}>Attach an image (optional)</Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.attachmentButton}
-            onPress={handlePickAttachment}
-            activeOpacity={0.7}
-            disabled={isExpired}
-          >
-            <Ionicons name="attach-outline" size={20} color={colors.DARK_GRAY} />
-            <Text style={styles.attachmentButtonText}>Attach an image (optional)</Text>
-          </TouchableOpacity>
+          )
         )}
 
-        <View style={styles.actionArea}>
-          <CustomButton
-            text={loading ? 'Sending…' : 'Send Response'}
-            onPress={handleSend}
-            style={styles.btnSubmit}
-            disabled={isSendDisabled}
-            loading={loading}
-          />
-        </View>
+        {!isReadOnly && (
+          <View style={styles.actionArea}>
+            <CustomButton
+              text={loading ? 'Sending…' : 'Send Response'}
+              onPress={handleSend}
+              style={styles.btnSubmit}
+              disabled={isSendDisabled}
+              loading={loading}
+            />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -344,6 +392,14 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     minHeight: 140,
+    lineHeight: 26,
+  },
+  readOnlyAnswer: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.TEXT_DARK,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
     lineHeight: 26,
   },
   inputFooter: {

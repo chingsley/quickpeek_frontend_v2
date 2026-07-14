@@ -23,6 +23,7 @@ export const getInboxQuestions = async () => {
         answer: firstAnswer?.text ?? undefined,
         answerRating: firstAnswer?.rating ?? undefined,
         answerId: firstAnswer?.id ?? undefined,
+        answerImageUrl: firstAnswer?.imageUrl ?? undefined,
         responderUsername: firstAnswer?.responderUsername ?? undefined,
         responderId: firstAnswer?.responderID ?? undefined,
         responderAverageRating: firstAnswer?.responderAverageRating ?? undefined,
