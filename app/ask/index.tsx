@@ -60,9 +60,12 @@ const AskScreen = () => {
         return;
       }
 
-      await assignQuestion(question.id, responderId);
+      const assignResponse = await assignQuestion(question.id, responderId);
+      const assignedQuestion = assignResponse?.data ?? question;
+
       await dispatchNewQuestion({
         ...question,
+        ...assignedQuestion,
         status: QuestionStatus.Assigned,
         assignedResponderId: responderId,
       });
@@ -70,7 +73,7 @@ const AskScreen = () => {
       Alert.alert(
         'Question sent',
         `${responderName} has been notified and has time to respond.`,
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/Questions') }],
+        [{ text: 'OK', onPress: () => router.replace({ pathname: '/(tabs)/Questions', params: { tab: 'outbox' } }) }],
       );
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to send question.');

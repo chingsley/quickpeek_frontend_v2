@@ -5,7 +5,7 @@ import 'react-native-reanimated';
 
 import { initApiConfigFromLinking } from '@/config';
 import SocketService from '@/services/socket.services';
-import { useAuthStore, } from '@/store/auth.store';
+import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
@@ -13,20 +13,19 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 export default function RootLayout() {
-  const { initialize, isAuthenticated } = useAuthStore();
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
 
   useEffect(() => {
     initApiConfigFromLinking();
-    initialize();
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isLoggedIn) {
       SocketService.connect();
     } else {
       SocketService.disconnect();
     }
-  }, [isAuthenticated]);
+  }, [isLoggedIn]);
 
   useFonts({
     'roboto': require('./../assets/fonts/Roboto-Regular.ttf'),

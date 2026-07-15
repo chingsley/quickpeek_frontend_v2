@@ -1,14 +1,30 @@
 import { colors } from '@/constants/colors';
+import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
-import { QuestionStatus } from '@/types/question.types';
+import { isAssignmentTtrActive } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 const TabLayout = () => {
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
   const assignedCount = useQuestionStore((state) =>
-    state.inboxQuestions.filter((q) => q.status === QuestionStatus.Assigned).length,
+    state.inboxQuestions.filter(isAssignmentTtrActive).length,
   );
+
+  if (!hasHydrated) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.PRIMARY} />
+      </View>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/signin" />;
+  }
 
   return (
     <Tabs
@@ -75,3 +91,12 @@ const TabLayout = () => {
 };
 
 export default TabLayout;
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.BG_WHITE,
+  },
+});

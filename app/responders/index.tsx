@@ -140,7 +140,7 @@ const RespondersScreen = () => {
           <BackButton color={colors.PRIMARY} />
         </View>
         <Text style={styles.pageTitle}>
-          {reassignQuestionId ? 'Re-choose responder' : 'Choose a responder'}
+          {reassignQuestionId ? 'Choose another responder' : 'Choose a responder'}
         </Text>
 
         {loading || assigning ? (

@@ -6,7 +6,7 @@ import { fonts } from '@/constants/fonts';
 import { rateAnswer } from '@/services/ratings.services';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -21,10 +21,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const TAP_STAR_SIZE = 38;
 
 const QuestionDetail = () => {
+  const router = useRouter();
   const params = useLocalSearchParams();
   const {
+    questionId,
     address,
     questionText,
+    longitude,
+    latitude,
     createdAt,
     answer,
     answerRating,
@@ -34,10 +38,12 @@ const QuestionDetail = () => {
     responderAverageRating,
     isOutbox,
     isPending,
+    isExpired,
   } = params;
 
   const isOutboxBool = isOutbox === 'true';
   const isPendingBool = isPending === 'true';
+  const isExpiredBool = isExpired === 'true';
   const hasAnswer = answer && String(answer).trim().length > 0;
   const existingRating = answerRating ? Number(answerRating) : 0;
   const hasExistingRating = existingRating > 0;
@@ -70,6 +76,18 @@ const QuestionDetail = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleRechooseResponder = () => {
+    router.push({
+      pathname: '/responders',
+      params: {
+        latitude: String(latitude),
+        longitude: String(longitude),
+        address: address as string,
+        reassignQuestionId: questionId as string,
+      },
+    });
   };
 
   return (
@@ -157,6 +175,14 @@ const QuestionDetail = () => {
               )}
             </View>
           </View>
+        ) : isExpiredBool ? (
+          <View style={styles.emptyStateCard}>
+            <Ionicons name="timer-outline" size={40} color={colors.ACTIVE} />
+            <Text style={styles.emptyStateTitle}>Response window expired</Text>
+            <Text style={styles.emptyStateBody}>
+              Your responder did not answer in time. You can choose a different responder to try again.
+            </Text>
+          </View>
         ) : (
           <View style={styles.emptyStateCard}>
             <Ionicons name="hourglass-outline" size={40} color={colors.LIGHT_GRAY} />
@@ -211,11 +237,21 @@ const QuestionDetail = () => {
         )}
 
         {/* Action */}
-        {isOutboxBool && !hasAnswer && (
+        {isOutboxBool && isExpiredBool && (
+          <View style={styles.actionArea}>
+            <CustomButton
+              text="Choose another responder"
+              onPress={handleRechooseResponder}
+              style={styles.btnSubmit}
+            />
+          </View>
+        )}
+
+        {isOutboxBool && !hasAnswer && !isExpiredBool && (
           <View style={styles.actionArea}>
             <CustomButton
               text={isPendingBool ? 'Awaiting Response…' : 'Re-ask Question'}
-              onPress={() => {}}
+              onPress={() => { }}
               style={styles.btnSubmit}
               disabled={isPendingBool}
             />

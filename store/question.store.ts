@@ -1,4 +1,5 @@
 import { TQuestion } from '@/types/question.types';
+import { sortInboxQuestions, sortOutboxQuestions } from '@/utils/questions';
 import { create } from 'zustand';
 
 function dedupeQuestionsById(questions: TQuestion[]): TQuestion[] {
@@ -32,26 +33,29 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
   outboxQuestions: [],
   postedQuestion: null,
 
-  setInboxQuestions: (questions) => set({ inboxQuestions: dedupeQuestionsById(questions) }),
+  setInboxQuestions: (questions) =>
+    set({ inboxQuestions: sortInboxQuestions(dedupeQuestionsById(questions)) }),
 
   prependInboxQuestion: (question) => {
     const { inboxQuestions } = get();
     const withoutExisting = inboxQuestions.filter((q) => q.id !== question.id);
-    set({ inboxQuestions: [question, ...withoutExisting] });
+    set({ inboxQuestions: sortInboxQuestions([question, ...withoutExisting]) });
   },
 
   updateInboxQuestion: (questionId, updates) => {
     const { inboxQuestions } = get();
     set({
-      inboxQuestions: inboxQuestions.map((question) =>
-        question.id === questionId ? { ...question, ...updates } : question
+      inboxQuestions: sortInboxQuestions(
+        inboxQuestions.map((question) =>
+          question.id === questionId ? { ...question, ...updates } : question,
+        ),
       ),
     });
   },
 
   mergeInboxQuestions: (questions) => {
     const { inboxQuestions } = get();
-    set({ inboxQuestions: dedupeQuestionsById([...questions, ...inboxQuestions]) });
+    set({ inboxQuestions: sortInboxQuestions(dedupeQuestionsById([...questions, ...inboxQuestions])) });
   },
 
   removeInboxQuestion: (questionId) => {
@@ -59,13 +63,16 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     set({ inboxQuestions: inboxQuestions.filter((q) => q.id !== questionId) });
   },
 
-  setOutboxQuestions: (questions) => set({ outboxQuestions: dedupeQuestionsById(questions) }),
+  setOutboxQuestions: (questions) =>
+    set({ outboxQuestions: sortOutboxQuestions(dedupeQuestionsById(questions)) }),
 
   updateOutboxQuestion: (questionId, updates) => {
     const { outboxQuestions } = get();
     set({
-      outboxQuestions: outboxQuestions.map((question) =>
-        question.id === questionId ? { ...question, ...updates } : question
+      outboxQuestions: sortOutboxQuestions(
+        outboxQuestions.map((question) =>
+          question.id === questionId ? { ...question, ...updates } : question,
+        ),
       ),
     });
   },
@@ -76,7 +83,7 @@ export const useQuestionStore = create<QuestionState>((set, get) => ({
     const { outboxQuestions } = get();
     const withoutExisting = outboxQuestions.filter((q) => q.id !== questionData.id);
     set({
-      outboxQuestions: [questionData, ...withoutExisting],
+      outboxQuestions: sortOutboxQuestions([questionData, ...withoutExisting]),
       postedQuestion: questionData,
     });
   },

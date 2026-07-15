@@ -1,11 +1,14 @@
-
 import { colors } from '@/constants/colors';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
-import { Redirect, Stack } from 'expo-router';
+import { Redirect } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-const AuthLayout = () => {
+type AuthGateProps = {
+  children: React.ReactNode;
+};
+
+const AuthGate = ({ children }: AuthGateProps) => {
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
 
@@ -17,19 +20,14 @@ const AuthLayout = () => {
     );
   }
 
-  if (isLoggedIn) {
-    return <Redirect href="/(tabs)/Home" />;
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/signin" />;
   }
 
-  return (
-    <Stack>
-      <Stack.Screen name="signin" options={{ headerShown: false }} />
-      <Stack.Screen name="signup" options={{ headerShown: false }} />
-    </Stack>
-  );
+  return <>{children}</>;
 };
 
-export default AuthLayout;
+export default AuthGate;
 
 const styles = StyleSheet.create({
   loadingContainer: {

@@ -1,7 +1,6 @@
 // app / (tabs) / Questions.tsx
 
 import HistoryItem from '@/components/HistoryItem';
-import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { questionService } from '@/services';
@@ -9,16 +8,26 @@ import SocketService from '@/services/socket.services';
 import { useQuestionStore } from '@/store/question.store';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
+import {
+  filterAndSortQuestions,
+  INBOX_FILTERS,
+  isAssignmentTtrActive,
+  OUTBOX_FILTERS,
+  QUESTION_FILTER_LABELS,
+  QuestionFilter,
+  DEFAULT_TTR_MS,
+} from '@/utils/questions';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   AppState,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,9 +37,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Questions = () => {
   const [activeTab, setActiveTab] = useState(TabType.Inbox);
+  const [activeFilter, setActiveFilter] = useState(QuestionFilter.All);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const params = useLocalSearchParams<{ tab?: string; }>();
 
   const inboxQuestions = useQuestionStore((state) => state.inboxQuestions);
   const outboxQuestions = useQuestionStore((state) => state.outboxQuestions);
@@ -39,8 +50,37 @@ const Questions = () => {
   const updateInboxQuestion = useQuestionStore((state) => state.updateInboxQuestion);
   const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
+  const removeInboxQuestion = useQuestionStore((state) => state.removeInboxQuestion);
 
-  const fetchQuestions = async () => {
+  const pruneExpiredInboxAssignments = useCallback(() => {
+    const currentInbox = useQuestionStore.getState().inboxQuestions;
+    const prunedInbox = currentInbox.filter(
+      (question) =>
+        question.status === QuestionStatus.Answered || isAssignmentTtrActive(question),
+    );
+
+    if (prunedInbox.length !== currentInbox.length) {
+      setInboxQuestions(prunedInbox);
+    }
+  }, [setInboxQuestions]);
+
+  const handleRechooseFromExpired = useCallback((questionId?: string) => {
+    const item = useQuestionStore.getState().outboxQuestions.find((q) => q.id === questionId) ||
+      useQuestionStore.getState().outboxQuestions.find((q) => q.status === QuestionStatus.Expired);
+    if (!item) return;
+
+    router.push({
+      pathname: '/responders',
+      params: {
+        latitude: String(item.latitude),
+        longitude: String(item.longitude),
+        address: item.address,
+        reassignQuestionId: item.id,
+      },
+    });
+  }, [router]);
+
+  const fetchQuestions = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -50,18 +90,39 @@ const Questions = () => {
         questionService.getInboxQuestions(),
         questionService.getOutboxQuestions(),
       ]);
-      setInboxQuestions([...assignedQuestions, ...answeredQuestions]);
-      setOutboxQuestions(postedQuestions);
+      setInboxQuestions([
+        ...assignedQuestions.filter(isAssignmentTtrActive),
+        ...answeredQuestions,
+      ]);
+
+      const apiOutboxIds = new Set(postedQuestions.map((question: TQuestion) => question.id));
+      const optimisticOutbox = useQuestionStore
+        .getState()
+        .outboxQuestions.filter((question) => !apiOutboxIds.has(question.id));
+      setOutboxQuestions([...postedQuestions, ...optimisticOutbox]);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch questions. Please try again later.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [setInboxQuestions, setOutboxQuestions]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchQuestions();
+    }, [fetchQuestions]),
+  );
 
   useEffect(() => {
-    fetchQuestions();
-  }, []);
+    if (params.tab === 'outbox') {
+      setActiveTab(TabType.Outbox);
+      router.setParams({ tab: '' });
+    }
+  }, [params.tab, router]);
+
+  useEffect(() => {
+    setActiveFilter(QuestionFilter.All);
+  }, [activeTab]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
@@ -101,18 +162,24 @@ const Questions = () => {
         prependInboxQuestion(newQuestionObj);
       };
 
-      const handleExpired = (payload: { questionId: string }) => {
+      const handleExpired = (payload: { questionId: string; }) => {
+        removeInboxQuestion(payload.questionId);
         updateOutboxQuestion(payload.questionId, { status: QuestionStatus.Expired });
         Alert.alert(
           'No response in time',
           'Your responder did not answer in time. You can re-choose someone else.',
-          [{ text: 'Re-choose responder', onPress: () => handleRechooseFromExpired(payload.questionId) }],
+          [{ text: 'Choose another responder', onPress: () => handleRechooseFromExpired(payload.questionId) }],
         );
+      };
+
+      const handleAssignmentExpired = (payload: { questionId: string; }) => {
+        removeInboxQuestion(payload.questionId);
       };
 
       socket.on('question:update', handleUpdate);
       socket.on('question:new', handleNewQuestion);
       socket.on('question:expired', handleExpired);
+      socket.on('question:assignment-expired', handleAssignmentExpired);
     };
 
     if (socket) {
@@ -133,31 +200,69 @@ const Questions = () => {
         socket.off('question:update');
         socket.off('question:new');
         socket.off('question:expired');
+        socket.off('question:assignment-expired');
       }
     };
-  }, []);
+  }, [handleRechooseFromExpired, prependInboxQuestion, removeInboxQuestion, updateInboxQuestion, updateOutboxQuestion]);
 
-  const assignedCount = inboxQuestions.filter((q) => q.status === QuestionStatus.Assigned).length;
+  useEffect(() => {
+    pruneExpiredInboxAssignments();
+    const intervalId = setInterval(pruneExpiredInboxAssignments, 15000);
+    return () => clearInterval(intervalId);
+  }, [pruneExpiredInboxAssignments]);
 
-  const handleRechooseFromExpired = (questionId?: string) => {
-    const item = outboxQuestions.find((q) => q.id === questionId) ||
-      outboxQuestions.find((q) => q.status === QuestionStatus.Expired);
-    if (!item) return;
+  const assignedCount = inboxQuestions.filter(isAssignmentTtrActive).length;
+  const availableFilters = activeTab === TabType.Inbox ? INBOX_FILTERS : OUTBOX_FILTERS;
 
-    router.push({
-      pathname: '/responders',
-      params: {
-        latitude: String(item.latitude),
-        longitude: String(item.longitude),
-        address: item.address,
-        reassignQuestionId: item.id,
-      },
-    });
+  const displayedQuestions = useMemo(
+    () =>
+      filterAndSortQuestions(
+        activeTab === TabType.Inbox ? inboxQuestions : outboxQuestions,
+        activeFilter,
+        activeTab,
+      ),
+    [activeFilter, activeTab, inboxQuestions, outboxQuestions],
+  );
+
+  const getEmptyListMessage = () => {
+    if (activeFilter !== QuestionFilter.All) {
+      return `No ${QUESTION_FILTER_LABELS[activeFilter].toLowerCase()} questions found.`;
+    }
+
+    return activeTab === TabType.Inbox
+      ? 'No assigned questions yet.'
+      : 'You have not asked any questions yet.';
   };
+
+  const renderFilterChips = () => (
+    <View style={styles.filterContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+        style={styles.filterScroll}
+      >
+        {availableFilters.map((filter) => {
+          const isActive = activeFilter === filter;
+          return (
+            <Pressable
+              key={filter}
+              onPress={() => setActiveFilter(filter)}
+              style={[styles.filterChip, isActive && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+                {QUESTION_FILTER_LABELS[filter]}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
 
   const handleHistoryItemClick = (item: TQuestion) => {
     if (activeTab === TabType.Inbox) {
-      if (item.status === QuestionStatus.Assigned || item.status === QuestionStatus.Answered) {
+      if (item.status === QuestionStatus.Answered) {
         router.push({
           pathname: '/answer',
           params: {
@@ -166,11 +271,30 @@ const Questions = () => {
             questionText: item.text,
             createdAt: item.createdAt,
             assignedAt: item.assignedAt || item.createdAt,
-            timeToRespondMs: String(item.timeToRespondMs || 600000),
+            timeToRespondMs: String(item.timeToRespondMs || DEFAULT_TTR_MS),
             status: item.status,
             answer: item.answer || '',
             answerImageUrl: item.answerImageUrl || '',
-            readOnly: item.status === QuestionStatus.Answered ? 'true' : 'false',
+            readOnly: 'true',
+          },
+        });
+        return;
+      }
+
+      if (isAssignmentTtrActive(item)) {
+        router.push({
+          pathname: '/answer',
+          params: {
+            id: item.id,
+            address: item.address,
+            questionText: item.text,
+            createdAt: item.createdAt,
+            assignedAt: item.assignedAt as string,
+            timeToRespondMs: String(item.timeToRespondMs ?? DEFAULT_TTR_MS),
+            status: item.status,
+            answer: item.answer || '',
+            answerImageUrl: item.answerImageUrl || '',
+            readOnly: 'false',
           },
         });
         return;
@@ -196,7 +320,25 @@ const Questions = () => {
     }
 
     if (item.status === QuestionStatus.Expired) {
-      handleRechooseFromExpired(item.id);
+      router.push({
+        pathname: '/question-detail',
+        params: {
+          questionId: item.id,
+          address: item.address,
+          questionText: item.text,
+          longitude: item.longitude,
+          latitude: item.latitude,
+          createdAt: item.createdAt,
+          answer: item.answer,
+          answerRating: item.answerRating,
+          answerId: item.answerId,
+          responderUsername: item.responderUsername,
+          responderId: item.responderId,
+          responderAverageRating: item.responderAverageRating,
+          isOutbox: 'true',
+          isExpired: 'true',
+        },
+      });
       return;
     }
 
@@ -222,14 +364,18 @@ const Questions = () => {
 
   const renderContent = () => {
     if (loading) {
-      return <ActivityIndicator size="large" color={colors.PRIMARY} />;
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.PRIMARY} />
+        </View>
+      );
     }
 
     if (error) {
       return <Text style={styles.errorText}>{error}</Text>;
     }
 
-    const data = activeTab === TabType.Inbox ? inboxQuestions : outboxQuestions;
+    const data = displayedQuestions;
 
     return (
       <FlatList
@@ -245,13 +391,6 @@ const Questions = () => {
                 status={item.status as QuestionStatus}
                 activeTab={activeTab}
               />
-              {activeTab === TabType.Outbox && item.status === QuestionStatus.Expired && (
-                <CustomButton
-                  text="Re-choose responder"
-                  onPress={() => handleRechooseFromExpired(item.id)}
-                  style={styles.rechooseBtn}
-                />
-              )}
             </View>
             {activeTab === TabType.Outbox && item.status !== QuestionStatus.Expired && (
               <Pressable
@@ -276,14 +415,8 @@ const Questions = () => {
           </View>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={{ paddingTop: 20 }}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {activeTab === TabType.Inbox
-              ? 'No assigned questions yet.'
-              : 'You have not asked any questions yet.'}
-          </Text>
-        }
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={<Text style={styles.emptyText}>{getEmptyListMessage()}</Text>}
       />
     );
   };
@@ -293,7 +426,7 @@ const Questions = () => {
       <View style={styles.pageContentContainer}>
         <View style={styles.titleSection}>
           <Text style={styles.pageTitle}>Questions</Text>
-          <Pressable onPress={() => {}}>
+          <Pressable onPress={() => { }}>
             <Ionicons name="information-circle-outline" size={28} color={colors.DARK_GRAY} />
           </Pressable>
         </View>
@@ -323,7 +456,8 @@ const Questions = () => {
               </Text>
             </TouchableOpacity>
           </View>
-          {renderContent()}
+          {renderFilterChips()}
+          <View style={styles.listContainer}>{renderContent()}</View>
         </View>
       </View>
     </SafeAreaView>
@@ -334,10 +468,11 @@ export default Questions;
 
 const styles = StyleSheet.create({
   safeAreaContainer: {
-    height: '100%',
+    flex: 1,
     backgroundColor: colors.BG_WHITE,
   },
   pageContentContainer: {
+    flex: 1,
     paddingVertical: 20,
     paddingHorizontal: 26,
   },
@@ -351,10 +486,21 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   itemsContainer: {
-    marginBottom: 100,
+    flex: 1,
+  },
+  listContainer: {
+    flex: 1,
+    minHeight: 0,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabContainer: {
+    flex: 1,
     marginTop: 25,
+    minHeight: 0,
   },
   tabHeader: {
     flexDirection: 'row',
@@ -375,6 +521,50 @@ const styles = StyleSheet.create({
     color: colors.DARK_GRAY,
   },
   activeTabText: {},
+  filterContainer: {
+    flexShrink: 0,
+    flexGrow: 0,
+  },
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: colors.BG_WHITE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 36,
+  },
+  filterChipActive: {
+    borderColor: colors.PRIMARY,
+    backgroundColor: colors.LIGHT_GREEN,
+  },
+  filterChipText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.DARK_GRAY,
+    lineHeight: 18,
+  },
+  filterChipTextActive: {
+    color: colors.PRIMARY,
+  },
+  listContent: {
+    paddingTop: 12,
+    paddingBottom: 100,
+  },
   separator: {
     height: 1,
     backgroundColor: colors.LIGHT_GRAY,
@@ -389,9 +579,6 @@ const styles = StyleSheet.create({
   historyItemBox: {
     flex: 1,
     marginRight: 10,
-  },
-  rechooseBtn: {
-    marginTop: 12,
   },
   arrowRotateIconBtn: {
     paddingVertical: 10,

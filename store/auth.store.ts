@@ -1,4 +1,4 @@
-import { initializeAuthToken, setAuthToken } from '@/config/axios.config';
+import { setAuthToken, setUnauthorizedHandler } from '@/config/axios.config';
 import { requestLocationPermissions, startLocationUpdates, stopLocationUpdates } from '@/services/location.services';
 import TUser from '@/types/user.types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,11 +10,30 @@ interface AuthState {
   isLocationActive: boolean;
   user: TUser | null;
   token: string | null;
+  hasHydrated: boolean;
   login: (locationSharingEnabled: boolean, userData: TUser, token: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<TUser>) => void;
-  initialize: () => Promise<void>;
 }
+
+const hasValidSession = (token: string | null | undefined, user: TUser | null | undefined) =>
+  !!(token && user);
+
+const applySessionState = (
+  set: (state: Partial<AuthState>) => void,
+  token: string | null,
+  user: TUser | null,
+  isLocationActive = false,
+) => {
+  const authenticated = hasValidSession(token, user);
+  setAuthToken(authenticated ? token : null);
+  set({
+    token: authenticated ? token : null,
+    user: authenticated ? user : null,
+    isAuthenticated: authenticated,
+    isLocationActive: authenticated ? isLocationActive : false,
+  });
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -23,20 +42,10 @@ export const useAuthStore = create<AuthState>()(
       isLocationActive: false,
       user: null,
       token: null,
-
-      initialize: async () => {
-        await initializeAuthToken();
-      },
+      hasHydrated: false,
 
       login: async (locationSharingEnabled: boolean, userData: TUser, token: string) => {
-        // Set token in axios config
-        setAuthToken(token);
-
-        set({
-          isAuthenticated: true,
-          user: userData,
-          token: token
-        });
+        applySessionState(set, token, userData);
 
         if (locationSharingEnabled) {
           const hasPermissions = await requestLocationPermissions();
@@ -50,15 +59,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const { isLocationActive } = get();
 
-        // Clear token from axios config
-        setAuthToken(null);
-
-        set({
-          isAuthenticated: false,
-          user: null,
-          token: null,
-          isLocationActive: false
-        });
+        applySessionState(set, null, null);
 
         if (isLocationActive) {
           await stopLocationUpdates();
@@ -66,21 +67,41 @@ export const useAuthStore = create<AuthState>()(
       },
 
       updateUser: (userData: Partial<TUser>) => {
-        set(state => ({
-          user: state.user ? { ...state.user, ...userData } : null
+        set((state) => ({
+          user: state.user ? { ...state.user, ...userData } : null,
         }));
-      }
+      },
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // Only persist these fields to avoid storing functions
       partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
         isLocationActive: state.isLocationActive,
         user: state.user,
         token: state.token,
       }),
-    }
-  )
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('Error rehydrating auth storage:', error);
+          applySessionState(useAuthStore.setState, null, null);
+          useAuthStore.setState({ hasHydrated: true });
+          return;
+        }
+
+        const token = state?.token ?? null;
+        const user = state?.user ?? null;
+        const isLocationActive = state?.isLocationActive ?? false;
+
+        applySessionState(useAuthStore.setState, token, user, isLocationActive);
+        useAuthStore.setState({ hasHydrated: true });
+      },
+    },
+  ),
 );
+
+setUnauthorizedHandler(async () => {
+  await useAuthStore.getState().logout();
+});
+
+export const selectIsLoggedIn = (state: AuthState) =>
+  state.hasHydrated && state.isAuthenticated && !!state.token && !!state.user;

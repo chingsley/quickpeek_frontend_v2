@@ -4,12 +4,13 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { submitAnswer, submitAnswerWithImage } from '@/services/questions.services';
 import { useQuestionStore } from '@/store/question.store';
-import { QuestionStatus } from '@/types/question.types';
+import { QuestionStatus, TQuestion } from '@/types/question.types';
+import { DEFAULT_TTR_MS, getRemainingTtrMs } from '@/utils/questions';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -49,24 +50,34 @@ const AnswerQuestion = () => {
 
   const questionId = id as string;
   const isReadOnly = readOnly === 'true' || status === QuestionStatus.Answered;
-  const ttrMs = parseInt((timeToRespondMs as string) || '600000', 10);
-  const assignedTime = new Date((assignedAt as string) || (createdAt as string)).getTime();
+  const countdownQuestion = useMemo<TQuestion>(
+    () => ({
+      id: questionId,
+      address: address as string,
+      longitude: 0,
+      latitude: 0,
+      text: questionText as string,
+      userId: '',
+      createdAt: createdAt as string,
+      updatedAt: createdAt as string,
+      status: status as QuestionStatus,
+      assignedAt: assignedAt as string,
+      timeToRespondMs: parseInt((timeToRespondMs as string) || String(DEFAULT_TTR_MS), 10),
+    }),
+    [address, assignedAt, createdAt, questionId, questionText, status, timeToRespondMs],
+  );
 
   const [answer, setAnswer] = useState((existingAnswer as string) || '');
   const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
-  const [remainingMs, setRemainingMs] = useState(() => {
-    const elapsed = Date.now() - assignedTime;
-    return Math.max(0, ttrMs - elapsed);
-  });
+  const [remainingMs, setRemainingMs] = useState(() => getRemainingTtrMs(countdownQuestion));
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const elapsed = Date.now() - assignedTime;
-      setRemainingMs(Math.max(0, ttrMs - elapsed));
+      setRemainingMs(getRemainingTtrMs(countdownQuestion));
     }, 1000);
     return () => clearInterval(interval);
-  }, [assignedTime, ttrMs]);
+  }, [countdownQuestion]);
 
   const isExpired = !isReadOnly && remainingMs <= 0;
   const isSendDisabled = isReadOnly || answer.trim().length === 0 || loading || isExpired;

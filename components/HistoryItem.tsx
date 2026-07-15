@@ -3,6 +3,7 @@ import { fonts } from '@/constants/fonts';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
 import { formatDate } from '@/utils/date';
+import { isAssignmentTtrActive } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -14,14 +15,16 @@ interface Props extends TQuestion {
 
 const HistoryItem = (item: Props) => {
   const { address, text, createdAt, onClick, status, activeTab } = item;
+  const isActiveAssignment = isAssignmentTtrActive(item);
+
   return (
     <TouchableOpacity onPress={() => onClick()} style={styles.clickableContainer}>
       <Ionicons name="time-outline" size={15} color="black" />
       <View style={styles.textContainer}>
         <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
           <Text style={styles.date}>{formatDate(createdAt)}</Text>
-          {status === QuestionStatus.Assigned && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
-          {status === QuestionStatus.Assigned && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
+          {isActiveAssignment && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
+          {isActiveAssignment && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
           {status === QuestionStatus.Expired && activeTab === TabType.Outbox && <Text style={styles.expiredTag}>Expired</Text>}
           {status === QuestionStatus.Answered && activeTab === TabType.Inbox && <Text style={styles.respondedTag}>Responded</Text>}
           {status === QuestionStatus.Answered && activeTab === TabType.Outbox && <Text style={styles.answeredTag}>Answered</Text>}

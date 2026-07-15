@@ -2,13 +2,17 @@ import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import useDebounce from '@/hooks/useDebounce';
+import { questionService } from '@/services';
+import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
+import { TRecentAddress, useRecentAddressStore } from '@/store/recent-address.store';
+import { TQuestion } from '@/types/question.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import BottomSheet, {
   BottomSheetScrollView,
   BottomSheetTextInput,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -32,15 +36,43 @@ const DEFAULT_MAP_REGION = {
   longitudeDelta: 0.0421,
 };
 
+const getMostRecentAddress = (
+  localAddress: TRecentAddress | null,
+  questions: TQuestion[],
+): TRecentAddress | null => {
+  const latestQuestion = questions
+    .filter((question) => question.address?.trim())
+    .sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0];
+
+  if (latestQuestion) {
+    return {
+      userId: latestQuestion.userId,
+      address: latestQuestion.address,
+      latitude: latestQuestion.latitude,
+      longitude: latestQuestion.longitude,
+      chosenAt: latestQuestion.createdAt,
+    };
+  }
+
+  return localAddress;
+};
+
 const HomeScreen = () => {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const insets = useSafeAreaInsets();
   const snapPoints = useMemo(() => ['38%', '62%'], []);
   const params = useLocalSearchParams();
   const router = useRouter();
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
+  const userId = useAuthStore((state) => state.user?.id);
+  const getRecentAddressForUser = useRecentAddressStore((state) => state.getRecentAddressForUser);
+  const setRecentAddress = useRecentAddressStore((state) => state.setRecentAddress);
 
   const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
   const [isAddressSelected, setIsAddressSelected] = useState(false);
+  const [recentAddress, setRecentAddressState] = useState<TRecentAddress | null>(null);
   const [inputAddressText, setInputAddressText] = useState('');
   const [reaskQuestionText, setReaskQuestionText] = useState('');
   const [addressCoordinates, setAddressCoordinates] = useState({
@@ -58,7 +90,8 @@ const HomeScreen = () => {
     if (addressParam && longitudeParam && latitudeParam) {
       const latitude = parseFloat(latitudeParam as string);
       const longitude = parseFloat(longitudeParam as string);
-      setInputAddressText(addressParam as string);
+      const address = addressParam as string;
+      setInputAddressText(address);
       setAddressCoordinates({ latitude, longitude });
       setRegion({
         latitude,
@@ -70,6 +103,9 @@ const HomeScreen = () => {
         setReaskQuestionText(questionTextParam as string);
       }
       setIsAddressSelected(true);
+      if (userId) {
+        setRecentAddress(userId, address, latitude, longitude);
+      }
       bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
       router.setParams({
         questionText: '',
@@ -78,7 +114,31 @@ const HomeScreen = () => {
         latitude: '',
       });
     }
-  }, [questionTextParam, addressParam, longitudeParam, latitudeParam]);
+  }, [questionTextParam, addressParam, longitudeParam, latitudeParam, router, setRecentAddress, userId]);
+
+  const loadRecentAddress = useCallback(async () => {
+    if (!isLoggedIn || !userId) {
+      setRecentAddressState(null);
+      return;
+    }
+
+    try {
+      const localAddress = getRecentAddressForUser(userId);
+      const outboxQuestions = await questionService.getOutboxQuestions();
+      setRecentAddressState(getMostRecentAddress(localAddress, outboxQuestions));
+    } catch (error: any) {
+      if (error.response?.status !== 401) {
+        console.error('Error loading recent address:', error);
+      }
+      setRecentAddressState(getRecentAddressForUser(userId));
+    }
+  }, [getRecentAddressForUser, isLoggedIn, userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadRecentAddress();
+    }, [loadRecentAddress]),
+  );
 
   useEffect(() => {
     if (debouncedAddressText.length > 2 && !isAddressSelected) {
@@ -113,6 +173,39 @@ const HomeScreen = () => {
     }
   }, []);
 
+  const selectAddress = useCallback(
+    (address: string, latitude: number, longitude: number) => {
+      setInputAddressText(address);
+      setAddressCoordinates({ latitude, longitude });
+      setAddressSuggestions([]);
+      setIsAddressSelected(true);
+      setRegion({
+        latitude,
+        longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      });
+
+      if (userId) {
+        setRecentAddress(userId, address, latitude, longitude);
+        setRecentAddressState({
+          userId,
+          address,
+          latitude,
+          longitude,
+          chosenAt: new Date().toISOString(),
+        });
+      }
+
+      Keyboard.dismiss();
+    },
+    [setRecentAddress, userId],
+  );
+
+  const handleAddressFocus = useCallback(() => {
+    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
+  }, []);
+
   const handleAddressBlur = useCallback(() => {
     Keyboard.dismiss();
   }, []);
@@ -145,24 +238,26 @@ const HomeScreen = () => {
 
   const onSuggestionPress = (item: any) => {
     try {
-      setInputAddressText(item.display_name);
-      setAddressCoordinates({
-        latitude: parseFloat(item.lat),
-        longitude: parseFloat(item.lon),
-      });
-      setAddressSuggestions([]);
-      setIsAddressSelected(true);
-      setRegion({
-        latitude: parseFloat(item.lat),
-        longitude: parseFloat(item.lon),
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
-      Keyboard.dismiss();
+      selectAddress(item.display_name, parseFloat(item.lat), parseFloat(item.lon));
     } catch (error) {
       console.error('onSuggestionPress error', error);
     }
   };
+
+  const onRecentAddressPress = () => {
+    if (!recentAddress) {
+      return;
+    }
+
+    selectAddress(recentAddress.address, recentAddress.latitude, recentAddress.longitude);
+  };
+
+  const showRecentAddress =
+    isLoggedIn &&
+    !isAddressSelected &&
+    inputAddressText.trim().length === 0 &&
+    addressSuggestions.length === 0 &&
+    recentAddress !== null;
 
   const isLocationValid = isAddressSelected && inputAddressText.trim().length > 0;
 
@@ -212,12 +307,32 @@ const HomeScreen = () => {
                   placeholderTextColor={colors.MEDIUM_GRAY}
                   value={inputAddressText}
                   onChangeText={handleLocationChange}
+                  onFocus={handleAddressFocus}
                   onBlur={handleAddressBlur}
                   onSubmitEditing={handleAddressSubmit}
                   returnKeyType="done"
                   blurOnSubmit
                 />
               </View>
+
+              {showRecentAddress && (
+                <View style={styles.suggestionsContainer}>
+                  <TouchableOpacity
+                    style={styles.suggestionItem}
+                    onPress={onRecentAddressPress}
+                  >
+                    <Ionicons
+                      name="location-outline"
+                      size={16}
+                      color={colors.MEDIUM_GRAY}
+                      style={styles.suggestionIcon}
+                    />
+                    <Text style={styles.suggestionText} numberOfLines={2}>
+                      {recentAddress.address}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {addressSuggestions.length > 0 && (
                 <View style={styles.suggestionsContainer}>

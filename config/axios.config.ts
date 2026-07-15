@@ -12,6 +12,7 @@ const Axios = axios.create({
 
 // Token management without circular dependencies
 let authToken: string | null = null;
+let unauthorizedHandler: (() => Promise<void>) | null = null;
 
 // Function to set token (called from auth store)
 export const setAuthToken = (token: string | null) => {
@@ -22,6 +23,10 @@ export const setAuthToken = (token: string | null) => {
   } else {
     delete Axios.defaults.headers.common['Authorization'];
   }
+};
+
+export const setUnauthorizedHandler = (handler: (() => Promise<void>) | null) => {
+  unauthorizedHandler = handler;
 };
 
 // Initialize token from storage on app start
@@ -61,11 +66,9 @@ Axios.interceptors.request.use(
 Axios.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
+    if (error.response?.status === 401 && unauthorizedHandler && authToken) {
       setAuthToken(null);
-      await AsyncStorage.removeItem('auth-storage');
-      // You might want to redirect to login screen here
+      await unauthorizedHandler();
     }
     return Promise.reject(error);
   }
