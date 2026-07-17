@@ -19,6 +19,7 @@ export type TUser = {
   location?: TLocation;
   rating?: TUserRating;
   answersCount?: number;
+  profileImageUrl?: string | null;
 };
 
 export default TUser;

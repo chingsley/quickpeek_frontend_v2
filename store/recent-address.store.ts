@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ssrSafeStorage } from '@/utils/ssr-safe-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -51,7 +51,7 @@ export const useRecentAddressStore = create<RecentAddressState>()(
     }),
     {
       name: 'recent-address-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => ssrSafeStorage),
       partialize: (state) => ({
         recentAddress: state.recentAddress,
       }),

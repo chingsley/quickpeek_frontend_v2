@@ -1,8 +1,9 @@
+import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
-import { formatDate } from '@/utils/date';
+import { formatListTime } from '@/utils/date';
 import { isAssignmentTtrActive } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
@@ -11,101 +12,116 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface Props extends TQuestion {
   onClick: () => void;
   activeTab: TabType;
+  profileImageUrl?: string | null;
+  displayName: string;
 }
 
-const HistoryItem = (item: Props) => {
-  const { address, text, createdAt, onClick, status, activeTab } = item;
+const truncate = (value: string, maxLength: number) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return `${trimmed.slice(0, maxLength - 1).trim()}…`;
+};
+
+const getSubtitle = (item: Props) => {
+  const { activeTab, status, text, answer, questionerName, responderUsername } = item;
   const isActiveAssignment = isAssignmentTtrActive(item);
 
-  return (
-    <TouchableOpacity onPress={() => onClick()} style={styles.clickableContainer}>
-      <Ionicons name="time-outline" size={15} color="black" />
-      <View style={styles.textContainer}>
-        <View style={{ flex: 1, flexDirection: 'row', gap: 20 }}>
-          <Text style={styles.date}>{formatDate(createdAt)}</Text>
-          {isActiveAssignment && activeTab === TabType.Inbox && <Text style={styles.newTag}>New</Text>}
-          {isActiveAssignment && activeTab === TabType.Outbox && <Text style={styles.pendingTag}>Pending</Text>}
-          {status === QuestionStatus.Expired && activeTab === TabType.Outbox && <Text style={styles.expiredTag}>Expired</Text>}
-          {status === QuestionStatus.Answered && activeTab === TabType.Inbox && <Text style={styles.respondedTag}>Responded</Text>}
-          {status === QuestionStatus.Answered && activeTab === TabType.Outbox && <Text style={styles.answeredTag}>Answered</Text>}
-        </View>
-        <Text style={styles.address} numberOfLines={2} ellipsizeMode='tail'>{address}</Text>
-        <Text style={styles.question} numberOfLines={2} ellipsizeMode='tail'>{text}</Text>
-      </View>
-    </TouchableOpacity>
+  if (activeTab === TabType.Outbox) {
+    if (status === QuestionStatus.Expired) {
+      return 'No response in time';
+    }
+    if (status === QuestionStatus.Answered && answer) {
+      return `${responderUsername || 'Responder'} answered`;
+    }
+    if (status === QuestionStatus.Assigned || isActiveAssignment) {
+      return 'Waiting for a response';
+    }
+    return `You: ${truncate(text, 42)}`;
+  }
 
+  if (status === QuestionStatus.Answered && answer) {
+    return `You: ${truncate(answer, 42)}`;
+  }
+  if (isActiveAssignment) {
+    return `${questionerName || 'Someone'}: ${truncate(text, 42)}`;
+  }
+  return `${questionerName || 'Someone'}: ${truncate(text, 42)}`;
+};
+
+const shouldShowStatusIcon = (item: Props) => {
+  const { activeTab, status } = item;
+  if (activeTab === TabType.Outbox) {
+    return status === QuestionStatus.Answered || status === QuestionStatus.Assigned;
+  }
+  return status === QuestionStatus.Answered;
+};
+
+const HistoryItem = (item: Props) => {
+  const {
+    address,
+    text,
+    createdAt,
+    updatedAt,
+    onClick,
+    profileImageUrl,
+    displayName,
+  } = item;
+
+  const titleSubject = truncate(address || text, 34);
+  const subtitle = getSubtitle(item);
+  const timestamp = formatListTime(updatedAt || createdAt);
+  const showStatusIcon = shouldShowStatusIcon(item);
+
+  return (
+    <TouchableOpacity onPress={onClick} style={styles.container} activeOpacity={0.7}>
+      <UserAvatar imageUrl={profileImageUrl} size={56} />
+      <View style={styles.content}>
+        <Text style={styles.title} numberOfLines={1}>
+          {displayName} · {titleSubject}
+        </Text>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {subtitle} · {timestamp}
+        </Text>
+      </View>
+      {showStatusIcon && (
+        <View style={styles.statusIcon}>
+          <Ionicons name="checkmark" size={14} color={colors.MEDIUM_GRAY} />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 };
 
 export default HistoryItem;
 
 const styles = StyleSheet.create({
-  clickableContainer: {
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 14,
+    paddingVertical: 12,
   },
-  textContainer: {
-    maxWidth: 300,
+  content: {
+    flex: 1,
+    minWidth: 0,
   },
-  date: {
-    color: colors.MEDIUM_GRAY,
-    fontFamily: 'roboto-light',
+  title: {
+    fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
-    marginBottom: 5,
+    color: colors.TEXT_DARK,
+    marginBottom: 4,
   },
-  address: {
-    color: '#333',
-    fontFamily: 'roboto',
-    fontSize: 20,
-    fontStyle: 'normal',
-    fontWeight: '400',
-    letterSpacing: 0.14,
-  },
-  question: {
-    fontSize: 16,
+  subtitle: {
     fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
   },
-  newTag: {
-    color: colors.RED,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-    marginBottom: 5,
-  },
-  pendingTag: {
-    color: colors.PRIMARY,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-    marginBottom: 5,
-  },
-  expiredTag: {
-    color: colors.ACTIVE,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-    marginBottom: 5,
-  },
-  answeredTag: {
-    color: colors.PRIMARY,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-    marginBottom: 5,
-  },
-  respondedTag: {
-    color: colors.PRIMARY,
-    fontSize: 16,
-    fontFamily: 'roboto-bold',
-    marginBottom: 5,
-  },
-});
-
-const btnReaskStyles = StyleSheet.create({
-  arrowRotateIconBtn: {
-    padding: 10,
-  },
-  arrowRotateIconBG: {
-    padding: 8,
-    borderRadius: '50%',
+  statusIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: colors.LIGHT_GRAY_THIN,
-
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

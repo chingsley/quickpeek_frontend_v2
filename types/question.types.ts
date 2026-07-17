@@ -26,6 +26,8 @@ export type TQuestion = {
   responderId?: string;
   responderAverageRating?: number;
   questionerUsername?: string;
+  questionerName?: string;
+  questionerProfileImageUrl?: string | null;
   claimedByUserId?: string;
   assignedResponderId?: string;
   assignedAt?: string;

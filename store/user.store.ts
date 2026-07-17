@@ -1,6 +1,6 @@
 import { TUser } from '@/types/user.types';
 import { create } from 'zustand';
-import { getUserProfile, updateUserProfile } from '@/services/users.services';
+import { getUserProfile, updateUserProfile, uploadProfileImage } from '@/services/users.services';
 
 interface UserState {
   profile: TUser | null;
@@ -8,6 +8,7 @@ interface UserState {
   error: string | null;
   fetchProfile: () => Promise<TUser | null>;
   updateProfile: (updates: Partial<TUser>) => Promise<TUser | null>;
+  uploadProfileImage: (imageUri: string) => Promise<TUser | null>;
   clearProfile: () => void;
 }
 
@@ -36,6 +37,18 @@ export const useUserStore = create<UserState>((set) => ({
       return data;
     } catch (error: any) {
       set({ loading: false, error: error?.message || 'Failed to update profile' });
+      return null;
+    }
+  },
+
+  uploadProfileImage: async (imageUri) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await uploadProfileImage(imageUri);
+      set({ profile: data, loading: false });
+      return data;
+    } catch (error: any) {
+      set({ loading: false, error: error?.message || 'Failed to upload profile image' });
       return null;
     }
   },

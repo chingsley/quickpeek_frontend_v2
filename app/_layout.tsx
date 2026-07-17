@@ -17,6 +17,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     initApiConfigFromLinking();
+    useAuthStore.persist.rehydrate();
   }, []);
 
   useEffect(() => {

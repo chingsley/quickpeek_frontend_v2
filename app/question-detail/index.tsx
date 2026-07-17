@@ -90,6 +90,18 @@ const QuestionDetail = () => {
     });
   };
 
+  const handleReaskQuestion = () => {
+    router.push({
+      pathname: '/(tabs)/Home',
+      params: {
+        questionText: questionText as string,
+        address: address as string,
+        longitude: String(longitude),
+        latitude: String(latitude),
+      },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeAreaContainer}>
       <ScrollView
@@ -247,13 +259,13 @@ const QuestionDetail = () => {
           </View>
         )}
 
-        {isOutboxBool && !hasAnswer && !isExpiredBool && (
+        {isOutboxBool && !isExpiredBool && (
           <View style={styles.actionArea}>
             <CustomButton
-              text={isPendingBool ? 'Awaiting Response…' : 'Re-ask Question'}
-              onPress={() => { }}
+              text={isPendingBool && !hasAnswer ? 'Awaiting Response…' : 'Re-ask Question'}
+              onPress={handleReaskQuestion}
               style={styles.btnSubmit}
-              disabled={isPendingBool}
+              disabled={isPendingBool && !hasAnswer}
             />
           </View>
         )}

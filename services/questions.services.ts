@@ -27,6 +27,8 @@ export const getInboxQuestions = async () => {
         responderUsername: firstAnswer?.responderUsername ?? undefined,
         responderId: firstAnswer?.responderID ?? undefined,
         responderAverageRating: firstAnswer?.responderAverageRating ?? undefined,
+        questionerName: q.questionerName ?? q.questionerUsername,
+        questionerProfileImageUrl: q.questionerProfileImageUrl ?? null,
       };
     });
   } catch (error) {
@@ -60,6 +62,8 @@ export const getOutboxQuestions = async () => {
         responderUsername: firstAnswer?.responderUsername ?? undefined,
         responderId: firstAnswer?.responderID ?? undefined,
         responderAverageRating: firstAnswer?.responderAverageRating ?? undefined,
+        questionerName: q.questionerName ?? q.questionerUsername,
+        questionerProfileImageUrl: q.questionerProfileImageUrl ?? null,
       };
     });
   } catch (error) {

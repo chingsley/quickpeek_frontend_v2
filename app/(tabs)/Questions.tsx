@@ -5,7 +5,9 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { questionService } from '@/services';
 import SocketService from '@/services/socket.services';
+import { useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
+import { useUserStore } from '@/store/user.store';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
 import {
@@ -17,7 +19,6 @@ import {
   QuestionFilter,
   DEFAULT_TTR_MS,
 } from '@/utils/questions';
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -51,6 +52,25 @@ const Questions = () => {
   const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
   const removeInboxQuestion = useQuestionStore((state) => state.removeInboxQuestion);
+  const authUser = useAuthStore((state) => state.user);
+  const profile = useUserStore((state) => state.profile);
+
+  const currentUserName = profile?.name || authUser?.name || 'You';
+  const currentUserProfileImageUrl = profile?.profileImageUrl ?? authUser?.profileImageUrl ?? null;
+
+  const getListItemMeta = useCallback((item: TQuestion) => {
+    if (activeTab === TabType.Outbox) {
+      return {
+        displayName: currentUserName,
+        profileImageUrl: item.questionerProfileImageUrl ?? currentUserProfileImageUrl,
+      };
+    }
+
+    return {
+      displayName: item.questionerName || item.questionerUsername || 'Questioner',
+      profileImageUrl: item.questionerProfileImageUrl ?? null,
+    };
+  }, [activeTab, currentUserName, currentUserProfileImageUrl]);
 
   const pruneExpiredInboxAssignments = useCallback(() => {
     const currentInbox = useQuestionStore.getState().inboxQuestions;
@@ -110,6 +130,7 @@ const Questions = () => {
   useFocusEffect(
     useCallback(() => {
       fetchQuestions();
+      useUserStore.getState().fetchProfile();
     }, [fetchQuestions]),
   );
 
@@ -382,39 +403,19 @@ const Questions = () => {
         style={styles.itemsContainer}
         data={data}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.qnItemContainer}>
-            <View style={styles.historyItemBox}>
-              <HistoryItem
-                onClick={() => handleHistoryItemClick(item)}
-                {...item}
-                status={item.status as QuestionStatus}
-                activeTab={activeTab}
-              />
-            </View>
-            {activeTab === TabType.Outbox && item.status !== QuestionStatus.Expired && (
-              <Pressable
-                style={styles.arrowRotateIconBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(tabs)/Home',
-                    params: {
-                      questionText: item.text,
-                      address: item.address,
-                      longitude: item.longitude,
-                      latitude: item.latitude,
-                    },
-                  })
-                }
-              >
-                <View style={styles.arrowRotateIconBG}>
-                  <FontAwesome6 name="arrow-rotate-left" size={16} color={colors.DARK_GRAY} />
-                </View>
-              </Pressable>
-            )}
-          </View>
-        )}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        renderItem={({ item }) => {
+          const { displayName, profileImageUrl } = getListItemMeta(item);
+          return (
+            <HistoryItem
+              onClick={() => handleHistoryItemClick(item)}
+              {...item}
+              status={item.status as QuestionStatus}
+              activeTab={activeTab}
+              displayName={displayName}
+              profileImageUrl={profileImageUrl}
+            />
+          );
+        }}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={<Text style={styles.emptyText}>{getEmptyListMessage()}</Text>}
       />
@@ -562,32 +563,8 @@ const styles = StyleSheet.create({
     color: colors.PRIMARY,
   },
   listContent: {
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 100,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.LIGHT_GRAY,
-    marginVertical: 20,
-  },
-  qnItemContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyItemBox: {
-    flex: 1,
-    marginRight: 10,
-  },
-  arrowRotateIconBtn: {
-    paddingVertical: 10,
-    paddingLeft: 10,
-  },
-  arrowRotateIconBG: {
-    padding: 8,
-    borderRadius: '50%',
-    backgroundColor: colors.LIGHT_GRAY_THIN,
   },
   newBadge: {
     backgroundColor: colors.RED,

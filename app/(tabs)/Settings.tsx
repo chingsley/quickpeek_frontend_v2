@@ -1,10 +1,12 @@
 import CustomButton from '@/components/shared/CustomButton';
 import StarRating from '@/components/StarRating';
+import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { useAuthStore } from '@/store/auth.store';
 import { useUserStore } from '@/store/user.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -23,10 +25,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const Settings = () => {
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
+  const updateAuthUser = useAuthStore((state) => state.updateUser);
   const authUser = useAuthStore((state) => state.user);
-  const { profile, loading, fetchProfile, updateProfile } = useUserStore();
+  const { profile, loading, fetchProfile, updateProfile, uploadProfileImage: uploadProfileImageAction } = useUserStore();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -47,8 +51,41 @@ const Settings = () => {
 
   const displayName = profile?.name || authUser?.name || 'User';
   const displayUsername = profile?.username || authUser?.username || '';
+  const profileImageUrl = profile?.profileImageUrl ?? authUser?.profileImageUrl ?? null;
   const rating = profile?.rating?.averageRating ?? 0;
   const answersCount = profile?.rating?.answersCount ?? profile?.answersCount ?? 0;
+
+  const handlePickProfileImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission needed', 'Allow photo library access to update your profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets[0]) return;
+
+      setUploadingImage(true);
+      const updated = await uploadProfileImageAction(result.assets[0].uri);
+      if (updated) {
+        updateAuthUser({ profileImageUrl: updated.profileImageUrl ?? null });
+        Alert.alert('Updated', 'Your profile picture has been updated.');
+      } else {
+        Alert.alert('Error', 'Could not update your profile picture.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not update your profile picture.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     const updated = await updateProfile({
@@ -98,9 +135,21 @@ const Settings = () => {
         <Text style={styles.pageTitle}>Settings</Text>
 
         <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Ionicons name="person" size={28} color={colors.PRIMARY} />
-          </View>
+          <TouchableOpacity
+            style={styles.avatarButton}
+            onPress={handlePickProfileImage}
+            disabled={uploadingImage}
+            activeOpacity={0.8}
+          >
+            <UserAvatar imageUrl={profileImageUrl} size={72} />
+            <View style={styles.avatarEditBadge}>
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color={colors.BG_WHITE} />
+              ) : (
+                <Ionicons name="camera" size={14} color={colors.BG_WHITE} />
+              )}
+            </View>
+          </TouchableOpacity>
           <Text style={styles.profileName}>{displayName}</Text>
           <Text style={styles.profileUsername}>@{displayUsername}</Text>
           <View style={styles.ratingRow}>
@@ -210,14 +259,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.LIGHT_GREEN,
+  avatarButton: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.BG_WHITE,
   },
   profileName: {
     fontFamily: 'roboto-bold',

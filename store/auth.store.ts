@@ -1,7 +1,7 @@
 import { setAuthToken, setUnauthorizedHandler } from '@/config/axios.config';
 import { requestLocationPermissions, startLocationUpdates, stopLocationUpdates } from '@/services/location.services';
 import TUser from '@/types/user.types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ssrSafeStorage } from '@/utils/ssr-safe-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -74,7 +74,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => ssrSafeStorage),
+      skipHydration: true,
       partialize: (state) => ({
         isLocationActive: state.isLocationActive,
         user: state.user,
