@@ -7,6 +7,7 @@ import { questionService } from '@/services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
+import { useQuestionVisibilityStore } from '@/store/question-visibility.store';
 import { useUserStore } from '@/store/user.store';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
@@ -14,6 +15,7 @@ import {
   filterAndSortQuestions,
   INBOX_FILTERS,
   isAssignmentTtrActive,
+  isUnseenNewQuestion,
   OUTBOX_FILTERS,
   QUESTION_FILTER_LABELS,
   QuestionFilter,
@@ -52,6 +54,8 @@ const Questions = () => {
   const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
   const removeInboxQuestion = useQuestionStore((state) => state.removeInboxQuestion);
+  const seenQuestionIds = useQuestionVisibilityStore((state) => state.seenQuestionIds);
+  const markQuestionSeen = useQuestionVisibilityStore((state) => state.markQuestionSeen);
   const authUser = useAuthStore((state) => state.user);
   const profile = useUserStore((state) => state.profile);
 
@@ -232,7 +236,9 @@ const Questions = () => {
     return () => clearInterval(intervalId);
   }, [pruneExpiredInboxAssignments]);
 
-  const assignedCount = inboxQuestions.filter(isAssignmentTtrActive).length;
+  const assignedCount = inboxQuestions.filter(
+    (question) => isUnseenNewQuestion(question, TabType.Inbox, seenQuestionIds),
+  ).length;
   const availableFilters = activeTab === TabType.Inbox ? INBOX_FILTERS : OUTBOX_FILTERS;
 
   const displayedQuestions = useMemo(
@@ -241,8 +247,9 @@ const Questions = () => {
         activeTab === TabType.Inbox ? inboxQuestions : outboxQuestions,
         activeFilter,
         activeTab,
+        seenQuestionIds,
       ),
-    [activeFilter, activeTab, inboxQuestions, outboxQuestions],
+    [activeFilter, activeTab, inboxQuestions, outboxQuestions, seenQuestionIds],
   );
 
   const getEmptyListMessage = () => {
@@ -282,6 +289,8 @@ const Questions = () => {
   );
 
   const handleHistoryItemClick = (item: TQuestion) => {
+    markQuestionSeen(item.id);
+
     if (activeTab === TabType.Inbox) {
       if (item.status === QuestionStatus.Answered) {
         router.push({
@@ -413,6 +422,7 @@ const Questions = () => {
               activeTab={activeTab}
               displayName={displayName}
               profileImageUrl={profileImageUrl}
+              isNew={isUnseenNewQuestion(item, activeTab, seenQuestionIds)}
             />
           );
         }}

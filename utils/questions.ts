@@ -55,6 +55,22 @@ export const isAssignmentTtrActive = (question: TQuestion): boolean => {
   return Date.now() < deadline;
 };
 
+export const isUnseenNewQuestion = (
+  question: TQuestion,
+  activeTab: TabType,
+  seenQuestionIds: string[],
+): boolean => {
+  if (seenQuestionIds.includes(question.id)) {
+    return false;
+  }
+
+  if (activeTab === TabType.Inbox) {
+    return isAssignmentTtrActive(question);
+  }
+
+  return false;
+};
+
 export const getRemainingTtrMs = (question: TQuestion, now = Date.now()): number => {
   const deadline = getAssignmentDeadlineMs(question);
   if (deadline === null) {
@@ -85,6 +101,7 @@ export const matchesQuestionFilter = (
   question: TQuestion,
   filter: QuestionFilter,
   activeTab: TabType,
+  seenQuestionIds: string[] = [],
 ): boolean => {
   if (filter === QuestionFilter.All) {
     return true;
@@ -93,7 +110,7 @@ export const matchesQuestionFilter = (
   switch (filter) {
     case QuestionFilter.New:
       return activeTab === TabType.Inbox
-        ? isAssignmentTtrActive(question)
+        ? isUnseenNewQuestion(question, activeTab, seenQuestionIds)
         : question.status === QuestionStatus.Open;
     case QuestionFilter.Pending:
       return question.status === QuestionStatus.Assigned && isAssignmentTtrActive(question);
@@ -110,9 +127,10 @@ export const filterAndSortQuestions = (
   questions: TQuestion[],
   filter: QuestionFilter,
   activeTab: TabType,
+  seenQuestionIds: string[] = [],
 ): TQuestion[] => {
   const filtered = questions.filter((question) =>
-    matchesQuestionFilter(question, filter, activeTab),
+    matchesQuestionFilter(question, filter, activeTab, seenQuestionIds),
   );
 
   return activeTab === TabType.Inbox

@@ -1,7 +1,9 @@
 import { colors } from '@/constants/colors';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
-import { isAssignmentTtrActive } from '@/utils/questions';
+import { useQuestionVisibilityStore } from '@/store/question-visibility.store';
+import { TabType } from '@/types/ui.types';
+import { isUnseenNewQuestion } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
@@ -10,9 +12,11 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 const TabLayout = () => {
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
-  const assignedCount = useQuestionStore((state) =>
-    state.inboxQuestions.filter(isAssignmentTtrActive).length,
-  );
+  const inboxQuestions = useQuestionStore((state) => state.inboxQuestions);
+  const seenQuestionIds = useQuestionVisibilityStore((state) => state.seenQuestionIds);
+  const assignedCount = inboxQuestions.filter((question) =>
+    isUnseenNewQuestion(question, TabType.Inbox, seenQuestionIds),
+  ).length;
 
   if (!hasHydrated) {
     return (

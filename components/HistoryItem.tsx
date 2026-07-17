@@ -14,6 +14,7 @@ interface Props extends TQuestion {
   activeTab: TabType;
   profileImageUrl?: string | null;
   displayName: string;
+  isNew?: boolean;
 }
 
 const truncate = (value: string, maxLength: number) => {
@@ -65,6 +66,7 @@ const HistoryItem = (item: Props) => {
     onClick,
     profileImageUrl,
     displayName,
+    isNew = false,
   } = item;
 
   const titleSubject = truncate(address || text, 34);
@@ -76,7 +78,7 @@ const HistoryItem = (item: Props) => {
     <TouchableOpacity onPress={onClick} style={styles.container} activeOpacity={0.7}>
       <UserAvatar imageUrl={profileImageUrl} size={56} />
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, isNew && styles.titleNew]} numberOfLines={1}>
           {displayName} · {titleSubject}
         </Text>
         <Text style={styles.subtitle} numberOfLines={1}>
@@ -106,10 +108,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    fontFamily: 'roboto-bold',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
     marginBottom: 4,
+  },
+  titleNew: {
+    fontFamily: 'roboto-bold',
   },
   subtitle: {
     fontFamily: 'roboto-light',
