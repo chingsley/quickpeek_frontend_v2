@@ -2,6 +2,7 @@ import { setAuthToken, setUnauthorizedHandler } from '@/config/axios.config';
 import { requestLocationPermissions, startLocationUpdates, stopLocationUpdates } from '@/services/location.services';
 import { useQuestionStore } from '@/store/question.store';
 import { useQuestionVisibilityStore } from '@/store/question-visibility.store';
+import { useUserStore } from '@/store/user.store';
 import TUser from '@/types/user.types';
 import { ssrSafeStorage } from '@/utils/ssr-safe-storage';
 import { create } from 'zustand';
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthState>()(
         applySessionState(set, null, null);
         useQuestionStore.getState().clearQuestions();
         useQuestionVisibilityStore.getState().clearSeenQuestions();
+        useUserStore.getState().clearProfile();
 
         if (isLocationActive) {
           await stopLocationUpdates();

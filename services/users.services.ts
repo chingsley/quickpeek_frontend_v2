@@ -1,5 +1,6 @@
 import Axios from '@/config/axios.config';
 import TLocation from '@/types/location.types';
+import { TPublicUserProfile } from '@/types/review.types';
 import { TResponder, TUser } from '@/types/user.types';
 
 /**
@@ -49,9 +50,19 @@ export const getNearbyResponders = async (
   return response.data.data as TResponder[];
 };
 
+export const getPublicUserProfile = async (
+  userId: string,
+  page = 1,
+  limit = 10,
+): Promise<TPublicUserProfile> => {
+  const response = await Axios.get(`/users/${userId}/profile?page=${page}&limit=${limit}`);
+  return response.data.data as TPublicUserProfile;
+};
+
 export default {
   getUserProfile,
   updateUserProfile,
   uploadProfileImage,
   getNearbyResponders,
+  getPublicUserProfile,
 };

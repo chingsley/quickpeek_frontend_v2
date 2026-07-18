@@ -33,13 +33,49 @@ export const QUESTION_FILTER_LABELS: Record<QuestionFilter, string> = {
 
 export const DEFAULT_TTR_MS = 600000;
 
+const LOCATION_MATCH_EPSILON = 0.0005;
+
+export const findExistingThread = (
+  questions: TQuestion[],
+  responderId: string,
+  latitude: number,
+  longitude: number,
+): TQuestion | undefined =>
+  questions.find((question) => {
+    if (question.assignedResponderId !== responderId) {
+      return false;
+    }
+
+    if (
+      question.status !== QuestionStatus.Assigned &&
+      question.status !== QuestionStatus.Answered
+    ) {
+      return false;
+    }
+
+    const latMatch = Math.abs(Number(question.latitude) - latitude) < LOCATION_MATCH_EPSILON;
+    const lngMatch = Math.abs(Number(question.longitude) - longitude) < LOCATION_MATCH_EPSILON;
+    return latMatch && lngMatch;
+  });
+
+export const hasStartedChat = (question: TQuestion): boolean => {
+  if (
+    question.status === QuestionStatus.Assigned ||
+    question.status === QuestionStatus.Answered ||
+    question.status === QuestionStatus.Expired
+  ) {
+    return true;
+  }
+
+  return Boolean(question.assignedResponderId || question.lastMessage || question.answer);
+};
+
 export const getAssignmentDeadlineMs = (question: TQuestion): number | null => {
-  if (!question.assignedAt) {
+  if (!question.respondByAt) {
     return null;
   }
 
-  const ttrMs = question.timeToRespondMs ?? DEFAULT_TTR_MS;
-  return new Date(question.assignedAt).getTime() + ttrMs;
+  return new Date(question.respondByAt).getTime();
 };
 
 export const isAssignmentTtrActive = (question: TQuestion): boolean => {

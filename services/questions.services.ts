@@ -53,15 +53,21 @@ export const getOutboxQuestions = async () => {
     // Extract the first answer's data into flat fields for the FE model.
     return (questions || []).map((q: any) => {
       const firstAnswer = q.answers?.[0];
+      const questionReview = q.questionReview;
       return {
         ...q,
         answers: undefined,
-        answer: firstAnswer?.text ?? undefined,
-        answerRating: firstAnswer?.rating ?? undefined,
+        answer: q.lastMessage ?? firstAnswer?.text ?? undefined,
+        answerRating: questionReview?.stars ?? undefined,
         answerId: firstAnswer?.id ?? undefined,
-        responderUsername: firstAnswer?.responderUsername ?? undefined,
-        responderId: firstAnswer?.responderID ?? undefined,
+        responderUsername: firstAnswer?.responderUsername ?? q.assignedResponderUsername ?? undefined,
+        responderId: firstAnswer?.responderID ?? q.assignedResponderId ?? undefined,
         responderAverageRating: firstAnswer?.responderAverageRating ?? undefined,
+        assignedResponderId: q.assignedResponderId ?? undefined,
+        assignedResponderName: q.assignedResponderName ?? undefined,
+        assignedResponderUsername: q.assignedResponderUsername ?? undefined,
+        assignedResponderProfileImageUrl: q.assignedResponderProfileImageUrl ?? null,
+        lastMessage: q.lastMessage ?? null,
         questionerName: q.questionerName ?? q.questionerUsername,
         questionerProfileImageUrl: q.questionerProfileImageUrl ?? null,
       };

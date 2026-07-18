@@ -1,24 +1,22 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
+import ReviewModal from '@/components/ReviewModal';
 import StarRating from '@/components/StarRating';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { rateAnswer } from '@/services/ratings.services';
+import { getReviewEligibility } from '@/services/reviews.services';
 import { formatDate } from '@/utils/date';
+import { TReviewEligibility } from '@/types/review.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const TAP_STAR_SIZE = 38;
 
 const QuestionDetail = () => {
   const router = useRouter();
@@ -41,42 +39,23 @@ const QuestionDetail = () => {
     isExpired,
   } = params;
 
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [eligibility, setEligibility] = useState<TReviewEligibility | null>(null);
+
+  const questionIdStr = questionId as string | undefined;
   const isOutboxBool = isOutbox === 'true';
   const isPendingBool = isPending === 'true';
   const isExpiredBool = isExpired === 'true';
   const hasAnswer = answer && String(answer).trim().length > 0;
   const existingRating = answerRating ? Number(answerRating) : 0;
-  const hasExistingRating = existingRating > 0;
   const respAvgRating = responderAverageRating ? Number(responderAverageRating) : 0;
-  const answerIdStr = answerId as string | undefined;
 
-  const [selectedRating, setSelectedRating] = useState(0);
-  const [submittedRating, setSubmittedRating] = useState(existingRating);
-  const [submitting, setSubmitting] = useState(false);
-
-  const canRate = isOutboxBool && hasAnswer && !hasExistingRating && submittedRating === 0 && !!answerIdStr;
-  const isRated = hasExistingRating || submittedRating > 0;
-  const displayRating = submittedRating > 0 ? submittedRating : existingRating;
-
-  const handleStarPress = (star: number) => {
-    if (!canRate) return;
-    setSelectedRating(star);
-  };
-
-  const handleSubmitRating = async () => {
-    if (!answerIdStr || selectedRating === 0) return;
-    setSubmitting(true);
-    try {
-      await rateAnswer(answerIdStr, selectedRating);
-      setSubmittedRating(selectedRating);
-      setSelectedRating(0);
-    } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Could not submit rating';
-      Alert.alert('Error', msg);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    if (!questionIdStr) return;
+    getReviewEligibility(questionIdStr)
+      .then(setEligibility)
+      .catch(() => setEligibility(null));
+  }, [questionIdStr]);
 
   const handleRechooseResponder = () => {
     router.push({
@@ -87,6 +66,14 @@ const QuestionDetail = () => {
         address: address as string,
         reassignQuestionId: questionId as string,
       },
+    });
+  };
+
+  const handleOpenChat = () => {
+    if (!questionIdStr) return;
+    router.push({
+      pathname: '/chat',
+      params: { questionId: questionIdStr },
     });
   };
 
@@ -176,12 +163,12 @@ const QuestionDetail = () => {
                 </View>
               )}
 
-              {isRated && (
+              {existingRating > 0 && (
                 <View style={styles.ratingSection}>
                   <Text style={styles.ratingLabel}>Your rating</Text>
                   <View style={styles.ratingDisplay}>
-                    <StarRating rating={displayRating} size={22} />
-                    <Text style={styles.ratingValue}>{displayRating}/5</Text>
+                    <StarRating rating={existingRating} size={22} />
+                    <Text style={styles.ratingValue}>{existingRating}/5</Text>
                   </View>
                 </View>
               )}
@@ -205,46 +192,32 @@ const QuestionDetail = () => {
           </View>
         )}
 
-        {/* Rate Answer Section */}
-        {canRate && (
-          <View style={styles.rateCard}>
-            <Text style={styles.rateTitle}>How helpful was this answer?</Text>
-            <Text style={styles.rateSubtitle}>Tap a star to rate the responder</Text>
-
-            <View style={styles.tapStarRow}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => handleStarPress(star)}
-                  activeOpacity={0.6}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <Ionicons
-                    name={star <= selectedRating ? 'star' : 'star-outline'}
-                    size={TAP_STAR_SIZE}
-                    color={star <= selectedRating ? colors.STAR_GOLD : colors.LIGHT_GRAY}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {selectedRating > 0 && (
-              <CustomButton
-                text={submitting ? 'Sending…' : `Rate ${selectedRating} star${selectedRating > 1 ? 's' : ''}`}
-                onPress={handleSubmitRating}
-                style={styles.submitRatingBtn}
-                loading={submitting}
-                disabled={submitting}
-              />
-            )}
+        {questionIdStr && (
+          <View style={styles.actionArea}>
+            <CustomButton
+              text="Open conversation"
+              onPress={handleOpenChat}
+              style={styles.btnSubmit}
+            />
           </View>
         )}
 
-        {/* Thank-you after rating */}
-        {submittedRating > 0 && !hasExistingRating && (
+        {questionIdStr && eligibility?.canReview && (
+          <View style={styles.actionArea}>
+            <CustomButton
+              text="Rate this user"
+              onPress={() => setReviewVisible(true)}
+              style={styles.btnSubmit}
+            />
+          </View>
+        )}
+
+        {questionIdStr && eligibility?.alreadyReviewed && !eligibility.reviewRevealed && (
           <View style={styles.thankYouCard}>
-            <Ionicons name="checkmark-circle" size={24} color={colors.PRIMARY} />
-            <Text style={styles.thankYouText}>Thanks for your feedback!</Text>
+            <Ionicons name="eye-off-outline" size={24} color={colors.PRIMARY} />
+            <Text style={styles.thankYouText}>
+              Your review is hidden until they review you back.
+            </Text>
           </View>
         )}
 
@@ -270,6 +243,18 @@ const QuestionDetail = () => {
           </View>
         )}
       </ScrollView>
+
+      {questionIdStr && (
+        <ReviewModal
+          visible={reviewVisible}
+          questionId={questionIdStr}
+          onClose={() => setReviewVisible(false)}
+          onSubmitted={() => {
+            setReviewVisible(false);
+            getReviewEligibility(questionIdStr).then(setEligibility).catch(() => undefined);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };

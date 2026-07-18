@@ -30,9 +30,14 @@ export type TQuestion = {
   questionerProfileImageUrl?: string | null;
   claimedByUserId?: string;
   assignedResponderId?: string;
+  assignedResponderName?: string | null;
+  assignedResponderUsername?: string | null;
+  assignedResponderProfileImageUrl?: string | null;
   assignedAt?: string;
   timeToRespondMs?: number;
+  respondByAt?: string | null;
   expiredAt?: string;
+  lastMessage?: string | null;
 };
 
 export default TQuestion;

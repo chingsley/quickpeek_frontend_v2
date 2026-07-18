@@ -32,7 +32,8 @@ export type TResponder = {
   userId: string;
   username: string;
   name: string;
-  distance: number; // kilometers from the question location
+  profileImageUrl?: string | null;
+  distance: number;
   averageRating: number;
   totalRating: number;
   answersCount: number;

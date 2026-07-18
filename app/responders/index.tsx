@@ -1,17 +1,13 @@
 import BackButton from '@/components/shared/BackButton';
-import ResponderProfileSheet from '@/components/ResponderProfileSheet';
 import ResponderRow from '@/components/ResponderRow';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { getNearbyResponders } from '@/services/users.services';
-import { reassignQuestion } from '@/services/questions.services';
 import { TResponder } from '@/types/user.types';
-import BottomSheet from '@gorhom/bottom-sheet';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   StyleSheet,
   Text,
@@ -25,7 +21,6 @@ type SortMode = 'proximity' | 'rating';
 const RespondersScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const profileSheetRef = useRef<BottomSheet>(null);
 
   const latitude = parseFloat(params.latitude as string);
   const longitude = parseFloat(params.longitude as string);
@@ -36,9 +31,7 @@ const RespondersScreen = () => {
   const [responders, setResponders] = useState<TResponder[]>([]);
   const [sort, setSort] = useState<SortMode>('proximity');
   const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedResponder, setSelectedResponder] = useState<TResponder | null>(null);
 
   const fetchResponders = useCallback(async () => {
     if (!latitude || !longitude) {
@@ -64,43 +57,18 @@ const RespondersScreen = () => {
   }, [fetchResponders]);
 
   const openProfile = (responder: TResponder) => {
-    setSelectedResponder(responder);
-    profileSheetRef.current?.snapToIndex(0);
-  };
-
-  const navigateToAsk = (responder: TResponder) => {
     router.push({
-      pathname: '/ask',
+      pathname: '/responder-profile',
       params: {
-        responderId: responder.userId,
-        responderName: responder.name || responder.username,
+        userId: responder.userId,
+        distance: String(responder.distance),
         latitude: String(latitude),
         longitude: String(longitude),
         address,
         questionText,
+        reassignQuestionId,
       },
     });
-  };
-
-  const handleSelect = async (responder: TResponder) => {
-    profileSheetRef.current?.close();
-
-    if (reassignQuestionId) {
-      setAssigning(true);
-      try {
-        await reassignQuestion(reassignQuestionId, responder.userId);
-        Alert.alert('Responder updated', 'Your question has been reassigned.', [
-          { text: 'OK', onPress: () => router.replace('/(tabs)/Questions') },
-        ]);
-      } catch (err: any) {
-        Alert.alert('Error', err?.response?.data?.message || 'Could not reassign question.');
-      } finally {
-        setAssigning(false);
-      }
-      return;
-    }
-
-    navigateToAsk(responder);
   };
 
   const renderHeader = () => (
@@ -143,10 +111,9 @@ const RespondersScreen = () => {
           {reassignQuestionId ? 'Choose another responder' : 'Choose a responder'}
         </Text>
 
-        {loading || assigning ? (
+        {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.PRIMARY} />
-            {assigning && <Text style={styles.loadingText}>Assigning…</Text>}
           </View>
         ) : error ? (
           <View style={styles.centered}>
@@ -162,11 +129,7 @@ const RespondersScreen = () => {
             ListHeaderComponent={renderHeader}
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (
-              <ResponderRow
-                responder={item}
-                onPress={() => openProfile(item)}
-                onSelect={() => handleSelect(item)}
-              />
+              <ResponderRow responder={item} onPress={() => openProfile(item)} />
             )}
             ListEmptyComponent={
               <Text style={styles.emptyText}>No responders nearby right now. Try again later.</Text>
@@ -174,12 +137,6 @@ const RespondersScreen = () => {
           />
         )}
       </View>
-
-      <ResponderProfileSheet
-        ref={profileSheetRef}
-        responder={selectedResponder}
-        onSelect={() => selectedResponder && handleSelect(selectedResponder)}
-      />
     </SafeAreaView>
   );
 };
@@ -260,11 +217,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
-  },
-  loadingText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
   },
   errorText: {
     fontFamily: 'roboto',

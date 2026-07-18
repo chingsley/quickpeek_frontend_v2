@@ -5,7 +5,6 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { questionService } from '@/services';
 import SocketService from '@/services/socket.services';
-import { useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
 import { useQuestionVisibilityStore } from '@/store/question-visibility.store';
 import { useUserStore } from '@/store/user.store';
@@ -13,20 +12,19 @@ import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
 import {
   filterAndSortQuestions,
+  hasStartedChat,
   INBOX_FILTERS,
   isAssignmentTtrActive,
   isUnseenNewQuestion,
   OUTBOX_FILTERS,
   QUESTION_FILTER_LABELS,
   QuestionFilter,
-  DEFAULT_TTR_MS,
 } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   AppState,
   FlatList,
   Pressable,
@@ -53,20 +51,20 @@ const Questions = () => {
   const updateInboxQuestion = useQuestionStore((state) => state.updateInboxQuestion);
   const updateOutboxQuestion = useQuestionStore((state) => state.updateOutboxQuestion);
   const setOutboxQuestions = useQuestionStore((state) => state.setOutboxQuestions);
-  const removeInboxQuestion = useQuestionStore((state) => state.removeInboxQuestion);
   const seenQuestionIds = useQuestionVisibilityStore((state) => state.seenQuestionIds);
   const markQuestionSeen = useQuestionVisibilityStore((state) => state.markQuestionSeen);
-  const authUser = useAuthStore((state) => state.user);
-  const profile = useUserStore((state) => state.profile);
-
-  const currentUserName = profile?.name || authUser?.name || 'You';
-  const currentUserProfileImageUrl = profile?.profileImageUrl ?? authUser?.profileImageUrl ?? null;
 
   const getListItemMeta = useCallback((item: TQuestion) => {
     if (activeTab === TabType.Outbox) {
+      const responderName =
+        item.assignedResponderName ||
+        item.assignedResponderUsername ||
+        item.responderUsername ||
+        null;
+
       return {
-        displayName: currentUserName,
-        profileImageUrl: item.questionerProfileImageUrl ?? currentUserProfileImageUrl,
+        displayName: responderName || 'Unassigned',
+        profileImageUrl: item.assignedResponderProfileImageUrl ?? null,
       };
     }
 
@@ -74,35 +72,7 @@ const Questions = () => {
       displayName: item.questionerName || item.questionerUsername || 'Questioner',
       profileImageUrl: item.questionerProfileImageUrl ?? null,
     };
-  }, [activeTab, currentUserName, currentUserProfileImageUrl]);
-
-  const pruneExpiredInboxAssignments = useCallback(() => {
-    const currentInbox = useQuestionStore.getState().inboxQuestions;
-    const prunedInbox = currentInbox.filter(
-      (question) =>
-        question.status === QuestionStatus.Answered || isAssignmentTtrActive(question),
-    );
-
-    if (prunedInbox.length !== currentInbox.length) {
-      setInboxQuestions(prunedInbox);
-    }
-  }, [setInboxQuestions]);
-
-  const handleRechooseFromExpired = useCallback((questionId?: string) => {
-    const item = useQuestionStore.getState().outboxQuestions.find((q) => q.id === questionId) ||
-      useQuestionStore.getState().outboxQuestions.find((q) => q.status === QuestionStatus.Expired);
-    if (!item) return;
-
-    router.push({
-      pathname: '/responders',
-      params: {
-        latitude: String(item.latitude),
-        longitude: String(item.longitude),
-        address: item.address,
-        reassignQuestionId: item.id,
-      },
-    });
-  }, [router]);
+  }, [activeTab]);
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -114,10 +84,12 @@ const Questions = () => {
         questionService.getInboxQuestions(),
         questionService.getOutboxQuestions(),
       ]);
-      setInboxQuestions([
-        ...assignedQuestions.filter(isAssignmentTtrActive),
-        ...answeredQuestions,
-      ]);
+
+      const inboxById = new Map<string, TQuestion>();
+      for (const question of [...assignedQuestions, ...answeredQuestions]) {
+        inboxById.set(question.id, question);
+      }
+      setInboxQuestions([...inboxById.values()]);
 
       const apiOutboxIds = new Set(postedQuestions.map((question: TQuestion) => question.id));
       const optimisticOutbox = useQuestionStore
@@ -188,17 +160,11 @@ const Questions = () => {
       };
 
       const handleExpired = (payload: { questionId: string; }) => {
-        removeInboxQuestion(payload.questionId);
         updateOutboxQuestion(payload.questionId, { status: QuestionStatus.Expired });
-        Alert.alert(
-          'No response in time',
-          'Your responder did not answer in time. You can re-choose someone else.',
-          [{ text: 'Choose another responder', onPress: () => handleRechooseFromExpired(payload.questionId) }],
-        );
       };
 
       const handleAssignmentExpired = (payload: { questionId: string; }) => {
-        removeInboxQuestion(payload.questionId);
+        updateInboxQuestion(payload.questionId, { status: QuestionStatus.Expired });
       };
 
       socket.on('question:update', handleUpdate);
@@ -228,13 +194,7 @@ const Questions = () => {
         socket.off('question:assignment-expired');
       }
     };
-  }, [handleRechooseFromExpired, prependInboxQuestion, removeInboxQuestion, updateInboxQuestion, updateOutboxQuestion]);
-
-  useEffect(() => {
-    pruneExpiredInboxAssignments();
-    const intervalId = setInterval(pruneExpiredInboxAssignments, 15000);
-    return () => clearInterval(intervalId);
-  }, [pruneExpiredInboxAssignments]);
+  }, [prependInboxQuestion, updateInboxQuestion, updateOutboxQuestion]);
 
   const assignedCount = inboxQuestions.filter(
     (question) => isUnseenNewQuestion(question, TabType.Inbox, seenQuestionIds),
@@ -292,40 +252,14 @@ const Questions = () => {
     markQuestionSeen(item.id);
 
     if (activeTab === TabType.Inbox) {
-      if (item.status === QuestionStatus.Answered) {
+      if (
+        item.status === QuestionStatus.Answered ||
+        item.status === QuestionStatus.Assigned ||
+        item.status === QuestionStatus.Expired
+      ) {
         router.push({
-          pathname: '/answer',
-          params: {
-            id: item.id,
-            address: item.address,
-            questionText: item.text,
-            createdAt: item.createdAt,
-            assignedAt: item.assignedAt || item.createdAt,
-            timeToRespondMs: String(item.timeToRespondMs || DEFAULT_TTR_MS),
-            status: item.status,
-            answer: item.answer || '',
-            answerImageUrl: item.answerImageUrl || '',
-            readOnly: 'true',
-          },
-        });
-        return;
-      }
-
-      if (isAssignmentTtrActive(item)) {
-        router.push({
-          pathname: '/answer',
-          params: {
-            id: item.id,
-            address: item.address,
-            questionText: item.text,
-            createdAt: item.createdAt,
-            assignedAt: item.assignedAt as string,
-            timeToRespondMs: String(item.timeToRespondMs ?? DEFAULT_TTR_MS),
-            status: item.status,
-            answer: item.answer || '',
-            answerImageUrl: item.answerImageUrl || '',
-            readOnly: 'false',
-          },
+          pathname: '/chat',
+          params: { questionId: item.id },
         });
         return;
       }
@@ -349,25 +283,10 @@ const Questions = () => {
       return;
     }
 
-    if (item.status === QuestionStatus.Expired) {
+    if (hasStartedChat(item)) {
       router.push({
-        pathname: '/question-detail',
-        params: {
-          questionId: item.id,
-          address: item.address,
-          questionText: item.text,
-          longitude: item.longitude,
-          latitude: item.latitude,
-          createdAt: item.createdAt,
-          answer: item.answer,
-          answerRating: item.answerRating,
-          answerId: item.answerId,
-          responderUsername: item.responderUsername,
-          responderId: item.responderId,
-          responderAverageRating: item.responderAverageRating,
-          isOutbox: 'true',
-          isExpired: 'true',
-        },
+        pathname: '/chat',
+        params: { questionId: item.id },
       });
       return;
     }
@@ -375,6 +294,7 @@ const Questions = () => {
     router.push({
       pathname: '/question-detail',
       params: {
+        questionId: item.id,
         address: item.address,
         questionText: item.text,
         longitude: item.longitude,
@@ -387,7 +307,8 @@ const Questions = () => {
         responderId: item.responderId,
         responderAverageRating: item.responderAverageRating,
         isOutbox: 'true',
-        isPending: item.status === QuestionStatus.Assigned ? 'true' : 'false',
+        isPending: item.status === QuestionStatus.Open ? 'true' : 'false',
+        isExpired: item.status === QuestionStatus.Expired ? 'true' : 'false',
       },
     });
   };

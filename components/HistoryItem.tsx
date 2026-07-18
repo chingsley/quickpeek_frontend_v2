@@ -35,11 +35,17 @@ const getSubtitle = (item: Props) => {
       return `${responderUsername || 'Responder'} answered`;
     }
     if (status === QuestionStatus.Assigned || isActiveAssignment) {
+      if (answer) {
+        return `You: ${truncate(answer, 42)}`;
+      }
       return 'Waiting for a response';
     }
     return `You: ${truncate(text, 42)}`;
   }
 
+  if (status === QuestionStatus.Expired) {
+    return 'Response window expired';
+  }
   if (status === QuestionStatus.Answered && answer) {
     return `You: ${truncate(answer, 42)}`;
   }
