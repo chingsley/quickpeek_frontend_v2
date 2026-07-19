@@ -1,5 +1,10 @@
 export { default as questionService } from './questions.services';
+export { default as requestService } from './requests.services';
+export { default as categoryService } from './categories.services';
 export { default as userService } from './users.services';
-export { getNearbyResponders, getUserProfile, updateUserProfile, getPublicUserProfile } from './users.services';
+export * from './questions.services';
+export * from './requests.services';
+export * from './categories.services';
 export * from './messages.services';
 export * from './reviews.services';
+export { getUserProfile, updateUserProfile, uploadProfileImage, getPublicUserProfile } from './users.services';

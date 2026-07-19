@@ -1,4 +1,4 @@
 export enum TabType {
-  Inbox = 'INBOX',
-  Outbox = 'OUTBOX',
+  MyQuestions = 'MY_QUESTIONS',
+  MyRequests = 'MY_REQUESTS',
 }

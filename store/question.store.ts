@@ -1,90 +1,61 @@
 import { TQuestion } from '@/types/question.types';
-import { sortInboxQuestions, sortOutboxQuestions } from '@/utils/questions';
 import { create } from 'zustand';
 
-function dedupeQuestionsById(questions: TQuestion[]): TQuestion[] {
+function sortQuestions(questions: TQuestion[]): TQuestion[] {
+  return [...questions].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function dedupeById(questions: TQuestion[]): TQuestion[] {
   const seen = new Set<string>();
-  return questions.filter((question) => {
-    if (seen.has(question.id)) {
-      return false;
-    }
-    seen.add(question.id);
+  return questions.filter((q) => {
+    if (seen.has(q.id)) return false;
+    seen.add(q.id);
     return true;
   });
 }
 
 interface QuestionState {
-  inboxQuestions: TQuestion[];
-  outboxQuestions: TQuestion[];
-  postedQuestion: TQuestion | null;
-  setInboxQuestions: (questions: TQuestion[]) => void;
-  prependInboxQuestion: (question: TQuestion) => void;
-  updateInboxQuestion: (questionId: string, updates: Partial<TQuestion>) => void;
-  mergeInboxQuestions: (questions: TQuestion[]) => void;
-  removeInboxQuestion: (questionId: string) => void;
-  setOutboxQuestions: (questions: TQuestion[]) => void;
-  updateOutboxQuestion: (questionId: string, updates: Partial<TQuestion>) => void;
+  feedQuestions: TQuestion[];
+  myQuestions: TQuestion[];
+  setFeedQuestions: (questions: TQuestion[]) => void;
+  appendFeedQuestions: (questions: TQuestion[]) => void;
+  setMyQuestions: (questions: TQuestion[]) => void;
+  updateMyQuestion: (questionId: string, updates: Partial<TQuestion>) => void;
+  prependMyQuestion: (question: TQuestion) => void;
   clearQuestions: () => void;
-  dispatchNewQuestion: (questionData: TQuestion) => Promise<void>;
 }
 
 export const useQuestionStore = create<QuestionState>((set, get) => ({
-  inboxQuestions: [],
-  outboxQuestions: [],
-  postedQuestion: null,
+  feedQuestions: [],
+  myQuestions: [],
 
-  setInboxQuestions: (questions) =>
-    set({ inboxQuestions: sortInboxQuestions(dedupeQuestionsById(questions)) }),
+  setFeedQuestions: (questions) =>
+    set({ feedQuestions: dedupeById(sortQuestions(questions)) }),
 
-  prependInboxQuestion: (question) => {
-    const { inboxQuestions } = get();
-    const withoutExisting = inboxQuestions.filter((q) => q.id !== question.id);
-    set({ inboxQuestions: sortInboxQuestions([question, ...withoutExisting]) });
+  appendFeedQuestions: (questions) => {
+    const { feedQuestions } = get();
+    set({ feedQuestions: dedupeById(sortQuestions([...feedQuestions, ...questions])) });
   },
 
-  updateInboxQuestion: (questionId, updates) => {
-    const { inboxQuestions } = get();
+  setMyQuestions: (questions) =>
+    set({ myQuestions: dedupeById(sortQuestions(questions)) }),
+
+  updateMyQuestion: (questionId, updates) => {
+    const { myQuestions } = get();
     set({
-      inboxQuestions: sortInboxQuestions(
-        inboxQuestions.map((question) =>
-          question.id === questionId ? { ...question, ...updates } : question,
-        ),
+      myQuestions: sortQuestions(
+        myQuestions.map((q) => (q.id === questionId ? { ...q, ...updates } : q)),
       ),
     });
   },
 
-  mergeInboxQuestions: (questions) => {
-    const { inboxQuestions } = get();
-    set({ inboxQuestions: sortInboxQuestions(dedupeQuestionsById([...questions, ...inboxQuestions])) });
+  prependMyQuestion: (question) => {
+    const { myQuestions } = get();
+    const without = myQuestions.filter((q) => q.id !== question.id);
+    set({ myQuestions: sortQuestions([question, ...without]) });
   },
 
-  removeInboxQuestion: (questionId) => {
-    const { inboxQuestions } = get();
-    set({ inboxQuestions: inboxQuestions.filter((q) => q.id !== questionId) });
-  },
-
-  setOutboxQuestions: (questions) =>
-    set({ outboxQuestions: sortOutboxQuestions(dedupeQuestionsById(questions)) }),
-
-  updateOutboxQuestion: (questionId, updates) => {
-    const { outboxQuestions } = get();
-    set({
-      outboxQuestions: sortOutboxQuestions(
-        outboxQuestions.map((question) =>
-          question.id === questionId ? { ...question, ...updates } : question,
-        ),
-      ),
-    });
-  },
-
-  clearQuestions: () => set({ inboxQuestions: [], outboxQuestions: [] }),
-
-  dispatchNewQuestion: async (questionData: TQuestion) => {
-    const { outboxQuestions } = get();
-    const withoutExisting = outboxQuestions.filter((q) => q.id !== questionData.id);
-    set({
-      outboxQuestions: sortOutboxQuestions([questionData, ...withoutExisting]),
-      postedQuestion: questionData,
-    });
-  },
+  clearQuestions: () => set({ feedQuestions: [], myQuestions: [] }),
 }));

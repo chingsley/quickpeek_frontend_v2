@@ -52,8 +52,8 @@ const Settings = () => {
   const displayName = profile?.name || authUser?.name || 'User';
   const displayUsername = profile?.username || authUser?.username || '';
   const profileImageUrl = profile?.profileImageUrl ?? authUser?.profileImageUrl ?? null;
-  const rating = profile?.rating?.averageRating ?? 0;
-  const answersCount = profile?.rating?.answersCount ?? profile?.answersCount ?? 0;
+  const rating = profile?.asResponder?.averageRating ?? authUser?.asResponder?.averageRating ?? 0;
+  const questionsAnsweredCount = profile?.asResponder?.reviewsCount ?? authUser?.asResponder?.reviewsCount ?? 0;
 
   const handlePickProfileImage = async () => {
     try {
@@ -155,7 +155,7 @@ const Settings = () => {
           <View style={styles.ratingRow}>
             <StarRating rating={rating} size={18} />
             <Text style={styles.ratingMeta}>
-              {rating > 0 ? `${rating.toFixed(1)} · ${answersCount} answered` : 'No ratings yet'}
+              {rating > 0 ? `${rating.toFixed(1)} · ${questionsAnsweredCount} reviews` : 'No ratings yet'}
             </Text>
           </View>
           <TouchableOpacity style={styles.editLink} onPress={() => setIsEditing((v) => !v)}>

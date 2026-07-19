@@ -16,12 +16,12 @@ import {
 
 type Props = {
   visible: boolean;
-  questionId: string;
+  requestId: string;
   onClose: () => void;
   onSubmitted: () => void;
 };
 
-const ReviewModal = ({ visible, questionId, onClose, onSubmitted }: Props) => {
+const ReviewModal = ({ visible, requestId, onClose, onSubmitted }: Props) => {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -38,7 +38,7 @@ const ReviewModal = ({ visible, questionId, onClose, onSubmitted }: Props) => {
     if (stars === 0 || submitting) return;
     setSubmitting(true);
     try {
-      const result = await submitReview(questionId, stars, comment.trim() || undefined);
+      const result = await submitReview(requestId, stars, comment.trim() || undefined);
       Alert.alert(
         result.revealed ? 'Review submitted' : 'Review submitted',
         result.revealed

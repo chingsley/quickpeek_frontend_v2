@@ -1,26 +1,21 @@
 import Axios from '@/config/axios.config';
 import { TReview, TReviewEligibility } from '@/types/review.types';
 
-export const getReviewEligibility = async (questionId: string): Promise<TReviewEligibility> => {
-  const response = await Axios.get(`/questions/${questionId}/review-eligibility`);
+export const getReviewEligibility = async (requestId: string): Promise<TReviewEligibility> => {
+  const response = await Axios.get(`/requests/${requestId}/review-eligibility`);
   return response.data.data as TReviewEligibility;
 };
 
-export const getMyReviewForQuestion = async (questionId: string): Promise<TReview | null> => {
-  const response = await Axios.get(`/questions/${questionId}/my-review`);
+export const getMyReviewForRequest = async (requestId: string): Promise<TReview | null> => {
+  const response = await Axios.get(`/requests/${requestId}/my-review`);
   return response.data.data as TReview | null;
 };
 
 export const submitReview = async (
-  questionId: string,
+  requestId: string,
   stars: number,
   comment?: string,
 ): Promise<{ revealed: boolean; isRevealed: boolean }> => {
-  const response = await Axios.post(`/questions/${questionId}/reviews`, { stars, comment });
-  return response.data.data;
-};
-
-export const markQuestionAnswered = async (questionId: string) => {
-  const response = await Axios.post(`/questions/${questionId}/answered`);
+  const response = await Axios.post(`/requests/${requestId}/reviews`, { stars, comment });
   return response.data.data;
 };

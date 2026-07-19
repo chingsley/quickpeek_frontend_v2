@@ -1,101 +1,85 @@
 import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { QuestionStatus, TQuestion } from '@/types/question.types';
+import { TAnswerRequest } from '@/types/answerRequest.types';
+import { TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
 import { formatListTime } from '@/utils/date';
-import { isAssignmentTtrActive } from '@/utils/questions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-interface Props extends TQuestion {
+type Props = {
   onClick: () => void;
   activeTab: TabType;
-  profileImageUrl?: string | null;
   displayName: string;
+  profileImageUrl?: string | null;
   isNew?: boolean;
-}
+} & (
+  | { kind: 'question'; item: TQuestion }
+  | { kind: 'request'; item: TAnswerRequest }
+);
 
-const truncate = (value: string, maxLength: number) => {
-  const trimmed = value.trim();
-  if (trimmed.length <= maxLength) return trimmed;
-  return `${trimmed.slice(0, maxLength - 1).trim()}…`;
+const STATUS_COLORS: Record<string, string> = {
+  OPEN: colors.PRIMARY,
+  ANSWERED: colors.MEDIUM_GRAY,
+  CANCELLED: colors.MEDIUM_GRAY,
+  PENDING: colors.ACTIVE,
+  ACCEPTED: colors.PRIMARY,
+  REJECTED: colors.MEDIUM_GRAY,
+  CLOSED_ANSWERED: colors.MEDIUM_GRAY,
 };
 
-const getSubtitle = (item: Props) => {
-  const { activeTab, status, text, answer, questionerName, responderUsername } = item;
-  const isActiveAssignment = isAssignmentTtrActive(item);
+const HistoryItem = (props: Props) => {
+  const { onClick, activeTab, displayName, profileImageUrl, isNew = false } = props;
 
-  if (activeTab === TabType.Outbox) {
-    if (status === QuestionStatus.Expired) {
-      return 'No response in time';
-    }
-    if (status === QuestionStatus.Answered && answer) {
-      return `${responderUsername || 'Responder'} answered`;
-    }
-    if (status === QuestionStatus.Assigned || isActiveAssignment) {
-      if (answer) {
-        return `You: ${truncate(answer, 42)}`;
-      }
-      return 'Waiting for a response';
-    }
-    return `You: ${truncate(text, 42)}`;
-  }
+  const title =
+    props.kind === 'question'
+      ? props.item.title
+      : props.item.question?.title || 'Question';
 
-  if (status === QuestionStatus.Expired) {
-    return 'Response window expired';
-  }
-  if (status === QuestionStatus.Answered && answer) {
-    return `You: ${truncate(answer, 42)}`;
-  }
-  if (isActiveAssignment) {
-    return `${questionerName || 'Someone'}: ${truncate(text, 42)}`;
-  }
-  return `${questionerName || 'Someone'}: ${truncate(text, 42)}`;
-};
+  const subtitle =
+    props.kind === 'question'
+      ? props.item.detail
+      : props.item.rejectionReason || props.item.question?.detail || '';
 
-const shouldShowStatusIcon = (item: Props) => {
-  const { activeTab, status } = item;
-  if (activeTab === TabType.Outbox) {
-    return status === QuestionStatus.Answered || status === QuestionStatus.Assigned;
-  }
-  return status === QuestionStatus.Answered;
-};
+  const status =
+    props.kind === 'question' ? props.item.status : props.item.status;
 
-const HistoryItem = (item: Props) => {
-  const {
-    address,
-    text,
-    createdAt,
-    updatedAt,
-    onClick,
-    profileImageUrl,
-    displayName,
-    isNew = false,
-  } = item;
+  const timestamp = formatListTime(
+    props.kind === 'question' ? props.item.createdAt : props.item.createdAt,
+  );
 
-  const titleSubject = truncate(address || text, 34);
-  const subtitle = getSubtitle(item);
-  const timestamp = formatListTime(updatedAt || createdAt);
-  const showStatusIcon = shouldShowStatusIcon(item);
+  const pendingCount =
+    props.kind === 'question' && activeTab === TabType.MyQuestions
+      ? props.item.requestCounts?.PENDING ?? 0
+      : 0;
 
   return (
-    <TouchableOpacity onPress={onClick} style={styles.container} activeOpacity={0.7}>
-      <UserAvatar imageUrl={profileImageUrl} size={56} />
+    <TouchableOpacity style={styles.container} onPress={onClick} activeOpacity={0.85}>
+      <UserAvatar imageUrl={profileImageUrl} size={48} />
       <View style={styles.content}>
-        <Text style={[styles.title, isNew && styles.titleNew]} numberOfLines={1}>
-          {displayName} · {titleSubject}
-        </Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {subtitle} · {timestamp}
-        </Text>
-      </View>
-      {showStatusIcon && (
-        <View style={styles.statusIcon}>
-          <Ionicons name="checkmark" size={14} color={colors.MEDIUM_GRAY} />
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, isNew && styles.titleNew]} numberOfLines={1}>{title}</Text>
+          {isNew && <View style={styles.newDot} />}
         </View>
-      )}
+        <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+        <View style={styles.footer}>
+          <Text style={styles.displayName}>{displayName}</Text>
+          <Text style={[styles.status, { color: STATUS_COLORS[status] || colors.MEDIUM_GRAY }]}>
+            {status}
+          </Text>
+          {pendingCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingCount}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+      <View style={styles.right}>
+        <Text style={styles.time}>{timestamp}</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.LIGHT_GRAY} />
+      </View>
     </TouchableOpacity>
   );
 };
@@ -106,33 +90,30 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.CARD_BORDER,
+    gap: 12,
   },
-  content: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    marginBottom: 4,
-  },
-  titleNew: {
-    fontFamily: 'roboto-bold',
-  },
-  subtitle: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-  },
-  statusIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.LIGHT_GRAY_THIN,
+  content: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
+  titleNew: { fontFamily: 'roboto-bold' },
+  newDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.RED },
+  subtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 2 },
+  footer: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 },
+  displayName: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
+  status: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, textTransform: 'uppercase' },
+  badge: {
+    backgroundColor: colors.RED,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
   },
+  badgeText: { color: colors.BG_WHITE, fontSize: fonts.FONT_SIZE_XS, fontWeight: 'bold' },
+  right: { alignItems: 'flex-end', gap: 8 },
+  time: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
 });

@@ -1,27 +1,17 @@
 import Axios from '@/config/axios.config';
-import TLocation from '@/types/location.types';
 import { TPublicUserProfile } from '@/types/review.types';
-import { TResponder, TUser } from '@/types/user.types';
+import { TUser } from '@/types/user.types';
 
-/**
- * GET /api/v1/users — the authenticated user's profile (includes rating).
- */
 export const getUserProfile = async (): Promise<TUser> => {
   const response = await Axios.get('/users');
   return response.data.data as TUser;
 };
 
-/**
- * PUT /api/v1/users — update editable profile fields.
- */
 export const updateUserProfile = async (updates: Partial<TUser>): Promise<TUser> => {
   const response = await Axios.put('/users', updates);
   return response.data.data as TUser;
 };
 
-/**
- * POST /api/v1/users/profile-image — upload a profile picture.
- */
 export const uploadProfileImage = async (imageUri: string): Promise<TUser> => {
   const formData = new FormData();
   const filename = imageUri.split('/').pop() || 'profile.jpg';
@@ -33,21 +23,6 @@ export const uploadProfileImage = async (imageUri: string): Promise<TUser> => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return response.data.data as TUser;
-};
-
-/**
- * GET /api/v1/users/nearby — browse nearby responders for the questioner to
- * choose from. `sort` is 'rating' or 'proximity' (default).
- */
-export const getNearbyResponders = async (
-  lon: TLocation['longitude'],
-  lat: TLocation['latitude'],
-  sort: 'rating' | 'proximity' = 'proximity',
-): Promise<TResponder[]> => {
-  const response = await Axios.get(
-    `/users/nearby?longitude=${lon}&latitude=${lat}&sort=${sort}`,
-  );
-  return response.data.data as TResponder[];
 };
 
 export const getPublicUserProfile = async (
@@ -63,6 +38,5 @@ export default {
   getUserProfile,
   updateUserProfile,
   uploadProfileImage,
-  getNearbyResponders,
   getPublicUserProfile,
 };

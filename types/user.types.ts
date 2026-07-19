@@ -1,9 +1,8 @@
-import TLocation from "./location.types";
+import TLocation from './location.types';
 
-export type TUserRating = {
+export type TRoleRating = {
   averageRating: number;
-  totalRating: number;
-  answersCount: number;
+  reviewsCount: number;
 };
 
 export type TUser = {
@@ -16,27 +15,11 @@ export type TUser = {
   locationSharingEnabled: boolean;
   notificationsEnabled: boolean;
   isVerified?: boolean;
+  isAdmin?: boolean;
   location?: TLocation;
-  rating?: TUserRating;
-  answersCount?: number;
+  asResponder?: TRoleRating;
+  asQuestioner?: TRoleRating;
   profileImageUrl?: string | null;
 };
 
 export default TUser;
-
-/**
- * A responder shown in the Browse Responders list. Returned by
- * GET /api/v1/users/nearby.
- */
-export type TResponder = {
-  userId: string;
-  username: string;
-  name: string;
-  profileImageUrl?: string | null;
-  distance: number;
-  averageRating: number;
-  totalRating: number;
-  answersCount: number;
-  notificationsEnabled: boolean;
-  isOnline: boolean;
-};

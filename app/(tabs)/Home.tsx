@@ -1,484 +1,305 @@
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import useDebounce from '@/hooks/useDebounce';
-import { questionService } from '@/services';
-import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
-import { TRecentAddress, useRecentAddressStore } from '@/store/recent-address.store';
+import { getCategories } from '@/services/categories.services';
+import { getQuestionFeed } from '@/services/questions.services';
+import { getConversations } from '@/services/requests.services';
+import SocketService from '@/services/socket.services';
+import { useQuestionStore } from '@/store/question.store';
+import { TCategory } from '@/types/category.types';
 import { TQuestion } from '@/types/question.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import BottomSheet, {
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-  BottomSheetView,
-} from '@gorhom/bottom-sheet';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Location from 'expo-location';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Keyboard,
-  Platform,
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker } from '@/components/MapViewWrapper';
-
-const COLLAPSED_SNAP = 0;
-const EXPANDED_SNAP = 1;
-
-/** Default map viewport before the user selects a question location. */
-const DEFAULT_MAP_REGION = {
-  latitude: 44.6126,
-  longitude: -63.6193,
-  latitudeDelta: 0.0922,
-  longitudeDelta: 0.0421,
-};
-
-const getMostRecentAddress = (
-  localAddress: TRecentAddress | null,
-  questions: TQuestion[],
-): TRecentAddress | null => {
-  const latestQuestion = questions
-    .filter((question) => question.address?.trim())
-    .sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )[0];
-
-  if (latestQuestion) {
-    return {
-      userId: latestQuestion.userId,
-      address: latestQuestion.address,
-      latitude: latestQuestion.latitude,
-      longitude: latestQuestion.longitude,
-      chosenAt: latestQuestion.createdAt,
-    };
-  }
-
-  return localAddress;
-};
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = () => {
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const insets = useSafeAreaInsets();
-  const snapPoints = useMemo(() => ['38%', '62%'], []);
-  const params = useLocalSearchParams();
   const router = useRouter();
-  const isLoggedIn = useAuthStore(selectIsLoggedIn);
-  const userId = useAuthStore((state) => state.user?.id);
-  const getRecentAddressForUser = useRecentAddressStore((state) => state.getRecentAddressForUser);
-  const setRecentAddress = useRecentAddressStore((state) => state.setRecentAddress);
+  const { feedQuestions, setFeedQuestions } = useQuestionStore();
+  const [categories, setCategories] = useState<TCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [nearMe, setNearMe] = useState(false);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [loading, setLoading] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
-  const [isAddressSelected, setIsAddressSelected] = useState(false);
-  const [recentAddress, setRecentAddressState] = useState<TRecentAddress | null>(null);
-  const [inputAddressText, setInputAddressText] = useState('');
-  const [reaskQuestionText, setReaskQuestionText] = useState('');
-  const [addressCoordinates, setAddressCoordinates] = useState({
-    latitude: DEFAULT_MAP_REGION.latitude,
-    longitude: DEFAULT_MAP_REGION.longitude,
-  });
-  const [region, setRegion] = useState(DEFAULT_MAP_REGION);
-
-  const debouncedAddressText = useDebounce(inputAddressText, 600);
-
-  const { questionText: questionTextParam, address: addressParam, longitude: longitudeParam, latitude: latitudeParam } =
-    params;
-
-  useEffect(() => {
-    if (addressParam && longitudeParam && latitudeParam) {
-      const latitude = parseFloat(latitudeParam as string);
-      const longitude = parseFloat(longitudeParam as string);
-      const address = addressParam as string;
-      setInputAddressText(address);
-      setAddressCoordinates({ latitude, longitude });
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
-      if (questionTextParam) {
-        setReaskQuestionText(questionTextParam as string);
-      }
-      setIsAddressSelected(true);
-      if (userId) {
-        setRecentAddress(userId, address, latitude, longitude);
-      }
-      bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-      router.setParams({
-        questionText: '',
-        address: '',
-        longitude: '',
-        latitude: '',
-      });
-    }
-  }, [questionTextParam, addressParam, longitudeParam, latitudeParam, router, setRecentAddress, userId]);
-
-  const loadRecentAddress = useCallback(async () => {
-    if (!isLoggedIn || !userId) {
-      setRecentAddressState(null);
-      return;
-    }
-
+  const loadUnreadCount = useCallback(async () => {
     try {
-      const localAddress = getRecentAddressForUser(userId);
-      const outboxQuestions = await questionService.getOutboxQuestions();
-      setRecentAddressState(getMostRecentAddress(localAddress, outboxQuestions));
-    } catch (error: any) {
-      if (error.response?.status !== 401) {
-        console.error('Error loading recent address:', error);
-      }
-      setRecentAddressState(getRecentAddressForUser(userId));
+      const data = await getConversations();
+      setUnreadChatCount(data.unreadTotal);
+    } catch {
+      setUnreadChatCount(0);
     }
-  }, [getRecentAddressForUser, isLoggedIn, userId]);
+  }, []);
+
+  const loadFeed = useCallback(async () => {
+    setLoading(true);
+    try {
+      const feedParams: Parameters<typeof getQuestionFeed>[0] = {
+        categoryId: selectedCategoryId ?? undefined,
+        page: 1,
+        limit: 30,
+      };
+      if (nearMe && coords) {
+        feedParams.lat = coords.lat;
+        feedParams.lng = coords.lng;
+        feedParams.radiusKm = 10;
+      }
+      const data = await getQuestionFeed(feedParams);
+      setFeedQuestions(data.items);
+    } catch (error) {
+      console.error('Failed to load feed:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [coords, nearMe, selectedCategoryId, setFeedQuestions]);
 
   useFocusEffect(
     useCallback(() => {
-      loadRecentAddress();
-    }, [loadRecentAddress]),
+      getCategories().then(setCategories).catch(() => {});
+      loadUnreadCount();
+    }, [loadUnreadCount]),
   );
 
   useEffect(() => {
-    if (debouncedAddressText.length > 2 && !isAddressSelected) {
-      const fetchSuggestions = async () => {
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${debouncedAddressText}&format=json&limit=5`,
-          );
-          const data = await response.json();
-          setAddressSuggestions(data);
-        } catch (error) {
-          console.error('Error fetching location addressSuggestions:', error);
-        }
-      };
+    const socket = SocketService.getSocket();
+    if (!socket) return;
+    const refresh = () => loadUnreadCount();
+    socket.on('message:new', refresh);
+    socket.on('request:new', refresh);
+    socket.on('request:accepted', refresh);
+    socket.on('request:rejected', refresh);
+    socket.on('question:answered', refresh);
+    return () => {
+      socket.off('message:new', refresh);
+      socket.off('request:new', refresh);
+      socket.off('request:accepted', refresh);
+      socket.off('request:rejected', refresh);
+      socket.off('question:answered', refresh);
+    };
+  }, [loadUnreadCount]);
 
-      fetchSuggestions();
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
+
+  const toggleNearMe = async () => {
+    if (!nearMe) {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({});
+      setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      setNearMe(true);
     } else {
-      setAddressSuggestions([]);
+      setNearMe(false);
     }
-  }, [debouncedAddressText, isAddressSelected]);
-
-  const handleLocationChange = (text: string) => {
-    if (isAddressSelected) {
-      setIsAddressSelected(false);
-    }
-    setInputAddressText(text);
   };
 
-  const handleSheetChanges = useCallback((index: number) => {
-    if (index === COLLAPSED_SNAP) {
-      Keyboard.dismiss();
-    }
-  }, []);
-
-  const selectAddress = useCallback(
-    (address: string, latitude: number, longitude: number) => {
-      setInputAddressText(address);
-      setAddressCoordinates({ latitude, longitude });
-      setAddressSuggestions([]);
-      setIsAddressSelected(true);
-      setRegion({
-        latitude,
-        longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
-
-      if (userId) {
-        setRecentAddress(userId, address, latitude, longitude);
-        setRecentAddressState({
-          userId,
-          address,
-          latitude,
-          longitude,
-          chosenAt: new Date().toISOString(),
-        });
-      }
-
-      Keyboard.dismiss();
-    },
-    [setRecentAddress, userId],
+  const renderQuestion = ({ item }: { item: TQuestion }) => (
+    <TouchableOpacity
+      style={viewMode === 'card' ? styles.card : styles.listItem}
+      onPress={() => router.push({ pathname: '/question-detail', params: { questionId: item.id } })}
+      activeOpacity={0.85}
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={styles.price}>${item.price.toFixed(2)}</Text>
+      </View>
+      <Text style={styles.cardDetail} numberOfLines={viewMode === 'card' ? 3 : 2}>{item.detail}</Text>
+      <View style={styles.cardFooter}>
+        {item.category && (
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{item.category.name}</Text>
+          </View>
+        )}
+        {item.nearMe && (
+          <View style={[styles.chip, styles.nearMeChip]}>
+            <Text style={[styles.chipText, styles.nearMeText]}>Near me</Text>
+          </View>
+        )}
+        {item.distanceKm != null && (
+          <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km</Text>
+        )}
+      </View>
+    </TouchableOpacity>
   );
-
-  const handleAddressFocus = useCallback(() => {
-    bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-  }, []);
-
-  const handleAddressBlur = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
-
-  const handleAddressSubmit = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
-
-  useEffect(() => {
-    const eventName = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const subscription = Keyboard.addListener(eventName, () => {
-      bottomSheetRef.current?.snapToIndex(EXPANDED_SNAP);
-    });
-
-    return () => subscription.remove();
-  }, []);
-
-  const handleContinue = () => {
-    Keyboard.dismiss();
-    router.push({
-      pathname: '/responders',
-      params: {
-        latitude: String(addressCoordinates.latitude),
-        longitude: String(addressCoordinates.longitude),
-        address: inputAddressText,
-        questionText: reaskQuestionText,
-      },
-    });
-  };
-
-  const onSuggestionPress = (item: any) => {
-    try {
-      selectAddress(item.display_name, parseFloat(item.lat), parseFloat(item.lon));
-    } catch (error) {
-      console.error('onSuggestionPress error', error);
-    }
-  };
-
-  const onRecentAddressPress = () => {
-    if (!recentAddress) {
-      return;
-    }
-
-    selectAddress(recentAddress.address, recentAddress.latitude, recentAddress.longitude);
-  };
-
-  const showRecentAddress =
-    isLoggedIn &&
-    !isAddressSelected &&
-    inputAddressText.trim().length === 0 &&
-    addressSuggestions.length === 0 &&
-    recentAddress !== null;
-
-  const isLocationValid = isAddressSelected && inputAddressText.trim().length > 0;
 
   return (
-    <View style={styles.container}>
-      <MapView style={styles.map} region={region}>
-        {isAddressSelected && <Marker coordinate={addressCoordinates} />}
-      </MapView>
-
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={EXPANDED_SNAP}
-        snapPoints={snapPoints}
-        onChange={handleSheetChanges}
-        backgroundStyle={styles.bottomSheetBackground}
-        handleIndicatorStyle={styles.handleIndicator}
-        enablePanDownToClose={false}
-        keyboardBehavior="interactive"
-        keyboardBlurBehavior="none"
-        android_keyboardInputMode="adjustResize"
-        enableBlurKeyboardOnGesture
-      >
-        <BottomSheetView style={styles.contentContainer}>
-          <View style={styles.editContainer}>
-            <BottomSheetScrollView
-              style={styles.editScroll}
-              contentContainerStyle={styles.editScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.pageTitle}>Choose Question Location</Text>
-              <Text style={styles.pageSubtitle}>
-                First choose where you want to know about, then pick a nearby responder.
-              </Text>
-
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionIconCircle}>
-                  <Ionicons name="location-outline" size={20} color={colors.PRIMARY} />
-                </View>
-                <Text style={styles.sectionLabel}>Choose a location</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Text style={styles.pageTitle}>Questions</Text>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')} style={styles.iconBtn}>
+            <Ionicons
+              name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
+              size={22}
+              color={colors.PRIMARY}
+            />
+          </Pressable>
+          <Pressable onPress={() => router.push('/ask')} style={styles.askBtn}>
+            <Ionicons name="add" size={20} color={colors.BG_WHITE} />
+            <Text style={styles.askBtnText}>Ask</Text>
+          </Pressable>
+          <Pressable
+            style={styles.chatIconBtn}
+            onPress={() => router.push('/chats')}
+            accessibilityLabel="Open chats"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
+            {unreadChatCount > 0 && (
+              <View style={styles.chatBadge}>
+                <Text style={styles.chatBadgeText}>
+                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                </Text>
               </View>
+            )}
+          </Pressable>
+        </View>
+      </View>
 
-              <View style={styles.searchContainer}>
-                <BottomSheetTextInput
-                  style={styles.searchInput}
-                  placeholder="Search for a place or address"
-                  placeholderTextColor={colors.MEDIUM_GRAY}
-                  value={inputAddressText}
-                  onChangeText={handleLocationChange}
-                  onFocus={handleAddressFocus}
-                  onBlur={handleAddressBlur}
-                  onSubmitEditing={handleAddressSubmit}
-                  returnKeyType="done"
-                  blurOnSubmit
-                />
-              </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
+        <Pressable
+          style={[styles.filterChip, !selectedCategoryId && styles.filterChipActive]}
+          onPress={() => setSelectedCategoryId(null)}
+        >
+          <Text style={[styles.filterChipText, !selectedCategoryId && styles.filterChipTextActive]}>All</Text>
+        </Pressable>
+        {categories.map((cat) => (
+          <Pressable
+            key={cat.id}
+            style={[styles.filterChip, selectedCategoryId === cat.id && styles.filterChipActive]}
+            onPress={() => setSelectedCategoryId(cat.id === selectedCategoryId ? null : cat.id)}
+          >
+            <Text style={[styles.filterChipText, selectedCategoryId === cat.id && styles.filterChipTextActive]}>
+              {cat.name}
+            </Text>
+          </Pressable>
+        ))}
+        <Pressable
+          style={[styles.filterChip, nearMe && styles.filterChipActive]}
+          onPress={toggleNearMe}
+        >
+          <Ionicons name="navigate-outline" size={14} color={nearMe ? colors.BG_WHITE : colors.PRIMARY} />
+          <Text style={[styles.filterChipText, nearMe && styles.filterChipTextActive]}>Near me</Text>
+        </Pressable>
+      </ScrollView>
 
-              {showRecentAddress && (
-                <View style={styles.suggestionsContainer}>
-                  <TouchableOpacity
-                    style={styles.suggestionItem}
-                    onPress={onRecentAddressPress}
-                  >
-                    <Ionicons
-                      name="location-outline"
-                      size={16}
-                      color={colors.MEDIUM_GRAY}
-                      style={styles.suggestionIcon}
-                    />
-                    <Text style={styles.suggestionText} numberOfLines={2}>
-                      {recentAddress.address}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {addressSuggestions.length > 0 && (
-                <View style={styles.suggestionsContainer}>
-                  {addressSuggestions.map((item, index) => (
-                    <React.Fragment key={String(item.place_id)}>
-                      {index > 0 && <View style={styles.suggestionSeparator} />}
-                      <TouchableOpacity
-                        style={styles.suggestionItem}
-                        onPress={() => onSuggestionPress(item)}
-                      >
-                        <Ionicons
-                          name="location-outline"
-                          size={16}
-                          color={colors.MEDIUM_GRAY}
-                          style={styles.suggestionIcon}
-                        />
-                        <Text style={styles.suggestionText} numberOfLines={2}>
-                          {item.display_name}
-                        </Text>
-                      </TouchableOpacity>
-                    </React.Fragment>
-                  ))}
-                </View>
-              )}
-              {isLocationValid && (
-                <CustomButton
-                  text="Browse responders"
-                  onPress={handleContinue}
-                  style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-                />
-              )}
-            </BottomSheetScrollView>
-          </View>
-        </BottomSheetView>
-      </BottomSheet>
-    </View>
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.PRIMARY} />
+        </View>
+      ) : (
+        <FlatList
+          data={feedQuestions}
+          keyExtractor={(item) => item.id}
+          renderItem={renderQuestion}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Text style={styles.emptyText}>No open questions yet.</Text>
+              <CustomButton text="Ask a question" onPress={() => router.push('/ask')} style={{ marginTop: 16 }} />
+            </View>
+          }
+        />
+      )}
+    </SafeAreaView>
   );
 };
 
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  bottomSheetBackground: {
-    backgroundColor: colors.BG_WHITE,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  handleIndicator: {
-    backgroundColor: colors.LIGHT_GRAY,
-    width: 40,
-    height: 4,
-    marginTop: 8,
-  },
-  editContainer: {
-    flex: 1,
-  },
-  editScroll: {
-    flex: 1,
-  },
-  editScrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 16,
-  },
-  pageTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 28,
-    color: colors.TEXT_DARK,
-    marginBottom: 8,
-  },
-  pageSubtitle: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
-    marginBottom: 28,
-    lineHeight: 22,
-  },
-  sectionHeader: {
+  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 8,
   },
-  sectionIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.LIGHT_GREEN,
+  chatIconBtn: { padding: 4, position: 'relative' },
+  chatBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    backgroundColor: colors.RED,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  sectionLabel: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-  },
-  searchContainer: {
-    position: 'relative',
-  },
-  searchInput: {
-    borderWidth: 1,
-    borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
-    padding: 14,
-    paddingRight: 40,
-    fontSize: fonts.FONT_SIZE_SMALL,
-    fontFamily: 'roboto',
-    color: colors.TEXT_DARK,
-    backgroundColor: colors.BG_WHITE,
-  },
-  suggestionsContainer: {
-    marginTop: 4,
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    maxHeight: 240,
-  },
-  suggestionItem: {
+  chatBadgeText: { color: colors.BG_WHITE, fontSize: 10, fontWeight: 'bold' },
+  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBtn: { padding: 8 },
+  askBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    backgroundColor: colors.PRIMARY,
     paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 4,
   },
-  suggestionIcon: {
-    marginRight: 10,
-    marginTop: 1,
+  askBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.BG_WHITE },
+  filterRow: { maxHeight: 44, marginBottom: 8 },
+  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
+    backgroundColor: colors.BG_WHITE,
+    gap: 4,
   },
-  suggestionText: {
-    flex: 1,
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.DARK_GRAY,
-    fontFamily: 'roboto',
-    lineHeight: 20,
+  filterChipActive: { backgroundColor: colors.PRIMARY, borderColor: colors.PRIMARY },
+  filterChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.DARK_GRAY },
+  filterChipTextActive: { color: colors.BG_WHITE },
+  listContent: { paddingHorizontal: 16, paddingBottom: 24 },
+  card: {
+    backgroundColor: colors.CARD_BG,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
+    padding: 16,
+    marginBottom: 12,
   },
-  suggestionSeparator: {
-    height: 1,
-    backgroundColor: colors.CARD_BORDER,
-    marginHorizontal: 14,
+  listItem: {
+    backgroundColor: colors.BG_WHITE,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.CARD_BORDER,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
   },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  cardTitle: { flex: 1, fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginRight: 8 },
+  price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
+  cardDetail: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, lineHeight: 20, marginBottom: 10 },
+  cardFooter: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  chip: { backgroundColor: colors.LIGHT_GREEN, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  nearMeChip: { backgroundColor: colors.LIGHT_BLUE },
+  chipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  nearMeText: { color: colors.DARK_GRAY },
+  distance: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY },
 });

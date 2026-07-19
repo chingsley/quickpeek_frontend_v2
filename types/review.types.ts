@@ -38,7 +38,7 @@ export type TPublicUserProfile = {
   createdAt: string;
   asResponder: { averageRating: number; reviewsCount: number };
   asQuestioner: { averageRating: number; reviewsCount: number };
-  answersCount: number;
+  questionsAnsweredCount: number;
   questionsAskedCount: number;
   reviews: TPublicReview[];
   reviewsPagination: {

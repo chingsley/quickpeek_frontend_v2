@@ -1,260 +1,456 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
-import ReviewModal from '@/components/ReviewModal';
 import StarRating from '@/components/StarRating';
+import UserProfileModal from '@/components/UserProfileModal';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { getReviewEligibility } from '@/services/reviews.services';
+import {
+  acceptRequest,
+  createRequest,
+  getIncomingRequests,
+  getRejectionReasons,
+  rejectRequest,
+} from '@/services/requests.services';
+import { cancelQuestion, getQuestionDetail, markQuestionAnswered } from '@/services/questions.services';
+import SocketService from '@/services/socket.services';
+import { useAuthStore } from '@/store/auth.store';
+import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
+import { QuestionStatus } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
-import { TReviewEligibility } from '@/types/review.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const CAN_REQUEST_LABELS: Record<string, string> = {
+  OUTSIDE_RADIUS: 'You are outside the answer radius for this question.',
+  ALREADY_REQUESTED: 'You already sent a request for this question.',
+  ANSWERED: 'This question has been answered.',
+  CANCELLED: 'This question was cancelled.',
+  OWN_QUESTION: 'You cannot request to answer your own question.',
+  NO_VIEWER_LOCATION: 'Enable location to request location-based questions.',
+};
+
 const QuestionDetail = () => {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const {
-    questionId,
-    address,
-    questionText,
-    longitude,
-    latitude,
-    createdAt,
-    answer,
-    answerRating,
-    answerId,
-    responderUsername,
-    responderId,
-    responderAverageRating,
-    isOutbox,
-    isPending,
-    isExpired,
-  } = params;
+  const params = useLocalSearchParams<{ questionId: string }>();
+  const questionId = params.questionId as string;
+  const authUserId = useAuthStore((state) => state.user?.id);
 
-  const [reviewVisible, setReviewVisible] = useState(false);
-  const [eligibility, setEligibility] = useState<TReviewEligibility | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [question, setQuestion] = useState<Awaited<ReturnType<typeof getQuestionDetail>> | null>(null);
+  const [incomingRequests, setIncomingRequests] = useState<TAnswerRequest[]>([]);
 
-  const questionIdStr = questionId as string | undefined;
-  const isOutboxBool = isOutbox === 'true';
-  const isPendingBool = isPending === 'true';
-  const isExpiredBool = isExpired === 'true';
-  const hasAnswer = answer && String(answer).trim().length > 0;
-  const existingRating = answerRating ? Number(answerRating) : 0;
-  const respAvgRating = responderAverageRating ? Number(responderAverageRating) : 0;
+  // Reject modal
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [presetReasons, setPresetReasons] = useState<string[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+
+  // Profile modal
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileRequestId, setProfileRequestId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!questionId) return;
+    setLoading(true);
+    try {
+      const detail = await getQuestionDetail(questionId);
+      setQuestion(detail);
+      if (detail.userId === authUserId) {
+        const incoming = await getIncomingRequests({ questionId });
+        setIncomingRequests(incoming.items);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not load question.');
+    } finally {
+      setLoading(false);
+    }
+  }, [authUserId, questionId]);
 
   useEffect(() => {
-    if (!questionIdStr) return;
-    getReviewEligibility(questionIdStr)
-      .then(setEligibility)
-      .catch(() => setEligibility(null));
-  }, [questionIdStr]);
+    load();
+  }, [load]);
 
-  const handleRechooseResponder = () => {
-    router.push({
-      pathname: '/responders',
-      params: {
-        latitude: String(latitude),
-        longitude: String(longitude),
-        address: address as string,
-        reassignQuestionId: questionId as string,
+  useEffect(() => {
+    getRejectionReasons().then(setPresetReasons).catch(() => setPresetReasons([]));
+  }, []);
+
+  // Live updates: new/changed request → reload list
+  useEffect(() => {
+    const socket = SocketService.getSocket();
+    if (!socket) return;
+    const handler = (payload: { questionId?: string }) => {
+      if (payload?.questionId === questionId) load();
+    };
+    const messageHandler = (payload: { questionId?: string }) => {
+      if (payload?.questionId === questionId) load();
+    };
+    socket.on('request:new', handler);
+    socket.on('request:accepted', handler);
+    socket.on('request:rejected', handler);
+    socket.on('message:new', messageHandler);
+    return () => {
+      socket.off('request:new', handler);
+      socket.off('request:accepted', handler);
+      socket.off('request:rejected', handler);
+      socket.off('message:new', messageHandler);
+    };
+  }, [load, questionId]);
+
+  const isOwner = question?.userId === authUserId;
+
+  const handleRequestToAnswer = async () => {
+    if (!question) return;
+    setSubmitting(true);
+    try {
+      const result = await createRequest(question.id);
+      Alert.alert('Request sent', 'The questioner will review your request.', [
+        { text: 'Open chat', onPress: () => router.replace({ pathname: '/chat', params: { requestId: result.id } }) },
+        { text: 'OK', onPress: () => load() },
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.error || 'Could not send request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAccept = async (requestId: string) => {
+    const alreadyAccepted = incomingRequests.filter(
+      (r) => r.status === AnswerRequestStatus.Accepted,
+    ).length;
+
+    const proceed = async () => {
+      try {
+        await acceptRequest(requestId);
+        Alert.alert('Accepted', 'You can now chat with this responder.', [
+          { text: 'Open chat', onPress: () => router.push({ pathname: '/chat', params: { requestId } }) },
+          { text: 'OK', onPress: () => load() },
+        ]);
+        load();
+      } catch (error: any) {
+        Alert.alert('Error', error?.response?.data?.error || 'Could not accept request.');
+      }
+    };
+
+    if (alreadyAccepted > 0) {
+      Alert.alert(
+        'Multiple responders',
+        `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
+          'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+          'Continue accepting this request?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Accept', onPress: proceed },
+        ],
+      );
+    } else {
+      proceed();
+    }
+  };
+
+  const openRejectModal = (requestId: string) => {
+    setRejectTargetId(requestId);
+    setRejectionReason('');
+    setSelectedPreset(null);
+    setRejectModalVisible(true);
+  };
+
+  const handleReject = async () => {
+    if (!rejectTargetId) return;
+    const reason = (selectedPreset || rejectionReason).trim();
+    if (!reason) return;
+    try {
+      await rejectRequest(rejectTargetId, reason);
+      setRejectModalVisible(false);
+      load();
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.error || 'Could not reject request.');
+    }
+  };
+
+  const handleMarkAnswered = async () => {
+    if (!question) return;
+    Alert.alert('Mark answered?', 'This will close all pending requests.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm',
+        onPress: async () => {
+          try {
+            await markQuestionAnswered(question.id);
+            load();
+          } catch (error: any) {
+            Alert.alert('Error', error?.response?.data?.error || 'Could not mark answered.');
+          }
+        },
       },
-    });
+    ]);
   };
 
-  const handleOpenChat = () => {
-    if (!questionIdStr) return;
-    router.push({
-      pathname: '/chat',
-      params: { questionId: questionIdStr },
-    });
-  };
-
-  const handleReaskQuestion = () => {
-    router.push({
-      pathname: '/(tabs)/Home',
-      params: {
-        questionText: questionText as string,
-        address: address as string,
-        longitude: String(longitude),
-        latitude: String(latitude),
+  const handleCancel = async () => {
+    if (!question) return;
+    Alert.alert('Cancel question?', 'This cannot be undone.', [
+      { text: 'Keep', style: 'cancel' },
+      {
+        text: 'Cancel question',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await cancelQuestion(question.id);
+            router.back();
+          } catch (error: any) {
+            Alert.alert('Error', error?.response?.data?.error || 'Could not cancel.');
+          }
+        },
       },
-    });
+    ]);
   };
+
+  const openProfile = (userId: string, requestId?: string) => {
+    setProfileUserId(userId);
+    setProfileRequestId(requestId ?? null);
+    setProfileModalVisible(true);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.PRIMARY} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!question) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>Question not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const pendingRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Pending);
+  const acceptedRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Accepted);
 
   return (
-    <SafeAreaView style={styles.safeAreaContainer}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <BackButton color={colors.PRIMARY} />
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <BackButton color={colors.PRIMARY} />
+        <Text style={styles.pageTitle}>{question.title}</Text>
+
+        <View style={styles.metaRow}>
+          <Text style={styles.price}>${question.price.toFixed(2)}</Text>
+          {question.category && (
+            <View style={styles.chip}>
+              <Text style={styles.chipText}>{question.category.name}</Text>
+            </View>
+          )}
+          <Text style={styles.status}>{question.status}</Text>
         </View>
 
-        <Text style={styles.pageTitle}>Question Details</Text>
-
-        {/* Metadata Card */}
-        <View style={styles.metadataCard}>
-          <View style={styles.metadataRow}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
-            </View>
-            <Text style={styles.metadataText} numberOfLines={3}>
-              {address}
-            </Text>
+        {question.address && (
+          <View style={styles.locationCard}>
+            <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
+            <Text style={styles.locationText}>{question.address}</Text>
           </View>
-          <View style={styles.metadataDivider} />
-          <View style={styles.metadataRow}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="time-outline" size={16} color={colors.MEDIUM_GRAY} />
-            </View>
-            <Text style={styles.metadataTime}>{formatDate(createdAt as string)}</Text>
-          </View>
-        </View>
+        )}
 
-        {/* Question Card */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>Your Question</Text>
-          <Text style={styles.questionText}>{questionText}</Text>
+          <Text style={styles.cardLabel}>Details</Text>
+          <Text style={styles.bodyText}>{question.detail}</Text>
         </View>
 
-        <View style={styles.sectionDivider} />
-
-        {/* Answer Section */}
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionIconCircle}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.PRIMARY} />
-          </View>
-          <Text style={styles.sectionTitle}>Answer</Text>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Acceptance criteria</Text>
+          <Text style={styles.bodyText}>{question.acceptanceCriteria}</Text>
         </View>
 
-        {hasAnswer ? (
-          <View style={styles.card}>
-            <Text style={styles.answerText}>{String(answer)}</Text>
-
-            <View style={styles.answerFooter}>
-              {responderUsername && String(responderUsername).trim().length > 0 && (
-                <View style={styles.responderRow}>
-                  <View style={styles.responderAvatar}>
-                    <Ionicons name="person" size={16} color={colors.PRIMARY} />
-                  </View>
-                  <View style={styles.responderInfo}>
-                    <Text style={styles.responderName}>
-                      {String(responderUsername)}
-                    </Text>
-                    {respAvgRating > 0 && (
-                      <View style={styles.responderRatingRow}>
-                        <StarRating rating={respAvgRating} size={12} />
-                        <Text style={styles.responderRatingText}>
-                          {respAvgRating.toFixed(1)}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {existingRating > 0 && (
-                <View style={styles.ratingSection}>
-                  <Text style={styles.ratingLabel}>Your rating</Text>
-                  <View style={styles.ratingDisplay}>
-                    <StarRating rating={existingRating} size={22} />
-                    <Text style={styles.ratingValue}>{existingRating}/5</Text>
-                  </View>
-                </View>
-              )}
+        {question.questioner && !isOwner && (
+          <Pressable
+            style={[styles.card, styles.questionerCard]}
+            onPress={() => openProfile(question.questioner!.id)}
+          >
+            <Text style={styles.cardLabel}>Questioner</Text>
+            <View style={styles.questionerRow}>
+              <Text style={styles.bodyText}>{question.questioner.name}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.MEDIUM_GRAY} />
             </View>
-          </View>
-        ) : isExpiredBool ? (
-          <View style={styles.emptyStateCard}>
-            <Ionicons name="timer-outline" size={40} color={colors.ACTIVE} />
-            <Text style={styles.emptyStateTitle}>Response window expired</Text>
-            <Text style={styles.emptyStateBody}>
-              Your responder did not answer in time. You can choose a different responder to try again.
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.emptyStateCard}>
-            <Ionicons name="hourglass-outline" size={40} color={colors.LIGHT_GRAY} />
-            <Text style={styles.emptyStateTitle}>Awaiting Response</Text>
-            <Text style={styles.emptyStateBody}>
-              Your question hasn't been answered yet. We'll notify you when someone responds.
-            </Text>
-          </View>
+            {question.questioner.asQuestioner.reviewsCount > 0 && (
+              <View style={styles.ratingRow}>
+                <StarRating rating={question.questioner.asQuestioner.averageRating} size={14} />
+                <Text style={styles.ratingText}>
+                  {question.questioner.asQuestioner.averageRating.toFixed(1)} ({question.questioner.asQuestioner.reviewsCount})
+                </Text>
+              </View>
+            )}
+            <Text style={styles.viewProfileHint}>Tap to view profile</Text>
+          </Pressable>
         )}
 
-        {questionIdStr && (
+        <Text style={styles.timestamp}>Posted {formatDate(question.createdAt)}</Text>
+
+        {!isOwner && question.status === QuestionStatus.Open && (
           <View style={styles.actionArea}>
-            <CustomButton
-              text="Open conversation"
-              onPress={handleOpenChat}
-              style={styles.btnSubmit}
-            />
+            {question.canRequest ? (
+              <CustomButton
+                text={submitting ? 'Sending…' : 'Request to answer'}
+                onPress={handleRequestToAnswer}
+                disabled={submitting}
+                loading={submitting}
+              />
+            ) : (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  {CAN_REQUEST_LABELS[question.canRequestReason || ''] || 'You cannot request this question.'}
+                </Text>
+                {question.existingRequestId && (
+                  <CustomButton
+                    text="Open chat"
+                    onPress={() =>
+                      router.push({ pathname: '/chat', params: { requestId: question.existingRequestId } })
+                    }
+                    style={{ marginTop: 12 }}
+                  />
+                )}
+              </View>
+            )}
           </View>
         )}
 
-        {questionIdStr && eligibility?.canReview && (
-          <View style={styles.actionArea}>
-            <CustomButton
-              text="Rate this user"
-              onPress={() => setReviewVisible(true)}
-              style={styles.btnSubmit}
-            />
-          </View>
-        )}
+        {isOwner && question.status === QuestionStatus.Open && (
+          <>
+            <Text style={styles.sectionTitle}>Incoming requests ({pendingRequests.length})</Text>
+            {pendingRequests.length === 0 ? (
+              <Text style={styles.emptyText}>No pending requests yet.</Text>
+            ) : (
+              pendingRequests.map((req) => (
+                <View key={req.id} style={styles.requestCard}>
+                  <Pressable
+                    style={styles.requestInfo}
+                    onPress={() => req.counterparty && openProfile(req.counterparty.id, req.id)}
+                  >
+                    <Text style={styles.requestName}>{req.counterparty?.name || 'Responder'}</Text>
+                    <Text style={styles.viewProfileHint}>View profile & reviews</Text>
+                  </Pressable>
+                  <View style={styles.requestActions}>
+                    <Pressable style={styles.acceptBtn} onPress={() => handleAccept(req.id)}>
+                      <Text style={styles.acceptBtnText}>Accept</Text>
+                    </Pressable>
+                    <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(req.id)}>
+                      <Text style={styles.rejectBtnText}>Reject</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))
+            )}
 
-        {questionIdStr && eligibility?.alreadyReviewed && !eligibility.reviewRevealed && (
-          <View style={styles.thankYouCard}>
-            <Ionicons name="eye-off-outline" size={24} color={colors.PRIMARY} />
-            <Text style={styles.thankYouText}>
-              Your review is hidden until they review you back.
-            </Text>
-          </View>
-        )}
+            {acceptedRequests.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Active chats ({acceptedRequests.length})</Text>
+                {acceptedRequests.map((req) => (
+                  <Pressable
+                    key={req.id}
+                    style={styles.requestCard}
+                    onPress={() => router.push({ pathname: '/chat', params: { requestId: req.id } })}
+                  >
+                    <View>
+                      <Text style={styles.requestName}>{req.counterparty?.name || 'Responder'}</Text>
+                      <Text style={styles.viewProfileHint}>Open chat</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.MEDIUM_GRAY} />
+                  </Pressable>
+                ))}
+              </>
+            )}
 
-        {/* Action */}
-        {isOutboxBool && isExpiredBool && (
-          <View style={styles.actionArea}>
-            <CustomButton
-              text="Choose another responder"
-              onPress={handleRechooseResponder}
-              style={styles.btnSubmit}
-            />
-          </View>
-        )}
-
-        {isOutboxBool && !isExpiredBool && (
-          <View style={styles.actionArea}>
-            <CustomButton
-              text={isPendingBool && !hasAnswer ? 'Awaiting Response…' : 'Re-ask Question'}
-              onPress={handleReaskQuestion}
-              style={styles.btnSubmit}
-              disabled={isPendingBool && !hasAnswer}
-            />
-          </View>
+            <View style={styles.actionArea}>
+              <CustomButton text="Mark as answered" onPress={handleMarkAnswered} />
+              <CustomButton text="Cancel question" onPress={handleCancel} style={{ marginTop: 12 }} />
+            </View>
+          </>
         )}
       </ScrollView>
 
-      {questionIdStr && (
-        <ReviewModal
-          visible={reviewVisible}
-          questionId={questionIdStr}
-          onClose={() => setReviewVisible(false)}
-          onSubmitted={() => {
-            setReviewVisible(false);
-            getReviewEligibility(questionIdStr).then(setEligibility).catch(() => undefined);
-          }}
-        />
-      )}
+      {/* Reject modal */}
+      <Modal visible={rejectModalVisible} transparent animationType="slide">
+        <Pressable style={styles.modalOverlay} onPress={() => setRejectModalVisible(false)}>
+          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Reject request</Text>
+            <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
+
+            {presetReasons.length > 0 && (
+              <View style={styles.presetWrap}>
+                {presetReasons.map((reason) => {
+                  const active = selectedPreset === reason;
+                  return (
+                    <Pressable
+                      key={reason}
+                      style={[styles.presetChip, active && styles.presetChipActive]}
+                      onPress={() => {
+                        setSelectedPreset(reason);
+                        setRejectionReason('');
+                      }}
+                    >
+                      <Text style={[styles.presetChipText, active && styles.presetChipTextActive]}>
+                        {reason}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Or write a custom reason…"
+              value={rejectionReason}
+              onChangeText={(text) => {
+                setRejectionReason(text);
+                setSelectedPreset(null);
+              }}
+              multiline
+            />
+            <CustomButton
+              text="Reject"
+              onPress={handleReject}
+              disabled={!(selectedPreset || rejectionReason.trim())}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <UserProfileModal
+        visible={profileModalVisible}
+        userId={profileUserId}
+        onClose={() => setProfileModalVisible(false)}
+        primaryActionLabel={profileRequestId ? 'Go to chat' : undefined}
+        onPrimaryAction={
+          profileRequestId
+            ? () => {
+                setProfileModalVisible(false);
+                router.push({ pathname: '/chat', params: { requestId: profileRequestId } });
+              }
+            : undefined
+        }
+      />
     </SafeAreaView>
   );
 };
@@ -262,253 +458,79 @@ const QuestionDetail = () => {
 export default QuestionDetail;
 
 const styles = StyleSheet.create({
-  safeAreaContainer: {
-    flex: 1,
-    backgroundColor: colors.BG_WHITE,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 10,
-  },
-  pageTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 28,
-    color: colors.TEXT_DARK,
-    marginBottom: 24,
-  },
-  metadataCard: {
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    marginBottom: 20,
-  },
-  metadataRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.LIGHT_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  metadataText: {
-    flex: 1,
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    lineHeight: 22,
-  },
-  metadataDivider: {
-    height: 1,
-    backgroundColor: colors.CARD_BORDER,
-    marginVertical: 12,
-  },
-  metadataTime: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
+  scrollContent: { padding: 24, paddingBottom: 40 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 12 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
+  chip: { backgroundColor: colors.LIGHT_GREEN, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  chipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  status: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
+  locationCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   card: {
-    backgroundColor: colors.BG_WHITE,
+    backgroundColor: colors.CARD_BG,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    paddingVertical: 20,
-    paddingHorizontal: 18,
+    padding: 16,
     marginBottom: 12,
   },
-  cardLabel: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 12,
-  },
-  questionText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    lineHeight: 26,
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: colors.CARD_BORDER,
-    marginVertical: 28,
-  },
-  sectionHeader: {
+  cardLabel: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginBottom: 8, textTransform: 'uppercase' },
+  bodyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 22 },
+  questionerCard: {},
+  questionerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  ratingText: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
+  viewProfileHint: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY, marginTop: 4 },
+  timestamp: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 20 },
+  actionArea: { marginTop: 20 },
+  infoBox: { backgroundColor: colors.LIGHT_GREEN, borderRadius: 12, padding: 16 },
+  infoText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, lineHeight: 20 },
+  sectionTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginTop: 20, marginBottom: 12 },
+  requestCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.LIGHT_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  sectionTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_XL,
-    color: colors.TEXT_DARK,
-  },
-  answerText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    lineHeight: 26,
-  },
-  answerFooter: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.CARD_BORDER,
-  },
-  responderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  responderAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.LIGHT_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  responderInfo: {
-    flex: 1,
-  },
-  responderName: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    marginBottom: 2,
-  },
-  responderRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  responderRatingText: {
-    fontFamily: 'roboto-light',
-    fontSize: 12,
-    color: colors.MEDIUM_GRAY,
-  },
-  ratingSection: {
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.CARD_BORDER,
-  },
-  ratingLabel: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 8,
   },
-  ratingDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  ratingValue: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-  },
-  emptyStateCard: {
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
+  requestInfo: { flex: 1 },
+  requestName: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
+  requestActions: { flexDirection: 'row', gap: 8 },
+  acceptBtn: { backgroundColor: colors.PRIMARY, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  acceptBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.BG_WHITE },
+  rejectBtn: { borderWidth: 1, borderColor: colors.CARD_BORDER, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  rejectBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
+  emptyText: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center', marginTop: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
+  modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
+  modalSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
+  presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  presetChip: {
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    borderStyle: 'dashed',
-    paddingVertical: 36,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    marginBottom: 12,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  emptyStateTitle: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.DARK_GRAY,
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  emptyStateBody: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  rateCard: {
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
+  presetChipActive: { backgroundColor: colors.PRIMARY, borderColor: colors.PRIMARY },
+  presetChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
+  presetChipTextActive: { color: colors.BG_WHITE },
+  modalInput: {
     borderWidth: 1,
-    borderColor: colors.STAR_GOLD,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  rateTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-    marginBottom: 4,
-  },
-  rateSubtitle: {
-    fontFamily: 'roboto-light',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    marginBottom: 20,
-  },
-  tapStarRow: {
-    flexDirection: 'row',
-    gap: 8,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 80,
     marginBottom: 16,
-  },
-  submitRatingBtn: {
-    minWidth: 180,
-  },
-  thankYouCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: colors.LIGHT_GREEN,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginTop: 12,
-  },
-  thankYouText: {
-    fontFamily: 'roboto-medium',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.PRIMARY,
+    textAlignVertical: 'top',
   },
-  actionArea: {
-    marginTop: 24,
-  },
-  btnSubmit: {},
 });

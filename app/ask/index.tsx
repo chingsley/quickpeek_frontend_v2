@@ -2,16 +2,19 @@ import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { assignQuestion, postQuestion } from '@/services/questions.services';
+import { getCategories } from '@/services/categories.services';
+import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import { useQuestionStore } from '@/store/question.store';
-import { QuestionStatus } from '@/types/question.types';
+import { TCategory } from '@/types/category.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Keyboard,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,62 +24,80 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const MAX_QUESTION_LENGTH = 200;
-
 const AskScreen = () => {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const { dispatchNewQuestion } = useQuestionStore();
   const { loading, setLoading } = useAppStore();
+  const { prependMyQuestion } = useQuestionStore();
 
-  const responderId = params.responderId as string;
-  const responderName = params.responderName as string;
-  const address = params.address as string;
-  const latitude = parseFloat(params.latitude as string);
-  const longitude = parseFloat(params.longitude as string);
-  const prefilledQuestion = (params.questionText as string) || '';
+  const [categories, setCategories] = useState<TCategory[]>([]);
+  const [title, setTitle] = useState('');
+  const [detail, setDetail] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [price, setPrice] = useState('');
+  const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
+  const [includeLocation, setIncludeLocation] = useState(false);
+  const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [answerRadiusKm, setAnswerRadiusKm] = useState('5');
 
-  const [questionText, setQuestionText] = useState(prefilledQuestion);
+  useEffect(() => {
+    getCategories().then(setCategories).catch(() => {});
+  }, []);
 
-  const charCount = questionText.length;
-  const isNearLimit = charCount > MAX_QUESTION_LENGTH * 0.85;
-  const isValid = questionText.trim().length > 0 && responderId && address;
+  const priceNum = parseFloat(price);
+  const isValid =
+    title.trim().length > 0 &&
+    detail.trim().length > 0 &&
+    categoryId.length > 0 &&
+    !isNaN(priceNum) &&
+    priceNum > 0 &&
+    acceptanceCriteria.trim().length > 0;
 
-  const handleSend = async () => {
+  const captureLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Location permission is required to add a location.');
+      return;
+    }
+    const loc = await Location.getCurrentPositionAsync({});
+    setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    const [place] = await Location.reverseGeocodeAsync({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+    });
+    if (place) {
+      const parts = [place.name, place.street, place.city, place.region].filter(Boolean);
+      setAddress(parts.join(', '));
+    }
+    setIncludeLocation(true);
+  };
+
+  const handlePublish = async () => {
     if (!isValid) return;
     setLoading(true);
     try {
-      const questionData = {
-        text: questionText.trim(),
-        address,
-        latitude,
-        longitude,
+      const payload = {
+        title: title.trim(),
+        detail: detail.trim(),
+        categoryId,
+        price: priceNum,
+        acceptanceCriteria: acceptanceCriteria.trim(),
+        ...(includeLocation && coords
+          ? {
+              latitude: coords.lat,
+              longitude: coords.lng,
+              address: address.trim() || null,
+              answerRadiusKm: parseFloat(answerRadiusKm) || 5,
+            }
+          : {}),
       };
-
-      const createResponse = await postQuestion(questionData);
-      const question = createResponse?.data;
-      if (!question?.id) {
-        Alert.alert('Error', 'Could not create your question.');
-        return;
-      }
-
-      const assignResponse = await assignQuestion(question.id, responderId);
-      const assignedQuestion = assignResponse?.data ?? question;
-
-      await dispatchNewQuestion({
-        ...question,
-        ...assignedQuestion,
-        status: QuestionStatus.Assigned,
-        assignedResponderId: responderId,
-      });
-
-      Alert.alert(
-        'Question sent',
-        `${responderName} has been notified and has time to respond.`,
-        [{ text: 'OK', onPress: () => router.replace({ pathname: '/(tabs)/Questions', params: { tab: 'outbox' } }) }],
-      );
+      const question = await createQuestion(payload);
+      prependMyQuestion(question);
+      Alert.alert('Published', 'Your question is now live on the marketplace.', [
+        { text: 'OK', onPress: () => router.replace('/(tabs)/Questions') },
+      ]);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to send question.');
+      Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to publish.');
     } finally {
       setLoading(false);
     }
@@ -92,53 +113,101 @@ const AskScreen = () => {
           showsVerticalScrollIndicator={false}
         >
           <BackButton color={colors.PRIMARY} />
+          <Text style={styles.pageTitle}>Ask a question</Text>
+          <Text style={styles.subtitle}>Publish to the marketplace for responders to answer.</Text>
 
-          <Text style={styles.pageTitle}>Type your question</Text>
-          <Text style={styles.subtitle}>
-            Sending to <Text style={styles.responderName}>{responderName}</Text>
-          </Text>
+          <Text style={styles.label}>Title</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Short summary of what you need"
+            placeholderTextColor={colors.LIGHT_GRAY}
+            value={title}
+            onChangeText={setTitle}
+            maxLength={120}
+          />
 
-          <View style={styles.locationCard}>
+          <Text style={styles.label}>Category</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                style={[styles.categoryChip, categoryId === cat.id && styles.categoryChipActive]}
+                onPress={() => setCategoryId(cat.id)}
+              >
+                <Text style={[styles.categoryChipText, categoryId === cat.id && styles.categoryChipTextActive]}>
+                  {cat.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.label}>Price ($)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 5.00"
+            placeholderTextColor={colors.LIGHT_GRAY}
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="decimal-pad"
+          />
+
+          <Text style={styles.label}>Details</Text>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="Describe what you want to know..."
+            placeholderTextColor={colors.LIGHT_GRAY}
+            value={detail}
+            onChangeText={setDetail}
+            multiline
+            textAlignVertical="top"
+            maxLength={1000}
+          />
+
+          <Text style={styles.label}>Acceptance criteria</Text>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="What counts as a good answer?"
+            placeholderTextColor={colors.LIGHT_GRAY}
+            value={acceptanceCriteria}
+            onChangeText={setAcceptanceCriteria}
+            multiline
+            textAlignVertical="top"
+            maxLength={500}
+          />
+
+          <Pressable style={styles.locationToggle} onPress={includeLocation ? () => setIncludeLocation(false) : captureLocation}>
             <View style={styles.iconCircle}>
               <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
             </View>
-            <Text style={styles.locationText} numberOfLines={3}>
-              {address}
-            </Text>
-          </View>
-
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionIconCircle}>
-              <Ionicons name="help-circle-outline" size={20} color={colors.PRIMARY} />
-            </View>
-            <Text style={styles.sectionLabel}>What do you want to know?</Text>
-          </View>
-
-          <View style={styles.questionInputWrapper}>
-            <TextInput
-              style={styles.questionInput}
-              placeholder="e.g. Is there a long queue at the bank?"
-              placeholderTextColor={colors.LIGHT_GRAY}
-              value={questionText}
-              onChangeText={setQuestionText}
-              multiline
-              textAlignVertical="top"
-              maxLength={MAX_QUESTION_LENGTH}
-              autoFocus
-            />
-            <View style={styles.questionFooter}>
-              <Text style={[styles.charCount, isNearLimit && styles.charCountWarn]}>
-                {charCount}/{MAX_QUESTION_LENGTH}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.locationToggleText}>
+                {includeLocation ? 'Location added' : 'Add location (optional)'}
               </Text>
+              {includeLocation && address ? (
+                <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
+              ) : null}
             </View>
-          </View>
+            <Ionicons name={includeLocation ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={colors.PRIMARY} />
+          </Pressable>
+
+          {includeLocation && (
+            <>
+              <Text style={styles.label}>Answer radius (km)</Text>
+              <TextInput
+                style={styles.input}
+                value={answerRadiusKm}
+                onChangeText={setAnswerRadiusKm}
+                keyboardType="decimal-pad"
+              />
+            </>
+          )}
 
           <CustomButton
-            text={loading ? 'Sending…' : 'Send to responder'}
-            onPress={handleSend}
+            text={loading ? 'Publishing…' : 'Publish question'}
+            onPress={handlePublish}
             disabled={!isValid || loading}
             loading={loading}
-            style={styles.sendBtn}
+            style={styles.publishBtn}
           />
         </ScrollView>
       </TouchableWithoutFeedback>
@@ -149,45 +218,45 @@ const AskScreen = () => {
 export default AskScreen;
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.BG_WHITE,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    paddingBottom: 40,
-  },
-  pageTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 28,
-    color: colors.TEXT_DARK,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: 'roboto-light',
+  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
+  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 8 },
+  subtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
+  label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.MEDIUM_GRAY,
-    marginBottom: 20,
-  },
-  responderName: {
-    fontFamily: 'roboto-bold',
-    color: colors.PRIMARY,
-  },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: colors.TEXT_DARK,
     backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
+  },
+  multiline: { minHeight: 100, lineHeight: 22 },
+  categoryRow: { marginBottom: 4 },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    marginRight: 8,
+  },
+  categoryChipActive: { backgroundColor: colors.PRIMARY, borderColor: colors.PRIMARY },
+  categoryChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.DARK_GRAY },
+  categoryChipTextActive: { color: colors.BG_WHITE },
+  locationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 16,
+    gap: 12,
   },
   iconCircle: {
     width: 32,
@@ -196,67 +265,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.LIGHT_GREEN,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  locationText: {
-    flex: 1,
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    lineHeight: 22,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  sectionIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.LIGHT_GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  sectionLabel: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
-  },
-  questionInputWrapper: {
-    borderWidth: 1,
-    borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
-    backgroundColor: colors.BG_WHITE,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  questionInput: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 10,
-    minHeight: 120,
-    lineHeight: 22,
-  },
-  questionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-  },
-  charCount: {
-    fontFamily: 'roboto-light',
-    fontSize: 12,
-    color: colors.MEDIUM_GRAY,
-  },
-  charCountWarn: {
-    color: colors.ACTIVE,
-  },
-  sendBtn: {
-    marginTop: 8,
-  },
+  locationToggleText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
+  locationAddress: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  publishBtn: { marginTop: 28 },
 });
