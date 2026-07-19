@@ -30,8 +30,14 @@ export const getPublicUserProfile = async (
   page = 1,
   limit = 10,
 ): Promise<TPublicUserProfile> => {
-  const response = await Axios.get(`/users/${userId}/profile?page=${page}&limit=${limit}`);
-  return response.data.data as TPublicUserProfile;
+  const response = await Axios.get(
+    `/users/${userId}/profile?page=${page}&limit=${limit}&_t=${Date.now()}`,
+  );
+  const data = response.data?.data;
+  if (!data?.id) {
+    throw new Error('Invalid profile response');
+  }
+  return data as TPublicUserProfile;
 };
 
 export default {

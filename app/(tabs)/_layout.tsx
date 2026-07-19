@@ -1,4 +1,5 @@
 import { colors } from '@/constants/colors';
+import HomeDrawerLayout from '@/components/HomeDrawerLayout';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -29,8 +30,9 @@ const TabLayout = () => {
   }
 
   return (
-    <Tabs
-      screenOptions={{
+    <HomeDrawerLayout>
+      <Tabs
+        screenOptions={{
         tabBarShowLabel: true,
         tabBarLabelStyle: {
           fontSize: 12,
@@ -89,6 +91,7 @@ const TabLayout = () => {
         }}
       />
     </Tabs>
+    </HomeDrawerLayout>
   );
 };
 

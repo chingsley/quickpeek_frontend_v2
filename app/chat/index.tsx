@@ -2,6 +2,7 @@ import ReviewModal from '@/components/ReviewModal';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
 import CustomButton from '@/components/shared/CustomButton';
+import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import {
@@ -10,6 +11,12 @@ import {
   markMessagesRead,
   sendMessage,
 } from '@/services/messages.services';
+import {
+  acceptRequest,
+  getIncomingRequests,
+  getRejectionReasons,
+  rejectRequest,
+} from '@/services/requests.services';
 import { getReviewEligibility } from '@/services/reviews.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
@@ -52,6 +59,13 @@ const ChatScreen = () => {
   const [reviewVisible, setReviewVisible] = useState(false);
   const [eligibility, setEligibility] = useState<TReviewEligibility | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
+  const [profileOpenKey, setProfileOpenKey] = useState(0);
+  const [accepting, setAccepting] = useState(false);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [presetReasons, setPresetReasons] = useState<string[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
 
   const listRef = useRef<FlatList>(null);
 
@@ -104,10 +118,21 @@ const ChatScreen = () => {
     };
 
     socket.on('message:new', handleNewMessage);
+    socket.on('request:accepted', loadThread);
+    socket.on('request:rejected', loadThread);
     return () => {
       socket.off('message:new', handleNewMessage);
+      socket.off('request:accepted', loadThread);
+      socket.off('request:rejected', loadThread);
     };
-  }, [authUserId, requestId]);
+  }, [authUserId, loadThread, requestId]);
+
+  useEffect(() => {
+    if (!rejectModalVisible) return;
+    getRejectionReasons()
+      .then(setPresetReasons)
+      .catch(() => setPresetReasons([]));
+  }, [rejectModalVisible]);
 
   const canType = thread?.canType ?? false;
   const isClosed =
@@ -129,6 +154,76 @@ const ChatScreen = () => {
     }
     return items;
   }, [messages]);
+
+  const openRejectModal = () => {
+    setRejectionReason('');
+    setSelectedPreset(null);
+    setRejectModalVisible(true);
+  };
+
+  const handleAccept = async () => {
+    if (!thread || accepting) return;
+
+    const proceed = async () => {
+      setAccepting(true);
+      try {
+        await acceptRequest(requestId);
+        setProfileVisible(false);
+        await loadThread();
+      } catch (err: any) {
+        Alert.alert('Error', err?.response?.data?.error || 'Could not accept request.');
+      } finally {
+        setAccepting(false);
+      }
+    };
+
+    try {
+      const incoming = await getIncomingRequests({
+        questionId: thread.question.id,
+        status: AnswerRequestStatus.Accepted,
+      });
+      const alreadyAccepted = incoming.items.length;
+
+      if (alreadyAccepted > 0) {
+        Alert.alert(
+          'Multiple responders',
+          `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
+            'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+            'Continue accepting this request?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Accept', onPress: proceed },
+          ],
+        );
+      } else {
+        await proceed();
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not accept request.');
+    }
+  };
+
+  const handleReject = async () => {
+    const reason = (selectedPreset || rejectionReason).trim();
+    if (!reason || rejecting) return;
+
+    setRejecting(true);
+    try {
+      await rejectRequest(requestId, reason);
+      setRejectModalVisible(false);
+      setProfileVisible(false);
+      await loadThread();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Could not reject request.');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  const openProfileModal = useCallback(() => {
+    setProfileOpenKey((key) => key + 1);
+    setProfileVisible(true);
+  }, []);
 
   const handleSend = async () => {
     const text = inputText.trim();
@@ -167,7 +262,7 @@ const ChatScreen = () => {
           {isPendingQuestionerPrompt && (
             <Pressable
               style={styles.viewProfileBtn}
-              onPress={() => setProfileVisible(true)}
+              onPress={openProfileModal}
             >
               <Text style={styles.viewProfileBtnText}>View {thread?.counterparty?.name}'s profile</Text>
               <Ionicons name="chevron-forward" size={12} color={colors.PRIMARY} />
@@ -208,7 +303,7 @@ const ChatScreen = () => {
         {thread?.counterparty && (
           <Pressable
             style={styles.headerInfo}
-            onPress={() => thread.counterparty && setProfileVisible(true)}
+            onPress={openProfileModal}
           >
             <UserAvatar imageUrl={thread.counterparty.profileImageUrl} size={36} />
             <View>
@@ -220,7 +315,7 @@ const ChatScreen = () => {
           </Pressable>
         )}
         {thread?.counterparty && (
-          <Pressable style={styles.profileIconBtn} onPress={() => setProfileVisible(true)}>
+          <Pressable style={styles.profileIconBtn} onPress={openProfileModal}>
             <Ionicons name="person-circle-outline" size={24} color={colors.PRIMARY} />
           </Pressable>
         )}
@@ -250,7 +345,7 @@ const ChatScreen = () => {
       <FlatList
         ref={listRef}
         data={chatItems}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => (item.kind === 'day' ? item.id : item.message.id)}
         contentContainerStyle={styles.listContent}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) =>
@@ -306,9 +401,71 @@ const ChatScreen = () => {
 
       <UserProfileModal
         visible={profileVisible}
+        openKey={profileOpenKey}
         userId={thread?.counterparty?.id ?? null}
         onClose={() => setProfileVisible(false)}
+        requestDecision={
+          isPending && isQuestioner
+            ? {
+                onAccept: handleAccept,
+                onReject: () => {
+                  setProfileVisible(false);
+                  openRejectModal();
+                },
+                acceptLoading: accepting,
+                rejectLoading: rejecting,
+              }
+            : undefined
+        }
       />
+
+      <BottomSheet
+        visible={rejectModalVisible}
+        onClose={() => setRejectModalVisible(false)}
+        sheetStyle={styles.modalSheet}
+      >
+        <Text style={styles.modalTitle}>Reject request</Text>
+        <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
+
+        {presetReasons.length > 0 && (
+          <View style={styles.presetWrap}>
+            {presetReasons.map((reason) => {
+              const selected = selectedPreset === reason;
+              return (
+                <Pressable
+                  key={reason}
+                  style={[styles.presetChip, selected && styles.presetChipSelected]}
+                  onPress={() => {
+                    setSelectedPreset(reason);
+                    setRejectionReason('');
+                  }}
+                >
+                  <Text style={[styles.presetChipText, selected && styles.presetChipTextSelected]}>
+                    {reason}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        <TextInput
+          style={styles.modalInput}
+          placeholder="Or write a custom reason…"
+          value={rejectionReason}
+          onChangeText={(text) => {
+            setRejectionReason(text);
+            setSelectedPreset(null);
+          }}
+          multiline
+        />
+        <CustomButton
+          text="Reject"
+          onPress={handleReject}
+          loading={rejecting}
+          disabled={!(selectedPreset || rejectionReason.trim())}
+        />
+      </BottomSheet>
     </SafeAreaView>
   );
 };
@@ -414,4 +571,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },
+  modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
+  modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
+  modalSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
+  presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  presetChip: {
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  presetChipSelected: { backgroundColor: colors.LIGHT_GREEN, borderColor: colors.PRIMARY },
+  presetChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
+  presetChipTextSelected: { color: colors.PRIMARY },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 80,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.TEXT_DARK,
+    marginBottom: 12,
+    textAlignVertical: 'top',
+  },
 });

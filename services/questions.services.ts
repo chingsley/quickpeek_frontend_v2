@@ -3,6 +3,8 @@ import {
   TCreateQuestionPayload,
   TFeedResponse,
   TQuestion,
+  TRejectedResponder,
+  TSectionedFeedResponse,
 } from '@/types/question.types';
 
 export const createQuestion = async (payload: TCreateQuestionPayload): Promise<TQuestion> => {
@@ -17,7 +19,7 @@ export const getQuestionFeed = async (params?: {
   radiusKm?: number;
   page?: number;
   limit?: number;
-}): Promise<TFeedResponse> => {
+}): Promise<TSectionedFeedResponse> => {
   const search = new URLSearchParams();
   if (params?.categoryId) search.set('categoryId', params.categoryId);
   if (params?.lat != null) search.set('lat', String(params.lat));
@@ -27,7 +29,17 @@ export const getQuestionFeed = async (params?: {
   if (params?.limit) search.set('limit', String(params.limit));
   const qs = search.toString();
   const response = await Axios.get(`/questions/feed${qs ? `?${qs}` : ''}`);
-  return response.data.data as TFeedResponse;
+  return response.data.data as TSectionedFeedResponse;
+};
+
+export const getRejectedResponders = async (questionId: string): Promise<TRejectedResponder[]> => {
+  const response = await Axios.get(`/questions/${questionId}/rejected-responders`);
+  return response.data.data.items as TRejectedResponder[];
+};
+
+export const unblockResponder = async (questionId: string, responderId: string) => {
+  const response = await Axios.delete(`/questions/${questionId}/rejected-responders/${responderId}`);
+  return response.data;
 };
 
 export const getMyQuestions = async (): Promise<TQuestion[]> => {
@@ -57,4 +69,6 @@ export default {
   getQuestionDetail,
   markQuestionAnswered,
   cancelQuestion,
+  getRejectedResponders,
+  unblockResponder,
 };

@@ -41,6 +41,7 @@ export type TQuestion = {
   canRequest?: boolean;
   canRequestReason?: CanRequestReason | null;
   existingRequestId?: string | null;
+  viewerRequest?: TViewerRequest | null;
   requestCounts?: Partial<Record<string, number>>;
   requests?: Array<{
     id: string;
@@ -68,6 +69,52 @@ export type TCreateQuestionPayload = {
   answerRadiusKm?: number | null;
 };
 
+export type TViewerRequest = {
+  id: string;
+  status: string;
+  rejectionReason: string | null;
+  hasResponded: boolean;
+  unreadCount: number;
+  isBlocked: boolean;
+};
+
+export type TIncomingRequest = {
+  id: string;
+  status: string;
+  unreadCount: number;
+  responder: {
+    id: string;
+    name: string;
+    username: string;
+    profileImageUrl: string | null;
+  };
+};
+
+export type FeedSectionKey =
+  | 'awaiting_your_approval'
+  | 'near_you'
+  | 'new'
+  | 'pending'
+  | 'approved'
+  | 'answered_by_you'
+  | 'rejected';
+
+export type TFeedQuestion = TQuestion & {
+  viewerRequest?: TViewerRequest | null;
+  incomingRequest?: TIncomingRequest | null;
+  sectionKey?: FeedSectionKey;
+};
+
+export type TFeedSection = {
+  key: FeedSectionKey;
+  title: string;
+  items: TFeedQuestion[];
+};
+
+export type TSectionedFeedResponse = {
+  sections: TFeedSection[];
+};
+
 export type TFeedResponse = {
   items: TQuestion[];
   pagination: {
@@ -75,6 +122,18 @@ export type TFeedResponse = {
     limit: number;
     total: number;
     hasMore: boolean;
+  };
+};
+
+export type TRejectedResponder = {
+  responderId: string;
+  rejectionReason: string | null;
+  rejectedAt: string;
+  responder: {
+    id: string;
+    name: string;
+    username: string;
+    profileImageUrl: string | null;
   };
 };
 

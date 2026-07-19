@@ -1,4 +1,5 @@
 import CustomButton from '@/components/shared/CustomButton';
+import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { submitReview } from '@/services/reviews.services';
@@ -6,7 +7,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -54,56 +54,47 @@ const ReviewModal = ({ visible, requestId, onClose, onSubmitted }: Props) => {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-          <Text style={styles.title}>Rate this user</Text>
-          <Text style={styles.subtitle}>
-            Your review stays hidden until both of you submit, or the review window closes.
-          </Text>
+    <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
+      <Text style={styles.title}>Rate this user</Text>
+      <Text style={styles.subtitle}>
+        Your review stays hidden until both of you submit, or the review window closes.
+      </Text>
 
-          <View style={styles.starRow}>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <Pressable key={value} onPress={() => setStars(value)} hitSlop={8}>
-                <Ionicons
-                  name={value <= stars ? 'star' : 'star-outline'}
-                  size={34}
-                  color={value <= stars ? colors.STAR_GOLD : colors.LIGHT_GRAY}
-                />
-              </Pressable>
-            ))}
-          </View>
+      <View style={styles.starRow}>
+        {[1, 2, 3, 4, 5].map((value) => (
+          <Pressable key={value} onPress={() => setStars(value)} hitSlop={8}>
+            <Ionicons
+              name={value <= stars ? 'star' : 'star-outline'}
+              size={34}
+              color={value <= stars ? colors.STAR_GOLD : colors.LIGHT_GRAY}
+            />
+          </Pressable>
+        ))}
+      </View>
 
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Leave a comment (optional)"
-            placeholderTextColor={colors.MEDIUM_GRAY}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-            maxLength={1000}
-          />
+      <TextInput
+        style={styles.commentInput}
+        placeholder="Leave a comment (optional)"
+        placeholderTextColor={colors.MEDIUM_GRAY}
+        value={comment}
+        onChangeText={setComment}
+        multiline
+        maxLength={1000}
+      />
 
-          <CustomButton
-            text={submitting ? 'Submitting…' : 'Submit review'}
-            onPress={handleSubmit}
-            loading={submitting}
-            disabled={stars === 0 || submitting}
-          />
-        </Pressable>
-      </Pressable>
-    </Modal>
+      <CustomButton
+        text={submitting ? 'Submitting…' : 'Submit review'}
+        onPress={handleSubmit}
+        loading={submitting}
+        disabled={stars === 0 || submitting}
+      />
+    </BottomSheet>
   );
 };
 
 export default ReviewModal;
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'flex-end',
-  },
   sheet: {
     backgroundColor: colors.BG_WHITE,
     borderTopLeftRadius: 20,

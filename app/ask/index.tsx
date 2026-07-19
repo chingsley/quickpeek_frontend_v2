@@ -1,5 +1,6 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
+import PillChip from '@/components/shared/PillChip';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { getCategories } from '@/services/categories.services';
@@ -127,19 +128,16 @@ const AskScreen = () => {
           />
 
           <Text style={styles.label}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+          <View style={styles.categoryWrap}>
             {categories.map((cat) => (
-              <Pressable
+              <PillChip
                 key={cat.id}
-                style={[styles.categoryChip, categoryId === cat.id && styles.categoryChipActive]}
+                label={cat.name}
+                active={categoryId === cat.id}
                 onPress={() => setCategoryId(cat.id)}
-              >
-                <Text style={[styles.categoryChipText, categoryId === cat.id && styles.categoryChipTextActive]}>
-                  {cat.name}
-                </Text>
-              </Pressable>
+              />
             ))}
-          </ScrollView>
+          </View>
 
           <Text style={styles.label}>Price ($)</Text>
           <TextInput
@@ -236,18 +234,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.BG_WHITE,
   },
   multiline: { minHeight: 100, lineHeight: 22 },
-  categoryRow: { marginBottom: 4 },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    marginRight: 8,
+  categoryWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
   },
-  categoryChipActive: { backgroundColor: colors.PRIMARY, borderColor: colors.PRIMARY },
-  categoryChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.DARK_GRAY },
-  categoryChipTextActive: { color: colors.BG_WHITE },
   locationToggle: {
     flexDirection: 'row',
     alignItems: 'center',

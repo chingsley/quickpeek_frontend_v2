@@ -21,7 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const statusLabel = (conv: TConversation): string => {
   if (conv.status === AnswerRequestStatus.Pending) {
-    return conv.role === 'incoming' ? 'Request to answer' : 'Awaiting approval';
+    return conv.role === 'incoming' ? 'Request to answer' : 'Requested';
   }
   if (conv.status === AnswerRequestStatus.Accepted) return 'Active chat';
   if (conv.status === AnswerRequestStatus.Rejected) return 'Rejected';
@@ -36,7 +36,7 @@ const previewText = (conv: TConversation): string => {
   if (conv.status === AnswerRequestStatus.Pending) {
     return conv.role === 'incoming'
       ? `${conv.counterparty.name} wants to answer your question`
-      : 'Your request is pending approval';
+      : 'Your request has been sent';
   }
   return 'No messages yet';
 };

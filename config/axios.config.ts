@@ -8,6 +8,8 @@ const Axios = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // React Native may surface 304 with an empty body; always require a full 2xx payload.
+  validateStatus: (status) => status >= 200 && status < 300 && status !== 304,
 });
 
 // Token management without circular dependencies
@@ -54,6 +56,13 @@ Axios.interceptors.request.use(
     if (authToken) {
       config.headers.Authorization = `Bearer ${authToken}`;
     }
+
+    // Prevent stale conditional GET responses (304 with empty body) on native clients.
+    if ((config.method ?? 'get').toLowerCase() === 'get') {
+      config.headers['Cache-Control'] = 'no-cache';
+      config.headers.Pragma = 'no-cache';
+    }
+
     return config;
   },
   (error) => {

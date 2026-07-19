@@ -1,8 +1,11 @@
 import BackButton from '@/components/shared/BackButton';
+import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import StarRating from '@/components/StarRating';
 import UserProfileModal from '@/components/UserProfileModal';
+import TagChip from '@/components/shared/TagChip';
 import { colors } from '@/constants/colors';
+import { chipStyles } from '@/constants/chips';
 import { fonts } from '@/constants/fonts';
 import {
   acceptRequest,
@@ -11,11 +14,11 @@ import {
   getRejectionReasons,
   rejectRequest,
 } from '@/services/requests.services';
-import { cancelQuestion, getQuestionDetail, markQuestionAnswered } from '@/services/questions.services';
+import { cancelQuestion, getQuestionDetail, getRejectedResponders, markQuestionAnswered, unblockResponder } from '@/services/questions.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
-import { QuestionStatus } from '@/types/question.types';
+import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,7 +26,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,10 +38,30 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const CAN_REQUEST_LABELS: Record<string, string> = {
   OUTSIDE_RADIUS: 'You are outside the answer radius for this question.',
   ALREADY_REQUESTED: 'You already sent a request for this question.',
+  BLOCKED: 'The questioner declined your request. You cannot request again unless they allow it.',
   ANSWERED: 'This question has been answered.',
   CANCELLED: 'This question was cancelled.',
   OWN_QUESTION: 'You cannot request to answer your own question.',
   NO_VIEWER_LOCATION: 'Enable location to request location-based questions.',
+};
+
+const getResponderStatusMessage = (
+  question: NonNullable<Awaited<ReturnType<typeof getQuestionDetail>>>,
+): string => {
+  const vr = question.viewerRequest;
+  if (vr?.status === AnswerRequestStatus.Pending) {
+    return 'Your request has been sent. Waiting for the questioner to respond.';
+  }
+  if (vr?.status === AnswerRequestStatus.Accepted) {
+    return vr.hasResponded
+      ? 'You are answering this question. Continue in chat.'
+      : 'Your request was approved. Open chat to start answering.';
+  }
+  if (vr?.status === AnswerRequestStatus.Rejected || vr?.isBlocked || question.canRequestReason === 'BLOCKED') {
+    const reason = vr?.rejectionReason;
+    return reason ? `Declined: ${reason}` : CAN_REQUEST_LABELS.BLOCKED;
+  }
+  return CAN_REQUEST_LABELS[question.canRequestReason || ''] || 'You cannot request this question.';
 };
 
 const QuestionDetail = () => {
@@ -52,6 +74,7 @@ const QuestionDetail = () => {
   const [submitting, setSubmitting] = useState(false);
   const [question, setQuestion] = useState<Awaited<ReturnType<typeof getQuestionDetail>> | null>(null);
   const [incomingRequests, setIncomingRequests] = useState<TAnswerRequest[]>([]);
+  const [rejectedResponders, setRejectedResponders] = useState<TRejectedResponder[]>([]);
 
   // Reject modal
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
@@ -63,6 +86,7 @@ const QuestionDetail = () => {
   // Profile modal
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileOpenKey, setProfileOpenKey] = useState(0);
   const [profileRequestId, setProfileRequestId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -72,8 +96,12 @@ const QuestionDetail = () => {
       const detail = await getQuestionDetail(questionId);
       setQuestion(detail);
       if (detail.userId === authUserId) {
-        const incoming = await getIncomingRequests({ questionId });
+        const [incoming, rejected] = await Promise.all([
+          getIncomingRequests({ questionId }),
+          getRejectedResponders(questionId),
+        ]);
         setIncomingRequests(incoming.items);
+        setRejectedResponders(rejected);
       }
     } catch {
       Alert.alert('Error', 'Could not load question.');
@@ -224,8 +252,43 @@ const QuestionDetail = () => {
   const openProfile = (userId: string, requestId?: string) => {
     setProfileUserId(userId);
     setProfileRequestId(requestId ?? null);
+    setProfileOpenKey((key) => key + 1);
     setProfileModalVisible(true);
   };
+
+  const handleUnblockResponder = (responderId: string, name: string) => {
+    Alert.alert(
+      'Allow to request again?',
+      `${name} will be able to send a new request for this question.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Allow',
+          onPress: async () => {
+            try {
+              await unblockResponder(questionId, responderId);
+              load();
+            } catch (error: any) {
+              Alert.alert('Error', error?.response?.data?.error || 'Could not unblock responder.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const requestIdForChat =
+    question?.viewerRequest?.id || question?.existingRequestId || null;
+  const profilePendingRequest = profileRequestId
+    ? incomingRequests.find(
+        (r) => r.id === profileRequestId && r.status === AnswerRequestStatus.Pending,
+      )
+    : null;
+  const showOpenChat =
+    !!requestIdForChat &&
+    (question?.viewerRequest?.status === AnswerRequestStatus.Pending ||
+      question?.viewerRequest?.status === AnswerRequestStatus.Accepted ||
+      question?.viewerRequest?.status === AnswerRequestStatus.Rejected);
 
   if (loading) {
     return (
@@ -258,11 +321,7 @@ const QuestionDetail = () => {
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
-          {question.category && (
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>{question.category.name}</Text>
-            </View>
-          )}
+          {question.category && <TagChip label={question.category.name} style={styles.chip} />}
           <Text style={styles.status}>{question.status}</Text>
         </View>
 
@@ -318,14 +377,12 @@ const QuestionDetail = () => {
               />
             ) : (
               <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  {CAN_REQUEST_LABELS[question.canRequestReason || ''] || 'You cannot request this question.'}
-                </Text>
-                {question.existingRequestId && (
+                <Text style={styles.infoText}>{getResponderStatusMessage(question)}</Text>
+                {showOpenChat && requestIdForChat && (
                   <CustomButton
                     text="Open chat"
                     onPress={() =>
-                      router.push({ pathname: '/chat', params: { requestId: question.existingRequestId } })
+                      router.push({ pathname: '/chat', params: { requestId: requestIdForChat } })
                     }
                     style={{ marginTop: 12 }}
                   />
@@ -381,6 +438,34 @@ const QuestionDetail = () => {
               </>
             )}
 
+            {rejectedResponders.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Rejected responders ({rejectedResponders.length})</Text>
+                {rejectedResponders.map((entry) => (
+                  <View key={entry.responderId} style={styles.requestCard}>
+                    <Pressable
+                      style={styles.requestInfo}
+                      onPress={() => openProfile(entry.responder.id)}
+                    >
+                      <Text style={styles.requestName}>{entry.responder.name}</Text>
+                      {entry.rejectionReason ? (
+                        <Text style={styles.rejectionReason} numberOfLines={2}>
+                          {entry.rejectionReason}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.viewProfileHint}>View profile</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.unblockBtn}
+                      onPress={() => handleUnblockResponder(entry.responderId, entry.responder.name)}
+                    >
+                      <Text style={styles.unblockBtnText}>Allow again</Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </>
+            )}
+
             <View style={styles.actionArea}>
               <CustomButton text="Mark as answered" onPress={handleMarkAnswered} />
               <CustomButton text="Cancel question" onPress={handleCancel} style={{ marginTop: 12 }} />
@@ -390,60 +475,72 @@ const QuestionDetail = () => {
       </ScrollView>
 
       {/* Reject modal */}
-      <Modal visible={rejectModalVisible} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setRejectModalVisible(false)}>
-          <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.modalTitle}>Reject request</Text>
-            <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
+      <BottomSheet
+        visible={rejectModalVisible}
+        onClose={() => setRejectModalVisible(false)}
+        sheetStyle={styles.modalSheet}
+      >
+        <Text style={styles.modalTitle}>Reject request</Text>
+        <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
 
-            {presetReasons.length > 0 && (
-              <View style={styles.presetWrap}>
-                {presetReasons.map((reason) => {
-                  const active = selectedPreset === reason;
-                  return (
-                    <Pressable
-                      key={reason}
-                      style={[styles.presetChip, active && styles.presetChipActive]}
-                      onPress={() => {
-                        setSelectedPreset(reason);
-                        setRejectionReason('');
-                      }}
-                    >
-                      <Text style={[styles.presetChipText, active && styles.presetChipTextActive]}>
-                        {reason}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+        {presetReasons.length > 0 && (
+          <View style={styles.presetWrap}>
+            {presetReasons.map((reason) => {
+              const active = selectedPreset === reason;
+              return (
+                <Pressable
+                  key={reason}
+                  style={[chipStyles.presetContainer, active && chipStyles.presetContainerActive]}
+                  onPress={() => {
+                    setSelectedPreset(reason);
+                    setRejectionReason('');
+                  }}
+                >
+                  <Text style={[chipStyles.presetText, active && chipStyles.presetTextActive]}>
+                    {reason}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Or write a custom reason…"
-              value={rejectionReason}
-              onChangeText={(text) => {
-                setRejectionReason(text);
-                setSelectedPreset(null);
-              }}
-              multiline
-            />
-            <CustomButton
-              text="Reject"
-              onPress={handleReject}
-              disabled={!(selectedPreset || rejectionReason.trim())}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
+        <TextInput
+          style={styles.modalInput}
+          placeholder="Or write a custom reason…"
+          value={rejectionReason}
+          onChangeText={(text) => {
+            setRejectionReason(text);
+            setSelectedPreset(null);
+          }}
+          multiline
+        />
+        <CustomButton
+          text="Reject"
+          onPress={handleReject}
+          disabled={!(selectedPreset || rejectionReason.trim())}
+        />
+      </BottomSheet>
 
       <UserProfileModal
         visible={profileModalVisible}
+        openKey={profileOpenKey}
         userId={profileUserId}
         onClose={() => setProfileModalVisible(false)}
-        primaryActionLabel={profileRequestId ? 'Go to chat' : undefined}
+        requestDecision={
+          profilePendingRequest
+            ? {
+                onAccept: () => handleAccept(profilePendingRequest.id),
+                onReject: () => {
+                  setProfileModalVisible(false);
+                  openRejectModal(profilePendingRequest.id);
+                },
+              }
+            : undefined
+        }
+        primaryActionLabel={profileRequestId && !profilePendingRequest ? 'Go to chat' : undefined}
         onPrimaryAction={
-          profileRequestId
+          profileRequestId && !profilePendingRequest
             ? () => {
                 setProfileModalVisible(false);
                 router.push({ pathname: '/chat', params: { requestId: profileRequestId } });
@@ -464,8 +561,7 @@ const styles = StyleSheet.create({
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
-  chip: { backgroundColor: colors.LIGHT_GREEN, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  chipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  chip: { backgroundColor: colors.LIGHT_GREEN },
   status: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
   locationCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
@@ -506,22 +602,14 @@ const styles = StyleSheet.create({
   acceptBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.BG_WHITE },
   rejectBtn: { borderWidth: 1, borderColor: colors.CARD_BORDER, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   rejectBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
+  rejectionReason: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  unblockBtn: { borderWidth: 1, borderColor: colors.PRIMARY, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  unblockBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
   emptyText: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center', marginTop: 20 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
   modalSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
   presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  presetChip: {
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  presetChipActive: { backgroundColor: colors.PRIMARY, borderColor: colors.PRIMARY },
-  presetChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
-  presetChipTextActive: { color: colors.BG_WHITE },
   modalInput: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
