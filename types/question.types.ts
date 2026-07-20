@@ -60,7 +60,6 @@ export type TQuestion = {
 export type TCreateQuestionPayload = {
   title: string;
   detail: string;
-  categoryId: string;
   price: number;
   acceptanceCriteria: string;
   latitude?: number | null;
@@ -92,8 +91,7 @@ export type TIncomingRequest = {
 
 export type FeedSectionKey =
   | 'awaiting_your_approval'
-  | 'near_you'
-  | 'new'
+  | 'others'
   | 'pending'
   | 'approved'
   | 'answered_by_you'
@@ -103,6 +101,12 @@ export type TFeedQuestion = TQuestion & {
   viewerRequest?: TViewerRequest | null;
   incomingRequest?: TIncomingRequest | null;
   sectionKey?: FeedSectionKey;
+  questioner?: {
+    id: string;
+    name: string;
+    username: string;
+    profileImageUrl: string | null;
+  } | null;
 };
 
 export type TFeedSection = {

@@ -1,17 +1,14 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
-import PillChip from '@/components/shared/PillChip';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { getCategories } from '@/services/categories.services';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import { useQuestionStore } from '@/store/question.store';
-import { TCategory } from '@/types/category.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Keyboard,
@@ -30,10 +27,8 @@ const AskScreen = () => {
   const { loading, setLoading } = useAppStore();
   const { prependMyQuestion } = useQuestionStore();
 
-  const [categories, setCategories] = useState<TCategory[]>([]);
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
-  const [categoryId, setCategoryId] = useState('');
   const [price, setPrice] = useState('');
   const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
   const [includeLocation, setIncludeLocation] = useState(false);
@@ -41,15 +36,11 @@ const AskScreen = () => {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [answerRadiusKm, setAnswerRadiusKm] = useState('5');
 
-  useEffect(() => {
-    getCategories().then(setCategories).catch(() => {});
-  }, []);
-
   const priceNum = parseFloat(price);
+
   const isValid =
     title.trim().length > 0 &&
     detail.trim().length > 0 &&
-    categoryId.length > 0 &&
     !isNaN(priceNum) &&
     priceNum > 0 &&
     acceptanceCriteria.trim().length > 0;
@@ -80,7 +71,6 @@ const AskScreen = () => {
       const payload = {
         title: title.trim(),
         detail: detail.trim(),
-        categoryId,
         price: priceNum,
         acceptanceCriteria: acceptanceCriteria.trim(),
         ...(includeLocation && coords
@@ -126,18 +116,6 @@ const AskScreen = () => {
             onChangeText={setTitle}
             maxLength={120}
           />
-
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.categoryWrap}>
-            {categories.map((cat) => (
-              <PillChip
-                key={cat.id}
-                label={cat.name}
-                active={categoryId === cat.id}
-                onPress={() => setCategoryId(cat.id)}
-              />
-            ))}
-          </View>
 
           <Text style={styles.label}>Price ($)</Text>
           <TextInput
@@ -225,7 +203,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
+    borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: 'roboto',
@@ -234,12 +212,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.BG_WHITE,
   },
   multiline: { minHeight: 100, lineHeight: 22 },
-  categoryWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 4,
-  },
   locationToggle: {
     flexDirection: 'row',
     alignItems: 'center',

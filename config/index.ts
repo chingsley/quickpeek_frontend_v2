@@ -2,6 +2,7 @@ export {
   API_BASE_URL,
   API_URL,
   USE_TUNNEL_PROXY,
+  ensureApiConfigReady,
   getApiBaseUrl,
   getApiOrigin,
   getSocketOrigin,

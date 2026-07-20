@@ -30,6 +30,7 @@ type Props = {
   userId: string | null;
   openKey?: number;
   onClose: () => void;
+  onClosed?: () => void;
   onPrimaryAction?: () => void;
   primaryActionLabel?: string;
   requestDecision?: RequestDecisionActions;
@@ -40,6 +41,7 @@ const UserProfileModal = ({
   userId,
   openKey = 0,
   onClose,
+  onClosed,
   onPrimaryAction,
   primaryActionLabel,
   requestDecision,
@@ -99,7 +101,7 @@ const UserProfileModal = ({
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
+    <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} sheetStyle={styles.sheet}>
       <View style={styles.sheetHeader}>
         <Text style={styles.sheetTitle}>Profile</Text>
         <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close profile">

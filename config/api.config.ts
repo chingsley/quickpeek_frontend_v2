@@ -6,6 +6,23 @@ const BACKEND_PORT = 3000;
 const METRO_PORT = 8081;
 
 let linkingBundlerHost: string | null = null;
+let apiConfigReady = false;
+let apiConfigPromise: Promise<void> | null = null;
+
+/** Resolves once Expo linking / bundler host detection has finished. */
+export function ensureApiConfigReady(): Promise<void> {
+  if (apiConfigReady) {
+    return Promise.resolve();
+  }
+
+  if (!apiConfigPromise) {
+    apiConfigPromise = initApiConfigFromLinking().then(() => {
+      apiConfigReady = true;
+    });
+  }
+
+  return apiConfigPromise;
+}
 
 function isTunnelHost(host: string): boolean {
   const normalized = host.toLowerCase();

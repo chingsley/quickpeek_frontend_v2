@@ -26,6 +26,8 @@ import Animated, {
 type BottomSheetProps = {
   visible: boolean;
   onClose: () => void;
+  /** Called after the close animation finishes and the modal unmounts. */
+  onClosed?: () => void;
   children: React.ReactNode;
   sheetStyle?: StyleProp<ViewStyle>;
   backdropColor?: string;
@@ -38,6 +40,7 @@ const SHEET_CLOSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 const BottomSheet = ({
   visible,
   onClose,
+  onClosed,
   children,
   sheetStyle,
   backdropColor = 'rgba(0, 0, 0, 0.4)',
@@ -49,11 +52,14 @@ const BottomSheet = ({
   const animationTokenRef = useRef(0);
   const mountedRef = useRef(visible);
   const openFrameRef = useRef<number | null>(null);
+  const onClosedRef = useRef(onClosed);
+  onClosedRef.current = onClosed;
 
   const finishClose = useCallback((token: number) => {
     if (token !== animationTokenRef.current) return;
     mountedRef.current = false;
     setMounted(false);
+    onClosedRef.current?.();
   }, []);
 
   useEffect(() => {

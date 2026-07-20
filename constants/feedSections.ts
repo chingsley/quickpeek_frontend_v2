@@ -11,8 +11,7 @@ export type FeedSectionDef = {
 
 export const FEED_SECTION_DEFS: FeedSectionDef[] = [
   { key: 'awaiting_your_approval', title: 'Awaiting your approval' },
-  { key: 'near_you', title: 'Near you' },
-  { key: 'new', title: 'New questions' },
+  { key: 'others', title: 'Others' },
   { key: 'pending', title: 'Waiting for reply' },
   { key: 'approved', title: 'Approved to answer' },
   { key: 'answered_by_you', title: 'Answered by you' },

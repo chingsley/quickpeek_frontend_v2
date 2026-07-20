@@ -8,6 +8,38 @@ export const formatDate = (dateString: string) => {
   return `${day} ${month} • ${hours}:${minutes.toString().padStart(2, '0')}`;
 };
 
+/**
+ * Relative-time formatter for feed cards.
+ * < 1 min → "just now"
+ * < 60 min → "N minutes ago" / "1 minute ago"
+ * < 24 h   → "N hours ago" / "1 hour ago"
+ * < 7 d    → "N days ago" / "1 day ago"
+ * >= 7 d   → absolute "20 Jul • 21:41"
+ */
+export const formatRelativeTime = (dateString: string, now: Date = new Date()) => {
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+
+  if (diffMs < 0) return 'just now';
+
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return 'just now';
+  if (minutes < 60) {
+    return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+  }
+  if (hours < 24) {
+    return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+  }
+  if (days < 7) {
+    return days === 1 ? '1 day ago' : `${days} days ago`;
+  }
+  return formatDate(dateString);
+};
+
 export const formatListTime = (dateString: string) => {
   const date = new Date(dateString);
   const hours = date.getHours();

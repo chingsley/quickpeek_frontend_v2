@@ -13,23 +13,29 @@ export const createQuestion = async (payload: TCreateQuestionPayload): Promise<T
 };
 
 export const getQuestionFeed = async (params?: {
-  categoryId?: string;
   lat?: number;
   lng?: number;
   radiusKm?: number;
+  nearMe?: boolean;
   page?: number;
   limit?: number;
 }): Promise<TSectionedFeedResponse> => {
   const search = new URLSearchParams();
-  if (params?.categoryId) search.set('categoryId', params.categoryId);
   if (params?.lat != null) search.set('lat', String(params.lat));
   if (params?.lng != null) search.set('lng', String(params.lng));
   if (params?.radiusKm != null) search.set('radiusKm', String(params.radiusKm));
+  if (params?.nearMe) search.set('nearMe', 'true');
   if (params?.page) search.set('page', String(params.page));
   if (params?.limit) search.set('limit', String(params.limit));
   const qs = search.toString();
   const response = await Axios.get(`/questions/feed${qs ? `?${qs}` : ''}`);
-  return response.data.data as TSectionedFeedResponse;
+  const data = response.data?.data;
+
+  if (!Array.isArray(data?.sections)) {
+    throw new Error('Expected sectioned feed response');
+  }
+
+  return data as TSectionedFeedResponse;
 };
 
 export const getRejectedResponders = async (questionId: string): Promise<TRejectedResponder[]> => {

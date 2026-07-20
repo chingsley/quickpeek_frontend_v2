@@ -3,7 +3,7 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { initApiConfigFromLinking } from '@/config';
+import { ensureApiConfigReady } from '@/config';
 import SocketService from '@/services/socket.services';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -16,8 +16,10 @@ export default function RootLayout() {
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
 
   useEffect(() => {
-    initApiConfigFromLinking();
-    useAuthStore.persist.rehydrate();
+    void (async () => {
+      await ensureApiConfigReady();
+      await useAuthStore.persist.rehydrate();
+    })();
   }, []);
 
   useEffect(() => {

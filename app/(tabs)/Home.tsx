@@ -4,14 +4,14 @@ import TagChip from '@/components/shared/TagChip';
 import { ALL_QUESTIONS_SECTION_KEY, FEED_SECTION_DEFS } from '@/constants/feedSections';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { getCategories } from '@/services/categories.services';
 import { getQuestionFeed } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
 import { useDrawerStore } from '@/store/drawer.store';
+import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus } from '@/types/answerRequest.types';
-import { TCategory } from '@/types/category.types';
 import { TFeedQuestion, TFeedSection } from '@/types/question.types';
+import { formatRelativeTime } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -22,12 +22,13 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const getInteractionChip = (item: TFeedQuestion): { label: string; style: 'pending' | 'approved' | 'answered' | 'rejected' } | null => {
+const getInteractionChip = (item: TFeedQuestion): { label: string; style: 'pending' | 'approved' | 'answered' | 'rejected'; } | null => {
   if (item.incomingRequest) {
     return { label: 'Needs your approval', style: 'pending' };
   }
@@ -55,14 +56,15 @@ const HomeScreen = () => {
   const setMenuSections = useDrawerStore((state) => state.setMenuSections);
   const toggleDrawer = useDrawerStore((state) => state.toggle);
   const selectedSectionKey = useDrawerStore((state) => state.selectedSectionKey);
+  const isLoggedIn = useAuthStore(selectIsLoggedIn);
+  const authUserId = useAuthStore((state) => state.user?.id);
   const [sections, setSections] = useState<TFeedSection[]>([]);
-  const [categories, setCategories] = useState<TCategory[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [nearMe, setNearMe] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [loading, setLoading] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [search, setSearch] = useState('');
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -74,15 +76,17 @@ const HomeScreen = () => {
   }, []);
 
   const loadFeed = useCallback(async () => {
+    if (!isLoggedIn) return;
+
     setLoading(true);
     try {
-      const feedParams: Parameters<typeof getQuestionFeed>[0] = {
-        categoryId: selectedCategoryId ?? undefined,
-      };
-      if (nearMe && coords) {
-        feedParams.lat = coords.lat;
-        feedParams.lng = coords.lng;
-        feedParams.radiusKm = 10;
+      const feedParams: Parameters<typeof getQuestionFeed>[0] = {};
+      if (nearMe) {
+        feedParams.nearMe = true;
+        if (coords) {
+          feedParams.lat = coords.lat;
+          feedParams.lng = coords.lng;
+        }
       }
       const data = await getQuestionFeed(feedParams);
       setSections(data.sections);
@@ -91,23 +95,31 @@ const HomeScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [coords, nearMe, selectedCategoryId]);
+  }, [coords, isLoggedIn, nearMe]);
 
   const refreshAll = useCallback(() => {
+    if (!isLoggedIn) return;
     loadUnreadCount();
     loadFeed();
-  }, [loadFeed, loadUnreadCount]);
+  }, [isLoggedIn, loadFeed, loadUnreadCount]);
 
   useFocusEffect(
     useCallback(() => {
-      getCategories().then(setCategories).catch(() => {});
       refreshAll();
     }, [refreshAll]),
   );
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+    loadFeed();
+  }, [isLoggedIn, loadFeed]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
     const socket = SocketService.getSocket();
     if (!socket) return;
+
     socket.on('message:new', refreshAll);
     socket.on('request:new', refreshAll);
     socket.on('request:accepted', refreshAll);
@@ -120,46 +132,44 @@ const HomeScreen = () => {
       socket.off('request:rejected', refreshAll);
       socket.off('question:answered', refreshAll);
     };
-  }, [refreshAll]);
-
-  useEffect(() => {
-    loadFeed();
-  }, [loadFeed]);
+  }, [isLoggedIn, refreshAll]);
 
   const toggleNearMe = async () => {
     if (!nearMe) {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({});
-      setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
       setNearMe(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({});
+        setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      } catch (error) {
+        console.warn('Could not retrieve current location; falling back to saved location', error);
+      }
     } else {
       setNearMe(false);
     }
   };
 
   const handleQuestionPress = (item: TFeedQuestion) => {
-    const vr = item.viewerRequest;
-    const requestId = item.incomingRequest?.id || vr?.id || item.existingRequestId;
-    const openChat =
-      requestId &&
-      (item.incomingRequest ||
-        (vr &&
-          (vr.status === AnswerRequestStatus.Pending ||
-            vr.status === AnswerRequestStatus.Accepted)));
-
-    if (openChat) {
-      router.push({ pathname: '/chat', params: { requestId } });
-      return;
-    }
     router.push({ pathname: '/question-detail', params: { questionId: item.id } });
   };
 
   const displayedSections = useMemo(() => {
     if (selectedSectionKey === ALL_QUESTIONS_SECTION_KEY) {
-      return sections;
+      return sections.filter((section) => section.items.length > 0);
     }
-    return sections.filter((section) => section.key === selectedSectionKey);
+
+    const match = sections.find((section) => section.key === selectedSectionKey);
+    if (match) {
+      return [match];
+    }
+
+    const fallback = FEED_SECTION_DEFS.find((def) => def.key === selectedSectionKey);
+    if (!fallback) {
+      return [];
+    }
+
+    return [{ key: fallback.key, title: fallback.title, items: [] }];
   }, [sections, selectedSectionKey]);
 
   const sectionListData = useMemo(
@@ -174,18 +184,18 @@ const HomeScreen = () => {
 
   useEffect(() => {
     const totalCount = sections.reduce((sum, section) => sum + section.items.length, 0);
-    const filteredSections = FEED_SECTION_DEFS.map((def) => {
+    const drawerSections = FEED_SECTION_DEFS.map((def) => {
       const match = sections.find((section) => section.key === def.key);
       return {
         key: def.key,
         title: match?.title ?? def.title,
         count: match?.items.length ?? 0,
       };
-    }).filter((section) => section.count > 0);
+    });
 
     setMenuSections([
       { key: ALL_QUESTIONS_SECTION_KEY, title: 'All Questions', count: totalCount },
-      ...filteredSections,
+      ...drawerSections,
     ]);
   }, [sections, setMenuSections]);
 
@@ -194,9 +204,15 @@ const HomeScreen = () => {
     sectionListRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, animated: false });
   }, [selectedSectionKey, sectionListData.length]);
 
-  const renderQuestion = ({ item }: { item: TFeedQuestion }) => {
+  const renderQuestion = ({ item }: { item: TFeedQuestion; }) => {
     const chip = getInteractionChip(item);
     const unread = item.incomingRequest?.unreadCount ?? item.viewerRequest?.unreadCount ?? 0;
+    const postedAt = formatRelativeTime(item.createdAt);
+    const authorLabel = item.questioner
+      ? item.questioner.id === authUserId
+        ? 'You'
+        : `${item.questioner.name}`
+      : null;
     const chipStyle =
       chip?.style === 'pending'
         ? { chip: styles.chip_pending, text: styles.chipText_pending }
@@ -214,6 +230,15 @@ const HomeScreen = () => {
         onPress={() => handleQuestionPress(item)}
         activeOpacity={0.85}
       >
+        <View style={styles.cardMeta}>
+          {authorLabel && (
+            <Text style={styles.questioner} numberOfLines={1}>
+              {authorLabel}
+            </Text>
+          )}
+          {authorLabel && <Text style={styles.metaDivider}>|</Text>}
+          <Text style={styles.postedAt}>{postedAt}</Text>
+        </View>
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
           <View style={styles.headerRight}>
@@ -232,7 +257,6 @@ const HomeScreen = () => {
           {chip && chipStyle && (
             <TagChip label={chip.label} style={[styles.chip, chipStyle.chip]} textStyle={chipStyle.text} />
           )}
-          {item.category && <TagChip label={item.category.name} style={styles.chip} />}
           {item.nearMe && (
             <TagChip label="Near me" style={[styles.chip, styles.nearMeChip]} textStyle={styles.nearMeText} />
           )}
@@ -245,20 +269,12 @@ const HomeScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
           <Ionicons name="menu" size={26} color={colors.PRIMARY} />
         </Pressable>
-        <Text style={styles.pageTitle}>Questions</Text>
         <View style={styles.headerActions}>
-          <Pressable onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')} style={styles.iconBtn}>
-            <Ionicons
-              name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
-              size={22}
-              color={colors.PRIMARY}
-            />
-          </Pressable>
           <Pressable onPress={() => router.push('/ask')} style={styles.askBtn}>
             <Ionicons name="add" size={20} color={colors.BG_WHITE} />
             <Text style={styles.askBtnText}>Ask</Text>
@@ -280,26 +296,46 @@ const HomeScreen = () => {
         </View>
       </View>
 
+      <View style={styles.titleRow}>
+        <Text style={styles.pageTitle}>Questions</Text>
+      </View>
+
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={18} color={colors.MEDIUM_GRAY} style={styles.searchIcon} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search"
+          placeholderTextColor={colors.MEDIUM_GRAY}
+          style={styles.searchInput}
+          returnKeyType="search"
+          autoCorrect={false}
+        />
+      </View>
+
       <View style={styles.filterWrap}>
         <PillChip
           label="All"
-          active={!selectedCategoryId}
-          onPress={() => setSelectedCategoryId(null)}
+          active={!nearMe}
+          onPress={() => setNearMe(false)}
         />
-        {categories.map((cat) => (
-          <PillChip
-            key={cat.id}
-            label={cat.name}
-            active={selectedCategoryId === cat.id}
-            onPress={() => setSelectedCategoryId(cat.id === selectedCategoryId ? null : cat.id)}
-          />
-        ))}
         <PillChip
           label="Near me"
           active={nearMe}
           icon={<Ionicons name="navigate-outline" size={14} color={nearMe ? colors.BG_WHITE : colors.PRIMARY} />}
           onPress={toggleNearMe}
         />
+        <Pressable
+          onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+          style={styles.viewModeBtn}
+          accessibilityLabel="Toggle view mode"
+        >
+          <Ionicons
+            name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
+            size={22}
+            color={colors.PRIMARY}
+          />
+        </Pressable>
       </View>
 
       {loading ? (
@@ -325,13 +361,28 @@ const HomeScreen = () => {
           contentContainerStyle={styles.listContent}
           stickySectionHeadersEnabled={false}
           ListEmptyComponent={
-            <View style={styles.centered}>
+            <View style={styles.emptyState}>
               <Text style={styles.emptyText}>No open questions yet.</Text>
-              <CustomButton text="Ask a question" onPress={() => router.push('/ask')} style={{ marginTop: 16 }} />
+              <CustomButton
+                text="Ask a question"
+                onPress={() => router.push('/ask')}
+                style={styles.emptyAskBtn}
+                noTopMargin
+              />
             </View>
           }
         />
       )}
+
+      <Pressable
+        style={styles.floatingAskBtn}
+        onPress={() => router.push('/ask')}
+        accessibilityLabel="Ask a Question"
+        accessibilityRole="button"
+      >
+        <Ionicons name="add" size={18} color={colors.BG_WHITE} />
+        <Text style={styles.floatingAskBtnText}>Ask a Question</Text>
+      </Pressable>
     </SafeAreaView>
   );
 };
@@ -346,11 +397,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 4,
     gap: 8,
   },
+  titleRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 100,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    backgroundColor: colors.BG_WHITE,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.TEXT_DARK,
+    paddingVertical: 10,
+  },
   menuBtn: { padding: 4, marginRight: 4 },
-  pageTitle: { flex: 1, fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
+  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
   chatIconBtn: { padding: 4, position: 'relative' },
   chatBadge: {
     position: 'absolute',
@@ -366,7 +443,10 @@ const styles = StyleSheet.create({
   },
   chatBadgeText: { color: colors.BG_WHITE, fontSize: 10, fontWeight: 'bold' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconBtn: { padding: 8 },
+  viewModeBtn: {
+    padding: 4,
+    marginLeft: 'auto',
+  },
   askBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -402,12 +482,17 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingHorizontal: 16, paddingBottom: 24 },
   card: {
-    backgroundColor: colors.CARD_BG,
+    backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
     padding: 16,
     marginBottom: 12,
+    shadowColor: colors.BG_BLACK,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   listItem: {
     backgroundColor: colors.BG_WHITE,
@@ -416,13 +501,30 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 4,
   },
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.RED },
-  cardTitle: { flex: 1, fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginRight: 8 },
+  cardTitle: { flex: 1, fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginRight: 8 },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   cardDetail: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, lineHeight: 20, marginBottom: 10 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  questioner: {
+    flexShrink: 1,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.PRIMARY,
+  },
+  metaDivider: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+  },
   chip: { backgroundColor: colors.LIGHT_GREEN },
   chip_pending: { backgroundColor: colors.LIGHT_PINK },
   chip_approved: { backgroundColor: colors.LIGHT_GREEN },
@@ -434,7 +536,37 @@ const styles = StyleSheet.create({
   chipText_answered: { color: colors.PRIMARY },
   chipText_rejected: { color: colors.MEDIUM_GRAY },
   nearMeText: { color: colors.DARK_GRAY },
-  distance: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
+  distance: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    marginLeft: 'auto',
+  },
+  postedAt: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 },
+  emptyAskBtn: { marginTop: 16, alignSelf: 'center' },
   emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY },
+  floatingAskBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.PRIMARY,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    shadowColor: colors.BG_BLACK,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  floatingAskBtnText: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.BG_WHITE,
+  },
 });

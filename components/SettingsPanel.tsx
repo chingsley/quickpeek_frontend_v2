@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
+    borderRadius: 100,
     padding: 12,
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,

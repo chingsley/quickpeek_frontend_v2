@@ -186,7 +186,7 @@ const Questions = () => {
               item={item}
               onClick={() => handleQuestionClick(item)}
               activeTab={activeTab}
-              displayName={item.category?.name || 'Question'}
+              displayName={item.title}
               profileImageUrl={null}
               isNew={(item.requestCounts?.PENDING ?? 0) > 0}
             />

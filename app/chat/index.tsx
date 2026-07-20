@@ -42,12 +42,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ChatListItem =
-  | { kind: 'day'; id: string; label: string }
-  | { kind: 'message'; message: TMessage };
+  | { kind: 'day'; id: string; label: string; }
+  | { kind: 'message'; message: TMessage; };
 
 const ChatScreen = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ requestId: string }>();
+  const params = useLocalSearchParams<{ requestId: string; }>();
   const requestId = params.requestId as string;
   const authUserId = useAuthStore((state) => state.user?.id);
 
@@ -68,6 +68,7 @@ const ChatScreen = () => {
   const [rejecting, setRejecting] = useState(false);
 
   const listRef = useRef<FlatList>(null);
+  const openRejectAfterProfileCloseRef = useRef(false);
 
   const loadThread = useCallback(async () => {
     if (!requestId) return;
@@ -188,8 +189,8 @@ const ChatScreen = () => {
         Alert.alert(
           'Multiple responders',
           `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
-            'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
-            'Continue accepting this request?',
+          'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+          'Continue accepting this request?',
           [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Accept', onPress: proceed },
@@ -314,9 +315,15 @@ const ChatScreen = () => {
             </View>
           </Pressable>
         )}
-        {thread?.counterparty && (
-          <Pressable style={styles.profileIconBtn} onPress={openProfileModal}>
-            <Ionicons name="person-circle-outline" size={24} color={colors.PRIMARY} />
+        {thread?.question && (
+          <Pressable
+            style={styles.goToQuestionLink}
+            onPress={() =>
+              router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } })
+            }
+          >
+            <Text style={styles.goToQuestionLinkText}>Go to Question</Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.PRIMARY} />
           </Pressable>
         )}
       </View>
@@ -404,17 +411,22 @@ const ChatScreen = () => {
         openKey={profileOpenKey}
         userId={thread?.counterparty?.id ?? null}
         onClose={() => setProfileVisible(false)}
+        onClosed={() => {
+          if (!openRejectAfterProfileCloseRef.current) return;
+          openRejectAfterProfileCloseRef.current = false;
+          openRejectModal();
+        }}
         requestDecision={
           isPending && isQuestioner
             ? {
-                onAccept: handleAccept,
-                onReject: () => {
-                  setProfileVisible(false);
-                  openRejectModal();
-                },
-                acceptLoading: accepting,
-                rejectLoading: rejecting,
-              }
+              onAccept: handleAccept,
+              onReject: () => {
+                openRejectAfterProfileCloseRef.current = true;
+                setProfileVisible(false);
+              },
+              acceptLoading: accepting,
+              rejectLoading: rejecting,
+            }
             : undefined
         }
       />
@@ -485,8 +497,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   backBtn: { padding: 4 },
-  headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  profileIconBtn: { padding: 4 },
+  headerInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  goToQuestionLink: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  goToQuestionLinkText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.PRIMARY,
+  },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   headerSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
   closedBanner: { backgroundColor: colors.LIGHT_GREEN, padding: 10, alignItems: 'center' },
@@ -554,7 +576,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 20,
+    borderRadius: 100,
     paddingHorizontal: 16,
     paddingVertical: 10,
     maxHeight: 100,
@@ -588,7 +610,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
+    borderRadius: 100,
     padding: 12,
     minHeight: 80,
     fontFamily: 'roboto',

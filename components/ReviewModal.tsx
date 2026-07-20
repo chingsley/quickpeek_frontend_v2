@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     minHeight: 96,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    borderRadius: 12,
+    borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: 'roboto',

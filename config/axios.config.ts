@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
-import { getApiBaseUrl } from './api.config';
+import { ensureApiConfigReady, getApiBaseUrl } from './api.config';
 
 // Create axios instance without interceptors first
 const Axios = axios.create({
@@ -49,7 +49,8 @@ export const initializeAuthToken = async () => {
 
 // Request interceptor
 Axios.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    await ensureApiConfigReady();
     config.baseURL = getApiBaseUrl();
 
     // Use the current token from memory

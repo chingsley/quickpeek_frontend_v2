@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     height: 50,
     borderWidth: 1,
     borderColor: '#ccc',
-    borderRadius: 8,
+    borderRadius: 100,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 100,
     marginTop: 10,
   },
   buttonText: {

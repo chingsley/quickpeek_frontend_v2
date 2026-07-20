@@ -3,7 +3,6 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import StarRating from '@/components/StarRating';
 import UserProfileModal from '@/components/UserProfileModal';
-import TagChip from '@/components/shared/TagChip';
 import { colors } from '@/constants/colors';
 import { chipStyles } from '@/constants/chips';
 import { fonts } from '@/constants/fonts';
@@ -22,7 +21,7 @@ import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -88,6 +87,7 @@ const QuestionDetail = () => {
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profileOpenKey, setProfileOpenKey] = useState(0);
   const [profileRequestId, setProfileRequestId] = useState<string | null>(null);
+  const pendingRejectRequestIdRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!questionId) return;
@@ -321,7 +321,6 @@ const QuestionDetail = () => {
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
-          {question.category && <TagChip label={question.category.name} style={styles.chip} />}
           <Text style={styles.status}>{question.status}</Text>
         </View>
 
@@ -527,13 +526,19 @@ const QuestionDetail = () => {
         openKey={profileOpenKey}
         userId={profileUserId}
         onClose={() => setProfileModalVisible(false)}
+        onClosed={() => {
+          const requestId = pendingRejectRequestIdRef.current;
+          if (!requestId) return;
+          pendingRejectRequestIdRef.current = null;
+          openRejectModal(requestId);
+        }}
         requestDecision={
           profilePendingRequest
             ? {
                 onAccept: () => handleAccept(profilePendingRequest.id),
                 onReject: () => {
+                  pendingRejectRequestIdRef.current = profilePendingRequest.id;
                   setProfileModalVisible(false);
-                  openRejectModal(profilePendingRequest.id);
                 },
               }
             : undefined
@@ -613,7 +618,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 10,
+    borderRadius: 100,
     padding: 12,
     minHeight: 80,
     marginBottom: 16,
