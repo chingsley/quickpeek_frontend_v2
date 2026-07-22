@@ -43,23 +43,6 @@ export const chipStyles = {
     color: colors.BG_WHITE,
   } satisfies TextStyle,
 
-  tagContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 28,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  } satisfies ViewStyle,
-
-  tagText: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.PRIMARY,
-    ...chipTextFix,
-  } satisfies TextStyle,
-
   presetContainer: {
     flexDirection: 'row',
     alignItems: 'center',

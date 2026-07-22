@@ -1,16 +1,15 @@
 import CustomButton from '@/components/shared/CustomButton';
 import PillChip from '@/components/shared/PillChip';
-import TagChip from '@/components/shared/TagChip';
-import { ALL_QUESTIONS_SECTION_KEY, FEED_SECTION_DEFS } from '@/constants/feedSections';
+import { ALL_QUESTIONS_SECTION_KEY, FEED_FILTER_DEFS, INCOMING_SECTION_KEY, OUTGOING_SECTION_KEY } from '@/constants/feedSections';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { getQuestionFeed } from '@/services/questions.services';
+import { images } from '@/constants/images';
+import { getQuestionFeed, searchQuestions } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
 import { useDrawerStore } from '@/store/drawer.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
-import { AnswerRequestStatus } from '@/types/answerRequest.types';
-import { TFeedQuestion, TFeedSection } from '@/types/question.types';
+import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
@@ -18,53 +17,41 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
+  Image,
+  Platform,
   Pressable,
-  SectionList,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView, KeyboardController } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const getInteractionChip = (item: TFeedQuestion): { label: string; style: 'pending' | 'approved' | 'answered' | 'rejected'; } | null => {
-  if (item.incomingRequest) {
-    return { label: 'Needs your approval', style: 'pending' };
-  }
-
-  const vr = item.viewerRequest;
-  if (!vr) return null;
-
-  if (vr.status === AnswerRequestStatus.Pending) {
-    return { label: 'Requested', style: 'pending' };
-  }
-  if (vr.status === AnswerRequestStatus.Accepted) {
-    return vr.hasResponded
-      ? { label: 'Answered by you', style: 'answered' }
-      : { label: 'Approved', style: 'approved' };
-  }
-  if (vr.status === AnswerRequestStatus.Rejected || vr.isBlocked) {
-    return { label: 'Declined', style: 'rejected' };
-  }
-  return null;
-};
 
 const HomeScreen = () => {
   const router = useRouter();
-  const sectionListRef = useRef<SectionList<TFeedQuestion>>(null);
+  const feedListRef = useRef<FlatList<TFeedQuestion>>(null);
+  const searchRequestIdRef = useRef(0);
   const setMenuSections = useDrawerStore((state) => state.setMenuSections);
   const toggleDrawer = useDrawerStore((state) => state.toggle);
   const selectedSectionKey = useDrawerStore((state) => state.selectedSectionKey);
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
   const authUserId = useAuthStore((state) => state.user?.id);
-  const [sections, setSections] = useState<TFeedSection[]>([]);
+  const [feedItems, setFeedItems] = useState<TFeedQuestion[]>([]);
+  const [feedCounts, setFeedCounts] = useState<TFeedCounts>({ all: 0, incoming: 0, outgoing: 0 });
   const [nearMe, setNearMe] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<TFeedQuestion[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const isSearchActive = search.trim().length > 0;
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -89,7 +76,8 @@ const HomeScreen = () => {
         }
       }
       const data = await getQuestionFeed(feedParams);
-      setSections(data.sections);
+      setFeedItems(data.items);
+      setFeedCounts(data.counts);
     } catch (error) {
       console.error('Failed to load feed:', error);
     } finally {
@@ -113,6 +101,37 @@ const HomeScreen = () => {
     if (!isLoggedIn) return;
     loadFeed();
   }, [isLoggedIn, loadFeed]);
+
+  // Debounced fuzzy search. Fires 300ms after the user stops typing.
+  useEffect(() => {
+    const trimmed = search.trim();
+
+    if (trimmed.length < 2) {
+      setSearching(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    const requestId = ++searchRequestIdRef.current;
+    const handle = setTimeout(async () => {
+      try {
+        const data = await searchQuestions(trimmed);
+        if (requestId !== searchRequestIdRef.current) return;
+        setSearchResults(data.items);
+      } catch (error) {
+        if (requestId !== searchRequestIdRef.current) return;
+        console.error('Search failed:', error);
+        setSearchResults([]);
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          setSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => clearTimeout(handle);
+  }, [search]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -154,58 +173,34 @@ const HomeScreen = () => {
     router.push({ pathname: '/question-detail', params: { questionId: item.id } });
   };
 
-  const displayedSections = useMemo(() => {
+  const displayedItems = useMemo(() => {
     if (selectedSectionKey === ALL_QUESTIONS_SECTION_KEY) {
-      return sections.filter((section) => section.items.length > 0);
+      return feedItems;
     }
-
-    const match = sections.find((section) => section.key === selectedSectionKey);
-    if (match) {
-      return [match];
+    if (selectedSectionKey === INCOMING_SECTION_KEY) {
+      return feedItems.filter((item) => item.userId !== authUserId);
     }
-
-    const fallback = FEED_SECTION_DEFS.find((def) => def.key === selectedSectionKey);
-    if (!fallback) {
-      return [];
+    if (selectedSectionKey === OUTGOING_SECTION_KEY) {
+      return feedItems.filter((item) => item.userId === authUserId);
     }
-
-    return [{ key: fallback.key, title: fallback.title, items: [] }];
-  }, [sections, selectedSectionKey]);
-
-  const sectionListData = useMemo(
-    () =>
-      displayedSections.map((section, index) => ({
-        ...section,
-        data: section.items,
-        sectionIndex: index,
-      })),
-    [displayedSections],
-  );
+    return feedItems;
+  }, [authUserId, feedItems, selectedSectionKey]);
 
   useEffect(() => {
-    const totalCount = sections.reduce((sum, section) => sum + section.items.length, 0);
-    const drawerSections = FEED_SECTION_DEFS.map((def) => {
-      const match = sections.find((section) => section.key === def.key);
-      return {
+    setMenuSections(
+      FEED_FILTER_DEFS.map((def) => ({
         key: def.key,
-        title: match?.title ?? def.title,
-        count: match?.items.length ?? 0,
-      };
-    });
-
-    setMenuSections([
-      { key: ALL_QUESTIONS_SECTION_KEY, title: 'All Questions', count: totalCount },
-      ...drawerSections,
-    ]);
-  }, [sections, setMenuSections]);
+        title: def.title,
+        count: feedCounts[def.key],
+      })),
+    );
+  }, [feedCounts, setMenuSections]);
 
   useEffect(() => {
-    if (sectionListData.length === 0) return;
-    sectionListRef.current?.scrollToLocation({ sectionIndex: 0, itemIndex: 0, animated: false });
-  }, [selectedSectionKey, sectionListData.length]);
+    feedListRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [selectedSectionKey]);
 
   const renderQuestion = ({ item }: { item: TFeedQuestion; }) => {
-    const chip = getInteractionChip(item);
     const unread = item.incomingRequest?.unreadCount ?? item.viewerRequest?.unreadCount ?? 0;
     const postedAt = formatRelativeTime(item.createdAt);
     const authorLabel = item.questioner
@@ -213,16 +208,6 @@ const HomeScreen = () => {
         ? 'You'
         : `${item.questioner.name}`
       : null;
-    const chipStyle =
-      chip?.style === 'pending'
-        ? { chip: styles.chip_pending, text: styles.chipText_pending }
-        : chip?.style === 'approved'
-          ? { chip: styles.chip_approved, text: styles.chipText_approved }
-          : chip?.style === 'answered'
-            ? { chip: styles.chip_answered, text: styles.chipText_answered }
-            : chip?.style === 'rejected'
-              ? { chip: styles.chip_rejected, text: styles.chipText_rejected }
-              : null;
 
     return (
       <TouchableOpacity
@@ -247,54 +232,50 @@ const HomeScreen = () => {
           </View>
         </View>
         <Text style={styles.cardDetail} numberOfLines={viewMode === 'card' ? 3 : 2}>
-          {item.incomingRequest
-            ? `${item.incomingRequest.responder.name} requested to answer your question.`
-            : chip?.style === 'rejected' && item.viewerRequest?.rejectionReason
-              ? item.viewerRequest.rejectionReason
-              : item.detail}
+          {item.detail}
         </Text>
-        <View style={styles.cardFooter}>
-          {chip && chipStyle && (
-            <TagChip label={chip.label} style={[styles.chip, chipStyle.chip]} textStyle={chipStyle.text} />
-          )}
-          {item.nearMe && (
-            <TagChip label="Near me" style={[styles.chip, styles.nearMeChip]} textStyle={styles.nearMeText} />
-          )}
-          {item.distanceKm != null && (
+        {item.distanceKm != null && (
+          <View style={styles.cardFooter}>
             <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km</Text>
-          )}
-        </View>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={styles.header}>
-        <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
-          <Ionicons name="menu" size={26} color={colors.PRIMARY} />
-        </Pressable>
-        <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/ask')} style={styles.askBtn}>
-            <Ionicons name="add" size={20} color={colors.BG_WHITE} />
-            <Text style={styles.askBtnText}>Ask</Text>
-          </Pressable>
-          <Pressable
-            style={styles.chatIconBtn}
-            onPress={() => router.push('/chats')}
-            accessibilityLabel="Open chats"
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
-            {unreadChatCount > 0 && (
-              <View style={styles.chatBadge}>
-                <Text style={styles.chatBadgeText}>
-                  {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
-      </View>
+      <TouchableWithoutFeedback
+        accessible={false}
+        onPress={() => KeyboardController.dismiss()}
+      >
+        <View style={styles.screenBody}>
+          <View style={styles.header}>
+            <View style={styles.headerSide}>
+              <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
+                <Ionicons name="menu" size={30} color={colors.PRIMARY} />
+              </Pressable>
+            </View>
+            <View style={styles.headerCenter} pointerEvents="none">
+              <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
+            </View>
+            <View style={[styles.headerSide, styles.headerSideRight]}>
+              <Pressable
+                style={styles.chatIconBtn}
+                onPress={() => router.push('/chats')}
+                accessibilityLabel="Open chats"
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
+                {unreadChatCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </View>
 
       <View style={styles.titleRow}>
         <Text style={styles.pageTitle}>Questions</Text>
@@ -305,20 +286,20 @@ const HomeScreen = () => {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="Search"
+          placeholder="Search questions"
           placeholderTextColor={colors.MEDIUM_GRAY}
           style={styles.searchInput}
           returnKeyType="search"
           autoCorrect={false}
         />
+        {search.length > 0 && (
+          <Pressable onPress={() => setSearch('')} style={styles.searchClearBtn} accessibilityLabel="Clear search">
+            <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.filterWrap}>
-        <PillChip
-          label="All"
-          active={!nearMe}
-          onPress={() => setNearMe(false)}
-        />
         <PillChip
           label="Near me"
           active={nearMe}
@@ -338,41 +319,75 @@ const HomeScreen = () => {
         </Pressable>
       </View>
 
-      {loading ? (
+      {isSearchActive ? (
+        <KeyboardAvoidingView
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          style={styles.listAvoider}
+        >
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item.id}
+            renderItem={renderQuestion}
+            contentContainerStyle={styles.listContent}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              searching ? null : (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>No questions match "{search.trim()}".</Text>
+                </View>
+              )
+            }
+            ListHeaderComponent={
+              searching ? (
+                <View style={styles.searchLoadingRow}>
+                  <ActivityIndicator size="small" color={colors.PRIMARY} />
+                  <Text style={styles.searchLoadingText}>Searching…</Text>
+                </View>
+              ) : searchResults.length > 0 ? (
+                <Text style={styles.resultCountText}>
+                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                </Text>
+              ) : null
+            }
+          />
+        </KeyboardAvoidingView>
+      ) : loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.PRIMARY} />
         </View>
       ) : (
-        <SectionList
-          ref={sectionListRef}
-          sections={sectionListData}
-          keyExtractor={(item) => item.id}
-          renderItem={renderQuestion}
-          renderSectionHeader={({ section }) => (
-            <View
-              style={[
-                styles.sectionHeader,
-                section.sectionIndex > 0 && styles.sectionHeaderSeparated,
-              ]}
-            >
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-            </View>
-          )}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No open questions yet.</Text>
-              <CustomButton
-                text="Ask a question"
-                onPress={() => router.push('/ask')}
-                style={styles.emptyAskBtn}
-                noTopMargin
-              />
-            </View>
-          }
-        />
+        <KeyboardAvoidingView
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          style={styles.listAvoider}
+        >
+          <FlatList
+            ref={feedListRef}
+            data={displayedItems}
+            keyExtractor={(item) => item.id}
+            renderItem={renderQuestion}
+            contentContainerStyle={styles.listContent}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No open questions yet.</Text>
+                <CustomButton
+                  text="Ask a question"
+                  onPress={() => router.push('/ask')}
+                  style={styles.emptyAskBtn}
+                  noTopMargin
+                />
+              </View>
+            }
+          />
+        </KeyboardAvoidingView>
       )}
+
+      </View>
+      </TouchableWithoutFeedback>
 
       <Pressable
         style={styles.floatingAskBtn}
@@ -391,14 +406,29 @@ export default HomeScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
+  screenBody: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
-    gap: 8,
+  },
+  headerSide: {
+    width: 72,
+    zIndex: 1,
+  },
+  headerSideRight: {
+    alignItems: 'flex-end',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    height: 40,
+    width: 184,
   },
   titleRow: {
     paddingHorizontal: 16,
@@ -418,6 +448,27 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
+  },
+  searchClearBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  searchLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  searchLoadingText: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+  },
+  resultCountText: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    paddingVertical: 6,
   },
   searchInput: {
     flex: 1,
@@ -442,21 +493,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chatBadgeText: { color: colors.BG_WHITE, fontSize: 10, fontWeight: 'bold' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   viewModeBtn: {
     padding: 4,
     marginLeft: 'auto',
   },
-  askBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.PRIMARY,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
-  },
-  askBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.BG_WHITE },
   filterWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -464,23 +504,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  sectionHeader: {
-    paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: colors.BG_WHITE,
-  },
-  sectionHeaderSeparated: {
-    marginTop: 20,
-    paddingTop: 8,
-  },
-  sectionTitle: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  listContent: { paddingHorizontal: 16, paddingBottom: 24 },
+  listAvoider: { flex: 1 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 80 },
   card: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -525,17 +550,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
   },
-  chip: { backgroundColor: colors.LIGHT_GREEN },
-  chip_pending: { backgroundColor: colors.LIGHT_PINK },
-  chip_approved: { backgroundColor: colors.LIGHT_GREEN },
-  chip_answered: { backgroundColor: colors.LIGHT_BLUE },
-  chip_rejected: { backgroundColor: colors.DARK_WHITE },
-  nearMeChip: { backgroundColor: colors.LIGHT_BLUE },
-  chipText_pending: { color: colors.ACTIVE },
-  chipText_approved: { color: colors.PRIMARY },
-  chipText_answered: { color: colors.PRIMARY },
-  chipText_rejected: { color: colors.MEDIUM_GRAY },
-  nearMeText: { color: colors.DARK_GRAY },
   distance: {
     fontFamily: 'roboto-light',
     fontSize: fonts.FONT_SIZE_XS,

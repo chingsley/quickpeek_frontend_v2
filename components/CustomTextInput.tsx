@@ -1,4 +1,5 @@
 import { drawBorder } from '@/utils';
+import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import React from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 
@@ -30,7 +31,7 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 18,
     backgroundColor: '#F5F5F5',
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS_INPUT,
     paddingHorizontal: 10,
     minHeight: 100,
     borderWidth: 1,

@@ -4,7 +4,8 @@ import {
   TFeedResponse,
   TQuestion,
   TRejectedResponder,
-  TSectionedFeedResponse,
+  TSearchResponse,
+  TAuthenticatedFeedResponse,
 } from '@/types/question.types';
 
 export const createQuestion = async (payload: TCreateQuestionPayload): Promise<TQuestion> => {
@@ -19,7 +20,7 @@ export const getQuestionFeed = async (params?: {
   nearMe?: boolean;
   page?: number;
   limit?: number;
-}): Promise<TSectionedFeedResponse> => {
+}): Promise<TAuthenticatedFeedResponse> => {
   const search = new URLSearchParams();
   if (params?.lat != null) search.set('lat', String(params.lat));
   if (params?.lng != null) search.set('lng', String(params.lng));
@@ -31,16 +32,25 @@ export const getQuestionFeed = async (params?: {
   const response = await Axios.get(`/questions/feed${qs ? `?${qs}` : ''}`);
   const data = response.data?.data;
 
-  if (!Array.isArray(data?.sections)) {
-    throw new Error('Expected sectioned feed response');
+  if (!Array.isArray(data?.items) || !data?.counts) {
+    throw new Error('Expected authenticated feed response');
   }
 
-  return data as TSectionedFeedResponse;
+  return data as TAuthenticatedFeedResponse;
 };
 
 export const getRejectedResponders = async (questionId: string): Promise<TRejectedResponder[]> => {
   const response = await Axios.get(`/questions/${questionId}/rejected-responders`);
   return response.data.data.items as TRejectedResponder[];
+};
+
+export const searchQuestions = async (query: string): Promise<TSearchResponse> => {
+  const search = new URLSearchParams();
+  const trimmed = query.trim();
+  if (trimmed) search.set('q', trimmed);
+  const qs = search.toString();
+  const response = await Axios.get(`/questions/search${qs ? `?${qs}` : ''}`);
+  return response.data.data as TSearchResponse;
 };
 
 export const unblockResponder = async (questionId: string, responderId: string) => {
@@ -71,6 +81,7 @@ export const cancelQuestion = async (questionId: string) => {
 export default {
   createQuestion,
   getQuestionFeed,
+  searchQuestions,
   getMyQuestions,
   getQuestionDetail,
   markQuestionAnswered,

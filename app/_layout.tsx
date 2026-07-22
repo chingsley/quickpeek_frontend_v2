@@ -11,6 +11,7 @@ import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 export default function RootLayout() {
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
@@ -46,9 +47,11 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-      </BottomSheetModalProvider>
+      <KeyboardProvider>
+        <BottomSheetModalProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </BottomSheetModalProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

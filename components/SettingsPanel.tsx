@@ -12,7 +12,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -20,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 
 type Props = {
   showTitle?: boolean;
@@ -135,7 +135,13 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <KeyboardAwareScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      bottomOffset={24}
+    >
       {showTitle && <Text style={styles.pageTitle}>Settings</Text>}
 
       <Text style={styles.groupLabel}>Profile</Text>
@@ -238,13 +244,16 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 
 export default SettingsPanel;
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,

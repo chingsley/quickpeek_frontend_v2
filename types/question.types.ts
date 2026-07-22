@@ -1,5 +1,6 @@
 import { TCategory } from './category.types';
 import { CanRequestReason } from './answerRequest.types';
+import { TRoleRating } from './user.types';
 
 export enum QuestionStatus {
   Open = 'OPEN',
@@ -89,18 +90,9 @@ export type TIncomingRequest = {
   };
 };
 
-export type FeedSectionKey =
-  | 'awaiting_your_approval'
-  | 'others'
-  | 'pending'
-  | 'approved'
-  | 'answered_by_you'
-  | 'rejected';
-
 export type TFeedQuestion = TQuestion & {
   viewerRequest?: TViewerRequest | null;
   incomingRequest?: TIncomingRequest | null;
-  sectionKey?: FeedSectionKey;
   questioner?: {
     id: string;
     name: string;
@@ -109,14 +101,15 @@ export type TFeedQuestion = TQuestion & {
   } | null;
 };
 
-export type TFeedSection = {
-  key: FeedSectionKey;
-  title: string;
-  items: TFeedQuestion[];
+export type TFeedCounts = {
+  all: number;
+  incoming: number;
+  outgoing: number;
 };
 
-export type TSectionedFeedResponse = {
-  sections: TFeedSection[];
+export type TAuthenticatedFeedResponse = {
+  items: TFeedQuestion[];
+  counts: TFeedCounts;
 };
 
 export type TFeedResponse = {
@@ -129,6 +122,15 @@ export type TFeedResponse = {
   };
 };
 
+export type TSearchResult = TFeedQuestion & {
+  similarity?: number;
+};
+
+export type TSearchResponse = {
+  items: TSearchResult[];
+  query: string;
+};
+
 export type TRejectedResponder = {
   responderId: string;
   rejectionReason: string | null;
@@ -138,6 +140,7 @@ export type TRejectedResponder = {
     name: string;
     username: string;
     profileImageUrl: string | null;
+    asResponder?: TRoleRating;
   };
 };
 

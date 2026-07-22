@@ -5,6 +5,7 @@ import CustomButton from '@/components/shared/CustomButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import {
   getMessages,
   getRequestThread,
@@ -31,7 +32,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -39,6 +39,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ChatListItem =
@@ -297,102 +298,108 @@ const ChatScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={24} color={colors.PRIMARY} />
-        </Pressable>
-        {thread?.counterparty && (
-          <Pressable
-            style={styles.headerInfo}
-            onPress={openProfileModal}
-          >
-            <UserAvatar imageUrl={thread.counterparty.profileImageUrl} size={36} />
-            <View>
-              <Text style={styles.headerName}>{thread.counterparty.name}</Text>
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
-                {thread.question.title}
-              </Text>
-            </View>
-          </Pressable>
-        )}
-        {thread?.question && (
-          <Pressable
-            style={styles.goToQuestionLink}
-            onPress={() =>
-              router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } })
-            }
-          >
-            <Text style={styles.goToQuestionLinkText}>Go to Question</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.PRIMARY} />
-          </Pressable>
-        )}
-      </View>
-
-      {isClosed && (
-        <View style={styles.closedBanner}>
-          <Text style={styles.closedText}>
-            {thread?.status === AnswerRequestStatus.Rejected
-              ? 'This request was rejected.'
-              : 'This question has been answered.'}
-          </Text>
-        </View>
-      )}
-
-      {isPending && !isClosed && (
-        <View style={styles.pendingBanner}>
-          <Ionicons name="lock-closed" size={14} color={colors.PRIMARY} />
-          <Text style={styles.pendingText}>
-            {isQuestioner
-              ? 'Review the request — chat unlocks once you accept.'
-              : 'Waiting for the questioner to accept your request.'}
-          </Text>
-        </View>
-      )}
-
-      <FlatList
-        ref={listRef}
-        data={chatItems}
-        keyExtractor={(item) => (item.kind === 'day' ? item.id : item.message.id)}
-        contentContainerStyle={styles.listContent}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        renderItem={({ item }) =>
-          item.kind === 'day' ? (
-            <Text style={styles.daySeparator}>{item.label}</Text>
-          ) : (
-            renderMessage(item.message)
-          )
-        }
-      />
-
-      {eligibility?.canReview && (
-        <CustomButton
-          text="Rate this user"
-          onPress={() => setReviewVisible(true)}
-          style={styles.reviewBtn}
-        />
-      )}
-
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        style={styles.chatBody}
       >
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            placeholder={canType ? 'Type a message…' : isClosed ? 'Chat closed' : 'Chat locked'}
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={inputText}
-            onChangeText={setInputText}
-            editable={canType && !sending}
-            multiline
-          />
-          <Pressable
-            style={[styles.sendBtn, (!canType || !inputText.trim()) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!canType || !inputText.trim() || sending}
-          >
-            <Ionicons name="send" size={20} color={colors.BG_WHITE} />
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={colors.PRIMARY} />
           </Pressable>
+          {thread?.counterparty && (
+            <Pressable
+              style={styles.headerInfo}
+              onPress={openProfileModal}
+            >
+              <UserAvatar imageUrl={thread.counterparty.profileImageUrl} size={36} />
+              <View>
+                <Text style={styles.headerName}>{thread.counterparty.name}</Text>
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {thread.question.title}
+                </Text>
+              </View>
+            </Pressable>
+          )}
+          {thread?.question && (
+            <Pressable
+              style={styles.goToQuestionLink}
+              onPress={() =>
+                router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } })
+              }
+            >
+              <Text style={styles.goToQuestionLinkText}>Go to Question</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.PRIMARY} />
+            </Pressable>
+          )}
+        </View>
+
+        {isClosed && (
+          <View style={styles.closedBanner}>
+            <Text style={styles.closedText}>
+              {thread?.status === AnswerRequestStatus.Rejected
+                ? 'This request was rejected.'
+                : 'This question has been answered.'}
+            </Text>
+          </View>
+        )}
+
+        {isPending && !isClosed && (
+          <View style={styles.pendingBanner}>
+            <Ionicons name="lock-closed" size={14} color={colors.PRIMARY} />
+            <Text style={styles.pendingText}>
+              {isQuestioner
+                ? 'Review the request — chat unlocks once you accept.'
+                : 'Waiting for the questioner to accept your request.'}
+            </Text>
+          </View>
+        )}
+
+        <FlatList
+          ref={listRef}
+          style={styles.messageList}
+          data={chatItems}
+          keyExtractor={(item) => (item.kind === 'day' ? item.id : item.message.id)}
+          contentContainerStyle={styles.listContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          renderItem={({ item }) =>
+            item.kind === 'day' ? (
+              <Text style={styles.daySeparator}>{item.label}</Text>
+            ) : (
+              renderMessage(item.message)
+            )
+          }
+        />
+
+        <View style={styles.composerWrap}>
+          {eligibility?.canReview && (
+            <CustomButton
+              text="Rate this user"
+              onPress={() => setReviewVisible(true)}
+              style={styles.reviewBtn}
+            />
+          )}
+
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder={canType ? 'Type a message…' : isClosed ? 'Chat closed' : 'Chat locked'}
+              placeholderTextColor={colors.LIGHT_GRAY}
+              value={inputText}
+              onChangeText={setInputText}
+              editable={canType && !sending}
+              multiline
+            />
+            <Pressable
+              style={[styles.sendBtn, (!canType || !inputText.trim()) && styles.sendBtnDisabled]}
+              onPress={handleSend}
+              disabled={!canType || !inputText.trim() || sending}
+            >
+              <Ionicons name="send" size={20} color={colors.BG_WHITE} />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -486,6 +493,8 @@ export default ChatScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
+  chatBody: { flex: 1 },
+  messageList: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -563,6 +572,9 @@ const styles = StyleSheet.create({
   },
   viewProfileBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
   reviewBtn: { marginHorizontal: 16, marginBottom: 8 },
+  composerWrap: {
+    flexShrink: 0,
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -576,7 +588,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 100,
+    borderRadius: BORDER_RADIUS_INPUT,
     paddingHorizontal: 16,
     paddingVertical: 10,
     maxHeight: 100,
@@ -610,7 +622,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 100,
+    borderRadius: BORDER_RADIUS_INPUT,
     padding: 12,
     minHeight: 80,
     fontFamily: 'roboto',

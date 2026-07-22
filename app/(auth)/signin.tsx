@@ -1,3 +1,4 @@
+import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { notifConfig } from '@/config';
 import { colors } from '@/constants/colors';
 import { loginUser } from '@/services/auth.services';
@@ -5,7 +6,8 @@ import { useAuthStore } from '@/store/auth.store';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 
 
@@ -56,11 +58,8 @@ const SignIn = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
           <Text style={styles.title}>Sign In</Text>
           <View style={styles.inputContainer}>
@@ -99,14 +98,15 @@ const SignIn = () => {
             <Text style={styles.link}>Don't have an account? Sign up</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
+    </SafeAreaView>
   );
 };
 
 export default SignIn;
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',

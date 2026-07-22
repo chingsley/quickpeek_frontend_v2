@@ -1,4 +1,5 @@
 import { TCategory } from './category.types';
+import { TRoleRating } from './user.types';
 
 export enum AnswerRequestStatus {
   Pending = 'PENDING',
@@ -12,6 +13,7 @@ export type TCounterparty = {
   name: string;
   username: string;
   profileImageUrl: string | null;
+  asResponder?: TRoleRating;
 };
 
 export type TAnswerRequest = {

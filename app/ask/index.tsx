@@ -1,7 +1,9 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
+import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import { useQuestionStore } from '@/store/question.store';
@@ -11,13 +13,10 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
-  Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -33,7 +32,7 @@ const AskScreen = () => {
   const [acceptanceCriteria, setAcceptanceCriteria] = useState('');
   const [includeLocation, setIncludeLocation] = useState(false);
   const [address, setAddress] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
   const [answerRadiusKm, setAnswerRadiusKm] = useState('5');
 
   const priceNum = parseFloat(price);
@@ -75,11 +74,11 @@ const AskScreen = () => {
         acceptanceCriteria: acceptanceCriteria.trim(),
         ...(includeLocation && coords
           ? {
-              latitude: coords.lat,
-              longitude: coords.lng,
-              address: address.trim() || null,
-              answerRadiusKm: parseFloat(answerRadiusKm) || 5,
-            }
+            latitude: coords.lat,
+            longitude: coords.lng,
+            address: address.trim() || null,
+            answerRadiusKm: parseFloat(answerRadiusKm) || 5,
+          }
           : {}),
       };
       const question = await createQuestion(payload);
@@ -96,13 +95,7 @@ const AskScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
           <BackButton color={colors.PRIMARY} />
           <Text style={styles.pageTitle}>Ask a question</Text>
           <Text style={styles.subtitle}>Publish to the marketplace for responders to answer.</Text>
@@ -185,8 +178,7 @@ const AskScreen = () => {
             loading={loading}
             style={styles.publishBtn}
           />
-        </ScrollView>
-      </TouchableWithoutFeedback>
+      </KeyboardAwareScreen>
     </SafeAreaView>
   );
 };
@@ -195,7 +187,6 @@ export default AskScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
-  scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 8 },
   subtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
@@ -211,13 +202,17 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     backgroundColor: colors.BG_WHITE,
   },
-  multiline: { minHeight: 100, lineHeight: 22 },
+  multiline: {
+    minHeight: 100,
+    lineHeight: 22,
+    borderRadius: BORDER_RADIUS_INPUT,
+  },
   locationToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    borderRadius: 14,
+    borderRadius: BORDER_RADIUS_INPUT,
     padding: 14,
     marginTop: 16,
     gap: 12,

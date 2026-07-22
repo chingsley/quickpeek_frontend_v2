@@ -14,6 +14,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -157,7 +158,9 @@ const BottomSheet = ({
           collapsable={false}
           style={[styles.sheet, sheetAnimatedStyle, sheetStyle]}
         >
-          {children}
+          <KeyboardAvoidingView behavior="padding" style={styles.sheetKeyboard}>
+            {children}
+          </KeyboardAvoidingView>
         </Animated.View>
       </View>
     </Modal>
@@ -176,5 +179,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
+  },
+  sheetKeyboard: {
+    flexGrow: 1,
   },
 });

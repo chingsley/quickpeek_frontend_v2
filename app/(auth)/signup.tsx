@@ -1,12 +1,14 @@
 import PreferencesForm from '@/components/signup/PreferencesForm';
 import ReviewDetails from '@/components/signup/ReviewDetails';
 import UserDetailsForm from '@/components/signup/UserDetailsForm';
+import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { registerUser } from '@/services/auth.services';
 import { SignupFormData } from '@/types/signup.types';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Signup = () => {
   const router = useRouter();
@@ -71,23 +73,21 @@ const Signup = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContainer}>
         <View style={styles.container}>
           <Text style={styles.title}>Sign Up - Step {step} of 3</Text>
           {renderStep()}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScreen>
+    </SafeAreaView>
   );
 };
 
 export default Signup;
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#fff' },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',

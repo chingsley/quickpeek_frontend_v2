@@ -185,7 +185,6 @@ const Questions = () => {
               kind="question"
               item={item}
               onClick={() => handleQuestionClick(item)}
-              activeTab={activeTab}
               displayName={item.title}
               profileImageUrl={null}
               isNew={(item.requestCounts?.PENDING ?? 0) > 0}
@@ -209,7 +208,6 @@ const Questions = () => {
             kind="request"
             item={item}
             onClick={() => handleRequestClick(item)}
-            activeTab={activeTab}
             displayName={item.counterparty?.name || item.question?.title || 'Question'}
             profileImageUrl={item.counterparty?.profileImageUrl}
           />

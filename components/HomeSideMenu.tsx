@@ -54,7 +54,7 @@ const HomeSideMenu = () => {
 
       <ScrollView style={styles.sectionList} showsVerticalScrollIndicator={false}>
         {menuSections.length === 0 ? (
-          <Text style={styles.emptySections}>No feed sections yet.</Text>
+          <Text style={styles.emptySections}>No filters available.</Text>
         ) : (
           menuSections.map((section) => {
             const isSelected = selectedSectionKey === section.key;

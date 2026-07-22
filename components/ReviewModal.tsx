@@ -2,6 +2,7 @@ import CustomButton from '@/components/shared/CustomButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import { submitReview } from '@/services/reviews.services';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     minHeight: 96,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    borderRadius: 100,
+    borderRadius: BORDER_RADIUS_INPUT,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: 'roboto',

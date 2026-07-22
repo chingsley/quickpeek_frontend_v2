@@ -1,11 +1,14 @@
 import BackButton from '@/components/shared/BackButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
+import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import StarRating from '@/components/StarRating';
+import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
 import { colors } from '@/constants/colors';
 import { chipStyles } from '@/constants/chips';
 import { fonts } from '@/constants/fonts';
+import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import {
   acceptRequest,
   createRequest,
@@ -26,7 +29,6 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -63,9 +65,108 @@ const getResponderStatusMessage = (
   return CAN_REQUEST_LABELS[question.canRequestReason || ''] || 'You cannot request this question.';
 };
 
+type RequestSectionProps = {
+  title: string;
+  count: number;
+  description: string;
+  note?: string;
+  itemLabel?: string;
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+};
+
+const RequestSection = ({
+  title,
+  count,
+  description,
+  note,
+  itemLabel = 'item',
+  defaultExpanded = true,
+  children,
+}: RequestSectionProps) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const itemWord = count === 1 ? itemLabel : `${itemLabel}s`;
+  const collapsedHint =
+    count === 0 ? 'Tap to expand' : `Tap to show ${count} ${itemWord}`;
+
+  return (
+    <View style={styles.requestSection}>
+      <Pressable
+        style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}
+        onPress={() => setExpanded((value) => !value)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={`${title}, ${count} ${itemWord}. ${expanded ? 'Collapse' : 'Expand'} section`}
+      >
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>
+            {title} ({count})
+          </Text>
+          <View style={styles.sectionChevron}>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={colors.MEDIUM_GRAY}
+            />
+          </View>
+        </View>
+        {expanded ? (
+          <>
+            <Text style={styles.sectionDescription}>{description}</Text>
+            {note ? (
+              <View style={styles.sectionNote}>
+                <Ionicons name="information-circle-outline" size={17} color={colors.PRIMARY} />
+                <Text style={styles.sectionNoteText}>{note}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <Text style={styles.sectionCollapsedHint}>{collapsedHint}</Text>
+        )}
+      </Pressable>
+      {expanded ? <View style={styles.requestSectionContent}>{children}</View> : null}
+    </View>
+  );
+};
+
+const requestRowStyles = (isLast: boolean) => [styles.requestRow, isLast && styles.requestRowLast];
+
+type ResponderIdentityProps = {
+  name: string;
+  profileImageUrl?: string | null;
+  onPress: () => void;
+  subtitle?: string;
+  asResponder?: { averageRating: number; reviewsCount: number; };
+};
+
+const ResponderIdentity = ({
+  name,
+  profileImageUrl,
+  onPress,
+  subtitle,
+  asResponder,
+}: ResponderIdentityProps) => (
+  <Pressable style={styles.responderIdentity} onPress={onPress}>
+    <UserAvatar imageUrl={profileImageUrl} size={40} />
+    <View style={styles.responderIdentityText}>
+      <Text style={styles.requestName} numberOfLines={1}>
+        {name}
+      </Text>
+      <View style={styles.responderRatingRow}>
+        <StarRating rating={asResponder?.averageRating ?? 0} size={14} />
+      </View>
+      {subtitle ? (
+        <Text style={styles.rejectionReason} numberOfLines={2}>
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  </Pressable>
+);
+
 const QuestionDetail = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ questionId: string }>();
+  const params = useLocalSearchParams<{ questionId: string; }>();
   const questionId = params.questionId as string;
   const authUserId = useAuthStore((state) => state.user?.id);
 
@@ -122,10 +223,10 @@ const QuestionDetail = () => {
   useEffect(() => {
     const socket = SocketService.getSocket();
     if (!socket) return;
-    const handler = (payload: { questionId?: string }) => {
+    const handler = (payload: { questionId?: string; }) => {
       if (payload?.questionId === questionId) load();
     };
-    const messageHandler = (payload: { questionId?: string }) => {
+    const messageHandler = (payload: { questionId?: string; }) => {
       if (payload?.questionId === questionId) load();
     };
     socket.on('request:new', handler);
@@ -180,8 +281,8 @@ const QuestionDetail = () => {
       Alert.alert(
         'Multiple responders',
         `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
-          'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
-          'Continue accepting this request?',
+        'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+        'Continue accepting this request?',
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Accept', onPress: proceed },
@@ -281,8 +382,8 @@ const QuestionDetail = () => {
     question?.viewerRequest?.id || question?.existingRequestId || null;
   const profilePendingRequest = profileRequestId
     ? incomingRequests.find(
-        (r) => r.id === profileRequestId && r.status === AnswerRequestStatus.Pending,
-      )
+      (r) => r.id === profileRequestId && r.status === AnswerRequestStatus.Pending,
+    )
     : null;
   const showOpenChat =
     !!requestIdForChat &&
@@ -315,13 +416,12 @@ const QuestionDetail = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <BackButton color={colors.PRIMARY} />
         <Text style={styles.pageTitle}>{question.title}</Text>
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
-          <Text style={styles.status}>{question.status}</Text>
         </View>
 
         {question.address && (
@@ -393,67 +493,94 @@ const QuestionDetail = () => {
 
         {isOwner && question.status === QuestionStatus.Open && (
           <>
-            <Text style={styles.sectionTitle}>Incoming requests ({pendingRequests.length})</Text>
-            {pendingRequests.length === 0 ? (
-              <Text style={styles.emptyText}>No pending requests yet.</Text>
-            ) : (
-              pendingRequests.map((req) => (
-                <View key={req.id} style={styles.requestCard}>
-                  <Pressable
-                    style={styles.requestInfo}
-                    onPress={() => req.counterparty && openProfile(req.counterparty.id, req.id)}
+            <RequestSection
+              title="Answer requests"
+              count={pendingRequests.length}
+              itemLabel="request"
+              description="These people want to answer your question. Review their profile before you approve or decline."
+              note="If you approve more than one person, you may need to pay each responder whose answer meets your acceptance criteria."
+            >
+              {pendingRequests.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No one has requested to answer yet.</Text>
+              ) : (
+                pendingRequests.map((req, index) => (
+                  <View
+                    key={req.id}
+                    style={requestRowStyles(index === pendingRequests.length - 1)}
                   >
-                    <Text style={styles.requestName}>{req.counterparty?.name || 'Responder'}</Text>
-                    <Text style={styles.viewProfileHint}>View profile & reviews</Text>
-                  </Pressable>
-                  <View style={styles.requestActions}>
-                    <Pressable style={styles.acceptBtn} onPress={() => handleAccept(req.id)}>
-                      <Text style={styles.acceptBtnText}>Accept</Text>
-                    </Pressable>
-                    <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(req.id)}>
-                      <Text style={styles.rejectBtnText}>Reject</Text>
+                    <ResponderIdentity
+                      name={req.counterparty?.name || 'Responder'}
+                      profileImageUrl={req.counterparty?.profileImageUrl}
+                      asResponder={req.counterparty?.asResponder}
+                      onPress={() => req.counterparty && openProfile(req.counterparty.id, req.id)}
+                    />
+                    <View style={styles.requestActions}>
+                      <Pressable style={styles.acceptBtn} onPress={() => handleAccept(req.id)}>
+                        <Text style={styles.acceptBtnText}>Accept</Text>
+                      </Pressable>
+                      <Pressable style={styles.rejectBtn} onPress={() => openRejectModal(req.id)}>
+                        <Text style={styles.rejectBtnText}>Decline</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))
+              )}
+            </RequestSection>
+
+            <RequestSection
+              title="Active chats"
+              count={acceptedRequests.length}
+              itemLabel="chat"
+              description="Responders you've approved. Open a chat to continue the conversation."
+            >
+              {acceptedRequests.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No active chats yet. Approve a request to start one.</Text>
+              ) : (
+                acceptedRequests.map((req, index) => (
+                  <View
+                    key={req.id}
+                    style={requestRowStyles(index === acceptedRequests.length - 1)}
+                  >
+                    <ResponderIdentity
+                      name={req.counterparty?.name || 'Responder'}
+                      profileImageUrl={req.counterparty?.profileImageUrl}
+                      asResponder={req.counterparty?.asResponder}
+                      onPress={() => req.counterparty && openProfile(req.counterparty.id, req.id)}
+                    />
+                    <Pressable
+                      style={styles.openChatBtn}
+                      onPress={() => router.push({ pathname: '/chat', params: { requestId: req.id } })}
+                    >
+                      <Text style={styles.openChatBtnText}>Open chat</Text>
+                      <Ionicons name="chevron-forward" size={18} color={colors.MEDIUM_GRAY} />
                     </Pressable>
                   </View>
-                </View>
-              ))
-            )}
+                ))
+              )}
+            </RequestSection>
 
-            {acceptedRequests.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Active chats ({acceptedRequests.length})</Text>
-                {acceptedRequests.map((req) => (
-                  <Pressable
-                    key={req.id}
-                    style={styles.requestCard}
-                    onPress={() => router.push({ pathname: '/chat', params: { requestId: req.id } })}
+            <RequestSection
+              title="Declined responders"
+              count={rejectedResponders.length}
+              itemLabel="responder"
+              defaultExpanded={false}
+              description="People you declined. They can't send a new request unless you allow them again."
+            >
+              {rejectedResponders.length === 0 ? (
+                <Text style={styles.sectionEmptyText}>No declined responders.</Text>
+              ) : (
+                rejectedResponders.map((entry, index) => (
+                  <View
+                    key={entry.responderId}
+                    style={requestRowStyles(index === rejectedResponders.length - 1)}
                   >
-                    <View>
-                      <Text style={styles.requestName}>{req.counterparty?.name || 'Responder'}</Text>
-                      <Text style={styles.viewProfileHint}>Open chat</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.MEDIUM_GRAY} />
-                  </Pressable>
-                ))}
-              </>
-            )}
-
-            {rejectedResponders.length > 0 && (
-              <>
-                <Text style={styles.sectionTitle}>Rejected responders ({rejectedResponders.length})</Text>
-                {rejectedResponders.map((entry) => (
-                  <View key={entry.responderId} style={styles.requestCard}>
-                    <Pressable
-                      style={styles.requestInfo}
+                    <ResponderIdentity
+                      name={entry.responder.name}
+                      profileImageUrl={entry.responder.profileImageUrl}
+                      asResponder={entry.responder.asResponder}
                       onPress={() => openProfile(entry.responder.id)}
-                    >
-                      <Text style={styles.requestName}>{entry.responder.name}</Text>
-                      {entry.rejectionReason ? (
-                        <Text style={styles.rejectionReason} numberOfLines={2}>
-                          {entry.rejectionReason}
-                        </Text>
-                      ) : null}
-                      <Text style={styles.viewProfileHint}>View profile</Text>
-                    </Pressable>
+                      subtitle={entry.rejectionReason || undefined}
+                    />
                     <Pressable
                       style={styles.unblockBtn}
                       onPress={() => handleUnblockResponder(entry.responderId, entry.responder.name)}
@@ -461,9 +588,9 @@ const QuestionDetail = () => {
                       <Text style={styles.unblockBtnText}>Allow again</Text>
                     </Pressable>
                   </View>
-                ))}
-              </>
-            )}
+                ))
+              )}
+            </RequestSection>
 
             <View style={styles.actionArea}>
               <CustomButton text="Mark as answered" onPress={handleMarkAnswered} />
@@ -471,7 +598,7 @@ const QuestionDetail = () => {
             </View>
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScreen>
 
       {/* Reject modal */}
       <BottomSheet
@@ -535,21 +662,21 @@ const QuestionDetail = () => {
         requestDecision={
           profilePendingRequest
             ? {
-                onAccept: () => handleAccept(profilePendingRequest.id),
-                onReject: () => {
-                  pendingRejectRequestIdRef.current = profilePendingRequest.id;
-                  setProfileModalVisible(false);
-                },
-              }
+              onAccept: () => handleAccept(profilePendingRequest.id),
+              onReject: () => {
+                pendingRejectRequestIdRef.current = profilePendingRequest.id;
+                setProfileModalVisible(false);
+              },
+            }
             : undefined
         }
         primaryActionLabel={profileRequestId && !profilePendingRequest ? 'Go to chat' : undefined}
         onPrimaryAction={
           profileRequestId && !profilePendingRequest
             ? () => {
-                setProfileModalVisible(false);
-                router.push({ pathname: '/chat', params: { requestId: profileRequestId } });
-              }
+              setProfileModalVisible(false);
+              router.push({ pathname: '/chat', params: { requestId: profileRequestId } });
+            }
             : undefined
         }
       />
@@ -567,7 +694,6 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   chip: { backgroundColor: colors.LIGHT_GREEN },
-  status: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
   locationCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   card: {
@@ -584,32 +710,128 @@ const styles = StyleSheet.create({
   questionerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   ratingText: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
-  viewProfileHint: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY, marginTop: 4 },
+  viewProfileHint: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, marginTop: 4 },
   timestamp: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 20 },
-  actionArea: { marginTop: 20 },
+  actionArea: { marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
   infoBox: { backgroundColor: colors.LIGHT_GREEN, borderRadius: 12, padding: 16 },
   infoText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, lineHeight: 20 },
-  sectionTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginTop: 20, marginBottom: 12 },
-  requestCard: {
+  requestSection: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.CARD_BORDER,
+  },
+  sectionHeader: {
+    gap: 8,
+    marginBottom: 16,
+    paddingVertical: 4,
+    marginHorizontal: -4,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+  },
+  sectionHeaderPressed: {
+    backgroundColor: colors.CARD_BG,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
+  },
+  sectionChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.CARD_BG,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionCollapsedHint: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 20,
+  },
+  requestSectionContent: {},
+  sectionTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK },
+  sectionDescription: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 22,
+  },
+  sectionNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.PRIMARY,
+    marginTop: 4,
+  },
+  sectionNoteText: {
+    flex: 1,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.DARK_GRAY,
+    lineHeight: 22,
+  },
+  sectionEmptyText: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 22,
+    paddingVertical: 8,
+  },
+  requestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.CARD_BORDER,
+  },
+  requestRowLast: {
+    borderBottomWidth: 0,
+  },
+  responderIdentity: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginRight: 12,
+  },
+  responderIdentityText: {
+    flex: 1,
+  },
+  responderRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  openChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  openChatBtnText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
   },
   requestInfo: { flex: 1 },
   requestName: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   requestActions: { flexDirection: 'row', gap: 8 },
   acceptBtn: { backgroundColor: colors.PRIMARY, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  acceptBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.BG_WHITE },
+  acceptBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.BG_WHITE },
   rejectBtn: { borderWidth: 1, borderColor: colors.CARD_BORDER, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  rejectBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
-  rejectionReason: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  rejectBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.DARK_GRAY },
+  rejectionReason: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginTop: 4, lineHeight: 20 },
   unblockBtn: { borderWidth: 1, borderColor: colors.PRIMARY, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
-  unblockBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  unblockBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY },
   emptyText: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center', marginTop: 20 },
   modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
@@ -618,7 +840,7 @@ const styles = StyleSheet.create({
   modalInput: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
-    borderRadius: 100,
+    borderRadius: BORDER_RADIUS_INPUT,
     padding: 12,
     minHeight: 80,
     marginBottom: 16,

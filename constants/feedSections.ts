@@ -1,19 +1,19 @@
-import { FeedSectionKey } from '@/types/question.types';
-
 export const ALL_QUESTIONS_SECTION_KEY = 'all' as const;
+export const INCOMING_SECTION_KEY = 'incoming' as const;
+export const OUTGOING_SECTION_KEY = 'outgoing' as const;
 
-export type DrawerMenuSectionKey = FeedSectionKey | typeof ALL_QUESTIONS_SECTION_KEY;
+export type DrawerMenuSectionKey =
+  | typeof ALL_QUESTIONS_SECTION_KEY
+  | typeof INCOMING_SECTION_KEY
+  | typeof OUTGOING_SECTION_KEY;
 
-export type FeedSectionDef = {
-  key: FeedSectionKey;
+export type FeedFilterDef = {
+  key: DrawerMenuSectionKey;
   title: string;
 };
 
-export const FEED_SECTION_DEFS: FeedSectionDef[] = [
-  { key: 'awaiting_your_approval', title: 'Awaiting your approval' },
-  { key: 'others', title: 'Others' },
-  { key: 'pending', title: 'Waiting for reply' },
-  { key: 'approved', title: 'Approved to answer' },
-  { key: 'answered_by_you', title: 'Answered by you' },
-  { key: 'rejected', title: 'Rejected' },
+export const FEED_FILTER_DEFS: FeedFilterDef[] = [
+  { key: ALL_QUESTIONS_SECTION_KEY, title: 'All questions' },
+  { key: INCOMING_SECTION_KEY, title: 'Incoming' },
+  { key: OUTGOING_SECTION_KEY, title: 'Outgoing' },
 ];
