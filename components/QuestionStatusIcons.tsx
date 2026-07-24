@@ -6,33 +6,123 @@ import {
   StatusIconKey,
 } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+type IconFamily = 'Ionicons' | 'MaterialCommunityIcons';
+
 type IconVisual = {
-  name: React.ComponentProps<typeof Ionicons>['name'];
-  /** Foreground glyph/text color — semantic to the status meaning. */
+  family: IconFamily;
+  name: string;
+  /** Foreground glyph/text color. */
   color: string;
-  /** Soft tint used behind the glyph so each status reads as a distinct badge. */
+  /** Badge/pill background. Use `'transparent'` for icon-only (no tinted badge). */
   bg: string;
 };
 
+const isBadgedVisual = (visual: IconVisual) => visual.bg !== 'transparent';
+
 /**
  * Visual language for each status icon. Exported so other surfaces (e.g. the
- * Home filter-tag bar) can reuse the exact same glyph + color pairing and stay
- * visually consistent with the cards/detail view.
+ * Home filter-tag bar) can reuse the exact same glyph + color pairing.
  *
- * - `outgoing` / `incoming` share one neutral, non-highlighting look (a simple
- *   up/down pairing reads clearly as "sent" vs "received").
- * - Every other status gets its own distinct hue so it can be scanned at a glance.
+ * Direction and request-status icons are black circle-outline glyphs (or
+ * circle-contained icons where the source glyph is already circular).
+ * `near_me` keeps a distinct tinted badge so location stands out in the UI.
+ *
+ * Where the requested glyph is not circular, the circle-outline equivalent from
+ * @expo/vector-icons is used — see comments on each entry.
  */
 export const STATUS_ICON_VISUALS: Record<StatusIconKey, IconVisual> = {
-  outgoing: { name: 'arrow-up', color: colors.DARK_GRAY, bg: colors.DARK_WHITE },
-  incoming: { name: 'arrow-down', color: colors.DARK_GRAY, bg: colors.DARK_WHITE },
-  request_pending: { name: 'hourglass-outline', color: colors.STAR_GOLD, bg: colors.LIGHT_GOLD },
-  request_approved: { name: 'checkmark-circle', color: colors.SUCCESS_GREEN, bg: colors.LIGHT_GREEN },
-  request_denied: { name: 'close-circle', color: colors.RED, bg: colors.LIGHT_RED },
-  near_me: { name: 'navigate', color: colors.PRIMARY, bg: colors.LIGHT_BLUE },
+  // Octicons `arrow-up-right` → circle-outline diagonal equivalent
+  outgoing: {
+    family: 'MaterialCommunityIcons',
+    name: 'arrow-top-right-thin-circle-outline',
+    color: colors.BG_BLACK,
+    bg: 'transparent',
+  },
+  // Octicons `arrow-down-left` → circle-outline diagonal equivalent
+  incoming: {
+    family: 'MaterialCommunityIcons',
+    name: 'arrow-bottom-left-thin-circle-outline',
+    color: colors.BG_BLACK,
+    bg: 'transparent',
+  },
+  // FontAwesome6 `clock` → circle-outline clock equivalent
+  request_pending: {
+    family: 'Ionicons',
+    name: 'time-outline',
+    color: colors.BG_BLACK,
+    bg: 'transparent',
+  },
+  request_approved: {
+    family: 'Ionicons',
+    name: 'checkmark-circle-sharp',
+    color: colors.BG_BLACK,
+    bg: 'transparent',
+  },
+  request_denied: {
+    family: 'Ionicons',
+    name: 'close-circle-outline',
+    color: colors.BG_BLACK,
+    bg: 'transparent',
+  },
+  near_me: {
+    family: 'Ionicons',
+    name: 'navigate',
+    color: colors.PRIMARY,
+    bg: colors.LIGHT_BLUE,
+  },
+};
+
+type StatusIconGlyphProps = {
+  visual: IconVisual;
+  size: number;
+  color?: string;
+  accessibilityLabel?: string;
+};
+
+/** Renders a status glyph from the configured icon family. */
+export const StatusIconGlyph = ({
+  visual,
+  size,
+  color = visual.color,
+  accessibilityLabel,
+}: StatusIconGlyphProps) => {
+  let glyph: React.ReactNode;
+
+  switch (visual.family) {
+    case 'MaterialCommunityIcons':
+      glyph = (
+        <MaterialCommunityIcons
+          name={visual.name as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
+          size={size}
+          color={color}
+        />
+      );
+      break;
+    case 'Ionicons':
+    default:
+      glyph = (
+        <Ionicons
+          name={visual.name as React.ComponentProps<typeof Ionicons>['name']}
+          size={size}
+          color={color}
+        />
+      );
+      break;
+  }
+
+  return (
+    <View
+      style={[styles.glyphBox, { width: size, height: size }]}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="image"
+    >
+      {glyph}
+    </View>
+  );
 };
 
 type QuestionStatusIconsProps = {
@@ -42,17 +132,8 @@ type QuestionStatusIconsProps = {
 };
 
 /**
- * Renders a horizontal group of question-status icons as small tinted badges,
- * so each status reads as a distinct, deliberate chip rather than a bare glyph.
- * Honors the gestalt grouping principle: the whole cluster shares one row with
- * consistent spacing so the eye reads it as a single status summary.
- *
- * - `withLabels={false}` (default): icon-only circular badges. Used on
- *   cards/list rows where space is tight.
- * - `withLabels={true}`: icon + label pill chips. Used in the question detail
- *   view, per spec (e.g. a checkmark badge next to the text "Request approved").
- *
- * If `icons` is empty this renders nothing.
+ * Renders a horizontal group of question-status icons. Icons with a transparent
+ * background render as plain glyphs; others (e.g. `near_me`) use a tinted badge.
  */
 const QuestionStatusIcons = ({
   icons,
@@ -61,16 +142,18 @@ const QuestionStatusIcons = ({
 }: QuestionStatusIconsProps) => {
   if (icons.length === 0) return null;
 
-  const badgeSize = size + 10;
-
   if (withLabels) {
     return (
       <View style={styles.labeledWrap} accessibilityRole="text">
         {icons.map((icon) => {
           const visual = STATUS_ICON_VISUALS[icon.key];
+          const badged = isBadgedVisual(visual);
           return (
-            <View key={icon.key} style={[styles.pill, { backgroundColor: visual.bg }]}>
-              <Ionicons name={visual.name} size={size} color={visual.color} />
+            <View
+              key={icon.key}
+              style={badged ? [styles.pill, { backgroundColor: visual.bg }] : styles.labeledItem}
+            >
+              <StatusIconGlyph visual={visual} size={size} />
               <Text style={[styles.pillLabel, { color: visual.color }]}>{icon.label}</Text>
             </View>
           );
@@ -83,6 +166,18 @@ const QuestionStatusIcons = ({
     <View style={styles.iconGroup} accessibilityRole="text">
       {icons.map((icon) => {
         const visual = STATUS_ICON_VISUALS[icon.key];
+        const badged = isBadgedVisual(visual);
+        if (!badged) {
+          return (
+            <StatusIconGlyph
+              key={icon.key}
+              visual={visual}
+              size={size}
+              accessibilityLabel={icon.label}
+            />
+          );
+        }
+        const badgeSize = size + 10;
         return (
           <View
             key={icon.key}
@@ -91,10 +186,9 @@ const QuestionStatusIcons = ({
               { width: badgeSize, height: badgeSize, backgroundColor: visual.bg },
             ]}
           >
-            <Ionicons
-              name={visual.name}
+            <StatusIconGlyph
+              visual={visual}
               size={size}
-              color={visual.color}
               accessibilityLabel={icon.label}
             />
           </View>
@@ -107,8 +201,8 @@ const QuestionStatusIcons = ({
 export default QuestionStatusIcons;
 
 /**
- * Standalone single-icon badge. Useful when one icon needs to be placed in a
- * different location than the main group (e.g. `near_me` next to the km value).
+ * Standalone single-icon badge. Useful when one icon needs to be placed outside
+ * the main status group.
  */
 export const SingleStatusIcon = ({
   iconKey,
@@ -121,12 +215,11 @@ export const SingleStatusIcon = ({
   badged?: boolean;
 }) => {
   const visual = STATUS_ICON_VISUALS[iconKey];
-  if (!badged) {
+  if (!badged || !isBadgedVisual(visual)) {
     return (
-      <Ionicons
-        name={visual.name}
+      <StatusIconGlyph
+        visual={visual}
         size={size}
-        color={visual.color}
         accessibilityLabel={STATUS_ICON_LABELS[iconKey]}
       />
     );
@@ -139,10 +232,9 @@ export const SingleStatusIcon = ({
         { width: badgeSize, height: badgeSize, backgroundColor: visual.bg },
       ]}
     >
-      <Ionicons
-        name={visual.name}
+      <StatusIconGlyph
+        visual={visual}
         size={size}
-        color={visual.color}
         accessibilityLabel={STATUS_ICON_LABELS[iconKey]}
       />
     </View>
@@ -150,6 +242,10 @@ export const SingleStatusIcon = ({
 };
 
 const styles = StyleSheet.create({
+  glyphBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   iconGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -165,6 +261,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
+  },
+  labeledItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   pill: {
     flexDirection: 'row',

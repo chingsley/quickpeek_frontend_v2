@@ -425,11 +425,6 @@ const QuestionDetail = () => {
   const mainStatusIcons = getMainStatusIcons(question, authUserId, {
     outgoingPendingCount: isOwner ? pendingRequests.length : undefined,
   });
-  const hasNearMe =
-    !isOwner &&
-    question.nearMe === true &&
-    question.latitude != null &&
-    question.longitude != null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -446,13 +441,6 @@ const QuestionDetail = () => {
           <View style={styles.locationCard}>
             <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
             <Text style={styles.locationText}>{question.address}</Text>
-            {hasNearMe && (
-              <QuestionStatusIcons
-                icons={[{ key: 'near_me', label: 'Near you' }]}
-                size={13}
-                withLabels
-              />
-            )}
           </View>
         )}
 

@@ -5,8 +5,8 @@ import { TFeedQuestion } from '@/types/question.types';
  * The six question-status icons defined by the QuickPeek status spec.
  * - `outgoing` / `incoming` are mutually exclusive and rendered in a neutral color.
  * - The remaining icons stack alongside them and are NOT mutually exclusive.
- * - `near_me` is rendered in a separate location (next to the km value), not in
- *   the main status group.
+ * - `near_me` is used for the Home filter tag only; proximity on cards is shown
+ *   via the distance label, not an icon.
  */
 export type StatusIconKey =
   | 'outgoing'
@@ -92,15 +92,6 @@ export function getQuestionStatusIcons(
   }
 
   return icons;
-}
-
-/** Convenience: extract just the near-me icon if present (rendered separately). */
-export function getNearMeIcon(
-  question: TFeedQuestion,
-  viewerId: string | undefined,
-): StatusIcon | null {
-  const icons = getQuestionStatusIcons(question, viewerId);
-  return icons.find((i) => i.key === 'near_me') ?? null;
 }
 
 /** Convenience: status icons excluding the near-me one (the main grouped set). */

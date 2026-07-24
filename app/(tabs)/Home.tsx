@@ -1,9 +1,13 @@
 import CustomButton from '@/components/shared/CustomButton';
-import QuestionStatusIcons, { SingleStatusIcon, STATUS_ICON_VISUALS } from '@/components/QuestionStatusIcons';
+import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
+import {
+  STATUS_ICON_FILTER_TAB_SIZE,
+  STATUS_ICON_QUESTION_ITEM_SIZE,
+} from '@/constants/statusIcons';
 import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
 import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScrollChrome';
 import { getQuestionFeed, searchQuestions } from '@/services/questions.services';
@@ -16,7 +20,6 @@ import { formatRelativeTime } from '@/utils/date';
 import {
   STATUS_TAG_DEFS,
   getMainStatusIcons,
-  getNearMeIcon,
   questionMatchesTag,
   StatusTagKey,
 } from '@/utils/questionStatus';
@@ -284,7 +287,6 @@ const HomeScreen = () => {
         : `${item.questioner.name}`
       : null;
     const mainIcons = getMainStatusIcons(item, authUserId);
-    const nearMeIcon = getNearMeIcon(item, authUserId);
 
     return (
       <TouchableOpacity
@@ -314,17 +316,10 @@ const HomeScreen = () => {
         {(mainIcons.length > 0 || item.distanceKm != null) && (
           <View style={styles.cardFooter}>
             {mainIcons.length > 0 && (
-              <QuestionStatusIcons icons={mainIcons} size={13} />
+              <QuestionStatusIcons icons={mainIcons} size={STATUS_ICON_QUESTION_ITEM_SIZE} />
             )}
             {item.distanceKm != null && (
-              nearMeIcon ? (
-                <View style={styles.distancePill}>
-                  <SingleStatusIcon iconKey="near_me" size={12} badged={false} />
-                  <Text style={styles.distancePillText}>{item.distanceKm.toFixed(1)} km away</Text>
-                </View>
-              ) : (
-                <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km</Text>
-              )
+              <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km away</Text>
             )}
           </View>
         )}
@@ -453,9 +448,9 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          <Ionicons
-                            name={visual.name}
-                            size={13}
+                          <StatusIconGlyph
+                            visual={visual}
+                            size={STATUS_ICON_FILTER_TAB_SIZE}
                             color={active ? colors.BG_WHITE : visual.color}
                           />
                           <Text style={[styles.tagChipText, { color: active ? colors.BG_WHITE : visual.color }]}>
@@ -694,21 +689,6 @@ const styles = StyleSheet.create({
   tagChipText: {
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_XS,
-  },
-  distancePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    backgroundColor: colors.LIGHT_BLUE,
-    marginLeft: 'auto',
-  },
-  distancePillText: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.PRIMARY,
   },
   listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
