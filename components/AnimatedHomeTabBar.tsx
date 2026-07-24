@@ -1,4 +1,5 @@
 import { homeChromeProgress } from '@/store/homeChrome.store';
+import { HOME_CHROME_FADE_OUT_END, HOME_CHROME_SLIDE_END } from '@/constants/homeChrome';
 import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
@@ -28,7 +29,7 @@ const AnimatedHomeTabBar = (props: BottomTabBarProps) => {
   useAnimatedReaction(
     () => (isHome ? homeChromeProgress.value : 0),
     (progress) => {
-      runOnJS(setTouchEnabled)(progress < 0.9);
+      runOnJS(setTouchEnabled)(progress < HOME_CHROME_FADE_OUT_END + 0.15);
     },
     [isHome],
   );
@@ -39,13 +40,18 @@ const AnimatedHomeTabBar = (props: BottomTabBarProps) => {
     }
 
     return {
-      opacity: interpolate(homeChromeProgress.value, [0, 1], [1, 0], Extrapolation.CLAMP),
+      opacity: interpolate(
+        homeChromeProgress.value,
+        [0, HOME_CHROME_FADE_OUT_END],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
       transform: [
         {
           translateY: interpolate(
             homeChromeProgress.value,
-            [0, 1],
-            [0, slideDistance],
+            [0, HOME_CHROME_SLIDE_END, 1],
+            [0, slideDistance * 0.98, slideDistance],
             Extrapolation.CLAMP,
           ),
         },

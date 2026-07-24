@@ -5,8 +5,8 @@
   "scripts": {
     "start": "bash scripts/start-metro.sh",
     "start:clear": "bash scripts/start-metro.sh --clear",
-    "start:tunnel": "npx expo start --tunnel",
-    "start:tunnel:clear": "npx expo start --clear --tunnel",
+    "start:tunnel": "bash scripts/start-tunnel.sh",
+    "start:tunnel:clear": "bash scripts/start-tunnel.sh --clear",
     "simulator": "bash scripts/run-ios.sh",
     "android": "bash -c 'source scripts/dev-env.sh && exec expo run:android \"$@\"' --",
     "ios": "bash scripts/run-ios.sh",

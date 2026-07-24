@@ -1,6 +1,8 @@
 import {
   HOME_CHROME_COLLAPSE_DISTANCE,
   HOME_COLLAPSED_HEADER_HEIGHT,
+  HOME_CHROME_FADE_OUT_END,
+  HOME_CHROME_SLIDE_END,
   HOME_FAB_COLLAPSED_SIZE,
   HOME_FAB_EXPANDED_WIDTH,
   HOME_LOGO_SCROLL_LIFT,
@@ -10,12 +12,17 @@ import { homeChromeProgress } from '@/store/homeChrome.store';
 import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import {
+  Easing,
   Extrapolation,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
+
+/** Duration of the "complete the transition" ease after the user lets go. */
+const CHROME_SETTLE_DURATION_MS = 220;
 
 /** Expanded list bottom inset: tab bar + FAB clearance. */
 const tabBarInsetExpanded = 108;
@@ -36,10 +43,12 @@ const CHROME_COLLAPSE_SAFETY_MARGIN = 4;
 const resetChromeValues = (
   chromeScrollOffset: { value: number; },
   prevScrollY: { value: number; },
+  chromeDirection: { value: number; },
 ) => {
   'worklet';
   chromeScrollOffset.value = 0;
   prevScrollY.value = 0;
+  chromeDirection.value = 0;
   homeChromeProgress.value = 0;
 };
 
@@ -87,22 +96,33 @@ const updateChromeFromScroll = (
   );
 };
 
+/**
+ * Snaps chrome to a fully expanded or fully collapsed state — it should never
+ * be left part-faded/part-slid once the user lets go. At the very top it
+ * always expands; at the bottom (or short lists) it always collapses;
+ * anywhere else it completes in whichever direction the user was last
+ * scrolling, so "let go while scrolling down" hides it and "let go while
+ * scrolling up" brings it back. The finish is eased rather than snapped
+ * instantly so the motion still reads as a graceful transition.
+ */
 const settleChromeAtScrollEnd = (
   y: number,
   maxY: number,
   canCollapse: boolean,
+  direction: number,
   chromeScrollOffset: { value: number; },
 ) => {
   'worklet';
 
-  if (!canCollapse || y <= 0) {
-    chromeScrollOffset.value = 0;
-    return;
-  }
+  const shouldCollapse =
+    canCollapse && y > 0 && (isAtListBottom(y, maxY) || direction > 0);
+  const target = shouldCollapse ? HOME_CHROME_COLLAPSE_DISTANCE : 0;
 
-  if (isAtListBottom(y, maxY)) {
-    chromeScrollOffset.value = HOME_CHROME_COLLAPSE_DISTANCE;
-  }
+  chromeScrollOffset.value = target;
+  homeChromeProgress.value = withTiming(target / HOME_CHROME_COLLAPSE_DISTANCE, {
+    duration: CHROME_SETTLE_DURATION_MS,
+    easing: Easing.out(Easing.cubic),
+  });
 };
 
 /**
@@ -123,10 +143,12 @@ export const useHomeScrollChrome = () => {
   const prevScrollY = useSharedValue(0);
   const chromeScrollOffset = useSharedValue(0);
   const expandedHeaderHeight = useSharedValue(220);
+  /** Sign of the most recent non-zero scroll delta: 1 = down, -1 = up. */
+  const chromeDirection = useSharedValue(0);
 
   const resetChrome = useCallback(() => {
-    resetChromeValues(chromeScrollOffset, prevScrollY);
-  }, [chromeScrollOffset, prevScrollY]);
+    resetChromeValues(chromeScrollOffset, prevScrollY, chromeDirection);
+  }, [chromeScrollOffset, prevScrollY, chromeDirection]);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,6 +176,10 @@ export const useHomeScrollChrome = () => {
       const diff = y - prevScrollY.value;
       const headerSwing = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
+      if (diff !== 0) {
+        chromeDirection.value = diff > 0 ? 1 : -1;
+      }
+
       if (canCollapseChrome(maxY, headerSwing)) {
         updateChromeFromScroll(y, diff, maxY, chromeScrollOffset);
       } else {
@@ -168,8 +194,13 @@ export const useHomeScrollChrome = () => {
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
       const headerSwing = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
-      settleChromeAtScrollEnd(y, maxY, canCollapseChrome(maxY, headerSwing), chromeScrollOffset);
-      syncChromeProgress(chromeScrollOffset);
+      settleChromeAtScrollEnd(
+        y,
+        maxY,
+        canCollapseChrome(maxY, headerSwing),
+        chromeDirection.value,
+        chromeScrollOffset,
+      );
       prevScrollY.value = y;
     },
     onMomentumEnd: (event) => {
@@ -177,8 +208,13 @@ export const useHomeScrollChrome = () => {
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
       const headerSwing = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
-      settleChromeAtScrollEnd(y, maxY, canCollapseChrome(maxY, headerSwing), chromeScrollOffset);
-      syncChromeProgress(chromeScrollOffset);
+      settleChromeAtScrollEnd(
+        y,
+        maxY,
+        canCollapseChrome(maxY, headerSwing),
+        chromeDirection.value,
+        chromeScrollOffset,
+      );
       prevScrollY.value = y;
     },
   });
@@ -194,11 +230,22 @@ export const useHomeScrollChrome = () => {
 
   const headerChromeSlideStyle = useAnimatedStyle(() => {
     const slideUp = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
+    const progress = homeChromeProgress.value;
     return {
-      opacity: interpolate(homeChromeProgress.value, [0, 1], [1, 0], Extrapolation.CLAMP),
+      opacity: interpolate(
+        progress,
+        [0, HOME_CHROME_FADE_OUT_END],
+        [1, 0],
+        Extrapolation.CLAMP,
+      ),
       transform: [
         {
-          translateY: interpolate(homeChromeProgress.value, [0, 1], [0, -slideUp], Extrapolation.CLAMP),
+          translateY: interpolate(
+            progress,
+            [0, HOME_CHROME_SLIDE_END, 1],
+            [0, -slideUp * 0.98, -slideUp],
+            Extrapolation.CLAMP,
+          ),
         },
       ],
     };
@@ -254,7 +301,12 @@ export const useHomeFloatingAskStyle = (tabBarHeight: number) => {
   });
 
   const fabTextStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(homeChromeProgress.value, [0, 0.5], [1, 0], Extrapolation.CLAMP),
+    opacity: interpolate(
+      homeChromeProgress.value,
+      [0, HOME_CHROME_FADE_OUT_END],
+      [1, 0],
+      Extrapolation.CLAMP,
+    ),
     width: interpolate(homeChromeProgress.value, [0, 1], [132, 0], Extrapolation.CLAMP),
     marginLeft: interpolate(homeChromeProgress.value, [0, 1], [6, 0], Extrapolation.CLAMP),
   }));

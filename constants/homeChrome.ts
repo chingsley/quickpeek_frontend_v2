@@ -8,7 +8,19 @@ export const HOME_COLLAPSED_HEADER_HEIGHT = 48;
  * Pixels of downward scroll (accumulated) required to fully hide chrome.
  * Higher = slower, more gradual fade/slide.
  */
-export const HOME_CHROME_COLLAPSE_DISTANCE = 140;
+export const HOME_CHROME_COLLAPSE_DISTANCE = 100;
+
+/**
+ * Progress (0–1) at which header/tab-bar opacity reaches zero.
+ * Lower = fade completes earlier while slide/layout still finish gracefully.
+ */
+export const HOME_CHROME_FADE_OUT_END = 0.4;
+
+/**
+ * Progress (0–1) at which chrome slide is ~98% complete.
+ * Slightly before full collapse so elements are off-screen once faded.
+ */
+export const HOME_CHROME_SLIDE_END = 0.85;
 
 /** Collapsed FAB diameter. */
 export const HOME_FAB_COLLAPSED_SIZE = 52;
