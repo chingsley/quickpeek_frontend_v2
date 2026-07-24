@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   messageText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
   messageTextMine: { color: colors.BG_WHITE },
   messageTime: { fontFamily: 'roboto-light', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
-  messageTimeMine: { color: 'rgba(255,255,255,0.7)' },
+  messageTimeMine: { color: colors.TEXT_ON_PRIMARY_MUTED },
   systemBubble: {
     alignSelf: 'center',
     backgroundColor: colors.LIGHT_GREEN,

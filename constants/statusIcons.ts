@@ -2,4 +2,4 @@
 export const STATUS_ICON_QUESTION_ITEM_SIZE = 24;
 
 /** Status icon size in the Home filter-tag chip bar under the search field. */
-export const STATUS_ICON_FILTER_TAB_SIZE = 24;
+export const STATUS_ICON_FILTER_TAB_SIZE = 16;

@@ -30,7 +30,7 @@ const Questions = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; }>();
   const authUserId = useAuthStore((state) => state.user?.id);
 
   const myQuestions = useQuestionStore((state) => state.myQuestions);
@@ -99,22 +99,22 @@ const Questions = () => {
         fetchData();
       });
 
-      socket.on('request:accepted', (payload: { requestId: string; questionId: string }) => {
+      socket.on('request:accepted', (payload: { requestId: string; questionId: string; }) => {
         updateOutgoingRequest(payload.requestId, { status: AnswerRequestStatus.Accepted });
         fetchData();
       });
 
-      socket.on('request:rejected', (payload: { requestId: string }) => {
+      socket.on('request:rejected', (payload: { requestId: string; }) => {
         updateOutgoingRequest(payload.requestId, { status: AnswerRequestStatus.Rejected });
         fetchData();
       });
 
-      socket.on('question:answered', (payload: { questionId: string }) => {
+      socket.on('question:answered', (payload: { questionId: string; }) => {
         updateMyQuestion(payload.questionId, { status: QuestionStatus.Answered });
         fetchData();
       });
 
-      socket.on('question:cancelled', (payload: { questionId: string }) => {
+      socket.on('question:cancelled', (payload: { questionId: string; }) => {
         updateMyQuestion(payload.questionId, { status: QuestionStatus.Cancelled });
         fetchData();
       });

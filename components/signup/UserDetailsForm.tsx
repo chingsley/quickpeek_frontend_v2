@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 50,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: colors.BORDER_GRAY,
     borderRadius: 100,
     paddingHorizontal: 10,
     marginBottom: 10,
@@ -112,10 +112,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   inputError: {
-    borderColor: 'red',
+    borderColor: colors.RED,
   },
   errorText: {
-    color: 'red',
+    color: colors.RED,
     alignSelf: 'flex-start',
     marginBottom: 10,
   },

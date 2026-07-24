@@ -96,88 +96,88 @@ const AskScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
-          <BackButton color={colors.PRIMARY} />
-          <Text style={styles.pageTitle}>Ask a question</Text>
-          <Text style={styles.subtitle}>Publish to the marketplace for responders to answer.</Text>
+        <BackButton color={colors.PRIMARY} />
+        <Text style={styles.pageTitle}>Ask a question</Text>
+        <Text style={styles.subtitle}>Publish to the marketplace for responders to answer.</Text>
 
-          <Text style={styles.label}>Title</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Short summary of what you need"
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={title}
-            onChangeText={setTitle}
-            maxLength={120}
-          />
+        <Text style={styles.label}>Title</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Short summary of what you need"
+          placeholderTextColor={colors.LIGHT_GRAY}
+          value={title}
+          onChangeText={setTitle}
+          maxLength={120}
+        />
 
-          <Text style={styles.label}>Price ($)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 5.00"
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="decimal-pad"
-          />
+        <Text style={styles.label}>Price ($)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="e.g. 5.00"
+          placeholderTextColor={colors.LIGHT_GRAY}
+          value={price}
+          onChangeText={setPrice}
+          keyboardType="decimal-pad"
+        />
 
-          <Text style={styles.label}>Details</Text>
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            placeholder="Describe what you want to know..."
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={detail}
-            onChangeText={setDetail}
-            multiline
-            textAlignVertical="top"
-            maxLength={1000}
-          />
+        <Text style={styles.label}>Details</Text>
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          placeholder="Describe what you want to know..."
+          placeholderTextColor={colors.LIGHT_GRAY}
+          value={detail}
+          onChangeText={setDetail}
+          multiline
+          textAlignVertical="top"
+          maxLength={1000}
+        />
 
-          <Text style={styles.label}>Acceptance criteria</Text>
-          <TextInput
-            style={[styles.input, styles.multiline]}
-            placeholder="What counts as a good answer?"
-            placeholderTextColor={colors.LIGHT_GRAY}
-            value={acceptanceCriteria}
-            onChangeText={setAcceptanceCriteria}
-            multiline
-            textAlignVertical="top"
-            maxLength={500}
-          />
+        <Text style={styles.label}>Acceptance criteria</Text>
+        <TextInput
+          style={[styles.input, styles.multiline]}
+          placeholder="What counts as a good answer?"
+          placeholderTextColor={colors.LIGHT_GRAY}
+          value={acceptanceCriteria}
+          onChangeText={setAcceptanceCriteria}
+          multiline
+          textAlignVertical="top"
+          maxLength={500}
+        />
 
-          <Pressable style={styles.locationToggle} onPress={includeLocation ? () => setIncludeLocation(false) : captureLocation}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.locationToggleText}>
-                {includeLocation ? 'Location added' : 'Add location (optional)'}
-              </Text>
-              {includeLocation && address ? (
-                <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
-              ) : null}
-            </View>
-            <Ionicons name={includeLocation ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={colors.PRIMARY} />
-          </Pressable>
+        <Pressable style={styles.locationToggle} onPress={includeLocation ? () => setIncludeLocation(false) : captureLocation}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.locationToggleText}>
+              {includeLocation ? 'Location added' : 'Add location (optional)'}
+            </Text>
+            {includeLocation && address ? (
+              <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
+            ) : null}
+          </View>
+          <Ionicons name={includeLocation ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={colors.PRIMARY} />
+        </Pressable>
 
-          {includeLocation && (
-            <>
-              <Text style={styles.label}>Answer radius (km)</Text>
-              <TextInput
-                style={styles.input}
-                value={answerRadiusKm}
-                onChangeText={setAnswerRadiusKm}
-                keyboardType="decimal-pad"
-              />
-            </>
-          )}
+        {includeLocation && (
+          <>
+            <Text style={styles.label}>Answer radius (km)</Text>
+            <TextInput
+              style={styles.input}
+              value={answerRadiusKm}
+              onChangeText={setAnswerRadiusKm}
+              keyboardType="decimal-pad"
+            />
+          </>
+        )}
 
-          <CustomButton
-            text={loading ? 'Publishing…' : 'Publish question'}
-            onPress={handlePublish}
-            disabled={!isValid || loading}
-            loading={loading}
-            style={styles.publishBtn}
-          />
+        <CustomButton
+          text={loading ? 'Publishing…' : 'Publish question'}
+          onPress={handlePublish}
+          disabled={!isValid || loading}
+          loading={loading}
+          style={styles.publishBtn}
+        />
       </KeyboardAwareScreen>
     </SafeAreaView>
   );

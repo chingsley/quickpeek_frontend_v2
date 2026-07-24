@@ -1,8 +1,10 @@
 import CustomButton from '@/components/shared/CustomButton';
 import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
+import { chipStyles } from '@/constants/chips';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { BORDER_RADIUS_PILL } from '@/constants/layout';
 import { images } from '@/constants/images';
 import {
   STATUS_ICON_FILTER_TAB_SIZE,
@@ -177,7 +179,7 @@ const HomeScreen = () => {
     };
   }, [isLoggedIn, refreshAll]);
 
-  const ensureCoords = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
+  const ensureCoords = useCallback(async (): Promise<{ lat: number; lng: number; } | null> => {
     if (coords) return coords;
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -408,12 +410,12 @@ const HomeScreen = () => {
                 </View>
 
                 <View style={styles.searchWrap}>
-                  <Ionicons name="search-outline" size={18} color={colors.MEDIUM_GRAY} style={styles.searchIcon} />
+                  <Ionicons name="search-outline" size={20} color={colors.PRIMARY} style={styles.searchIcon} />
                   <TextInput
                     value={search}
                     onChangeText={setSearch}
                     placeholder="Search questions"
-                    placeholderTextColor={colors.MEDIUM_GRAY}
+                    placeholderTextColor={colors.PLACEHOLDER}
                     style={styles.searchInput}
                     returnKeyType="search"
                     autoCorrect={false}
@@ -441,19 +443,16 @@ const HomeScreen = () => {
                           accessibilityRole="button"
                           accessibilityState={{ selected: active }}
                           style={[
-                            styles.tagChip,
-                            {
-                              backgroundColor: active ? visual.color : visual.bg,
-                              borderColor: active ? visual.color : 'transparent',
-                            },
+                            chipStyles.pillContainer,
+                            active && chipStyles.pillContainerActive,
                           ]}
                         >
                           <StatusIconGlyph
                             visual={visual}
                             size={STATUS_ICON_FILTER_TAB_SIZE}
-                            color={active ? colors.BG_WHITE : visual.color}
+                            color={active ? colors.PRIMARY : colors.TEXT_DARK}
                           />
-                          <Text style={[styles.tagChipText, { color: active ? colors.BG_WHITE : visual.color }]}>
+                          <Text style={[chipStyles.pillText, active && chipStyles.pillTextActive]}>
                             {def.label}
                           </Text>
                         </Pressable>
@@ -595,16 +594,15 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.LIGHT_GRAY,
-    borderRadius: 100,
-    paddingHorizontal: 12,
+    borderRadius: BORDER_RADIUS_PILL,
+    paddingHorizontal: 16,
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.BG_WHITE,
+    backgroundColor: colors.INPUT_BG,
+    minHeight: 48,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchClearBtn: {
     padding: 4,
@@ -632,7 +630,7 @@ const styles = StyleSheet.create({
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   menuBtn: { padding: 4, marginRight: 4 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
@@ -675,20 +673,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 2,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 34,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    borderRadius: 18,
-    borderWidth: 1.5,
-  },
-  tagChipText: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
   },
   listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },

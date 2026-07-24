@@ -1,3 +1,5 @@
+import { colors } from './colors';
+
 export const DRAWER_SHIFT_RATIO = 0.68;
 /** Scale of the shifted main view when the drawer is open (1 = no scale). */
 export const DRAWER_SCALE = 0.93;
@@ -5,8 +7,8 @@ export const DRAWER_BORDER_RADIUS = 24;
 export const DRAWER_ANIMATION_MS = 280;
 /** Width of the visible menu panel — keeps content from sliding under the shifted main view. */
 export const MENU_CONTENT_WIDTH_RATIO = 0.62;
-/** Light scrim over the shifted main view — white wash, not a dark dim. */
-export const DRAWER_FADE_OVERLAY = 'rgba(255, 255, 255, 0.52)';
+/** @deprecated Import `colors.DRAWER_FADE_OVERLAY` from `@/constants/colors` instead. */
+export const DRAWER_FADE_OVERLAY = colors.DRAWER_FADE_OVERLAY;
 /** Height of the settings bottom sheet as a fraction of screen height (0–1). */
 export const SETTINGS_SHEET_HEIGHT_RATIO = 0.9;
 /** Vertical gap below the QuickPeek brand title (above Ask a Question). */

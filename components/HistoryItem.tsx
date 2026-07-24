@@ -18,9 +18,9 @@ type Props = {
   /** Current viewer id, used to compute status icons on `kind: 'question'`. */
   viewerId?: string;
 } & (
-  | { kind: 'question'; item: TQuestion }
-  | { kind: 'request'; item: TAnswerRequest }
-);
+    | { kind: 'question'; item: TQuestion; }
+    | { kind: 'request'; item: TAnswerRequest; }
+  );
 
 const HistoryItem = (props: Props) => {
   const { onClick, displayName, profileImageUrl, isNew = false, viewerId } = props;

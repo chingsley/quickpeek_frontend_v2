@@ -1,6 +1,7 @@
 import { Platform, TextStyle, ViewStyle } from 'react-native';
 import { colors } from './colors';
 import { fonts } from './fonts';
+import { BORDER_RADIUS_PILL } from './layout';
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
 const chipTextFix: TextStyle =
@@ -17,30 +18,30 @@ export const chipStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    minHeight: 38,
-    paddingHorizontal: 14,
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS_PILL,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
     backgroundColor: colors.BG_WHITE,
   } satisfies ViewStyle,
 
   pillContainerActive: {
-    backgroundColor: colors.PRIMARY,
+    backgroundColor: colors.SECONDARY,
     borderColor: colors.PRIMARY,
   } satisfies ViewStyle,
 
   pillText: {
     fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.DARK_GRAY,
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.TEXT_DARK,
     ...chipTextFix,
   } satisfies TextStyle,
 
   pillTextActive: {
-    color: colors.BG_WHITE,
+    color: colors.PRIMARY,
   } satisfies TextStyle,
 
   presetContainer: {

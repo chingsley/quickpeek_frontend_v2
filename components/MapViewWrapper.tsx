@@ -35,7 +35,7 @@ export const Marker: React.FC<MarkerProps> = () => null;
 
 const styles = StyleSheet.create({
   placeholder: {
-    backgroundColor: '#E8EDF2',
+    backgroundColor: colors.MAP_PLACEHOLDER_BG,
     justifyContent: 'center',
     alignItems: 'center',
   },
