@@ -1,9 +1,11 @@
 import UserAvatar from '@/components/UserAvatar';
+import QuestionStatusIcons from '@/components/QuestionStatusIcons';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { TAnswerRequest } from '@/types/answerRequest.types';
 import { TQuestion } from '@/types/question.types';
 import { formatListTime } from '@/utils/date';
+import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -13,13 +15,15 @@ type Props = {
   displayName: string;
   profileImageUrl?: string | null;
   isNew?: boolean;
+  /** Current viewer id, used to compute status icons on `kind: 'question'`. */
+  viewerId?: string;
 } & (
   | { kind: 'question'; item: TQuestion }
   | { kind: 'request'; item: TAnswerRequest }
 );
 
 const HistoryItem = (props: Props) => {
-  const { onClick, displayName, profileImageUrl, isNew = false } = props;
+  const { onClick, displayName, profileImageUrl, isNew = false, viewerId } = props;
 
   const title =
     props.kind === 'question'
@@ -35,6 +39,9 @@ const HistoryItem = (props: Props) => {
     props.kind === 'question' ? props.item.createdAt : props.item.createdAt,
   );
 
+  const statusIcons =
+    props.kind === 'question' ? getMainStatusIcons(props.item, viewerId) : [];
+
   return (
     <TouchableOpacity style={styles.container} onPress={onClick} activeOpacity={0.85}>
       <UserAvatar imageUrl={profileImageUrl} size={48} />
@@ -46,6 +53,9 @@ const HistoryItem = (props: Props) => {
         <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
         <View style={styles.footer}>
           <Text style={styles.displayName}>{displayName}</Text>
+          {statusIcons.length > 0 && (
+            <QuestionStatusIcons icons={statusIcons} size={13} />
+          )}
         </View>
       </View>
       <View style={styles.right}>

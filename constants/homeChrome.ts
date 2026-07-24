@@ -28,5 +28,11 @@ export const HOME_FAB_COLLAPSED_SIZE = 52;
 /** Expanded FAB width (icon + label). */
 export const HOME_FAB_EXPANDED_WIDTH = 190;
 
+/** Max width for the FAB label when expanded (caps width during collapse animation). */
+export const HOME_FAB_TEXT_MAX_WIDTH = 132;
+
+/** Gap between the FAB icon and label when expanded. */
+export const HOME_FAB_ICON_GAP = 6;
+
 /** How close to the list end counts as "at bottom" for chrome locking. */
 export const HOME_SCROLL_BOTTOM_LOCK_THRESHOLD = 8;

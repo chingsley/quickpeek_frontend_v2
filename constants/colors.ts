@@ -16,5 +16,8 @@ export const colors = {
   LIGHT_GRAY_THIN: '#dddddd80',
   MEDIUM_GRAY: '#888888',
   TEXT_DARK: '#1A1A2E',
-  RED: 'red'
+  RED: 'red',
+  SUCCESS_GREEN: '#1DB954',
+  LIGHT_GOLD: '#FDF1DC',
+  LIGHT_RED: '#FFE1E1',
 };

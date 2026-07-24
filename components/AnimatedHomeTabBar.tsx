@@ -1,4 +1,4 @@
-import { homeChromeProgress } from '@/store/homeChrome.store';
+import { chromeTargetProgress, homeChromeProgress } from '@/store/homeChrome.store';
 import { HOME_CHROME_FADE_OUT_END, HOME_CHROME_SLIDE_END } from '@/constants/homeChrome';
 import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import React, { useEffect, useState } from 'react';
@@ -21,6 +21,10 @@ const AnimatedHomeTabBar = (props: BottomTabBarProps) => {
 
   useEffect(() => {
     if (!isHome) {
+      // Reset both target and displayed progress so the per-frame smoother
+      // can't pull a stale collapsed value back up while another screen is
+      // showing (and so re-entering Home starts from fully visible).
+      chromeTargetProgress.value = 0;
       homeChromeProgress.value = 0;
       setTouchEnabled(true);
     }

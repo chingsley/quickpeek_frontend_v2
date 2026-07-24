@@ -5,24 +5,34 @@ import {
   HOME_CHROME_SLIDE_END,
   HOME_FAB_COLLAPSED_SIZE,
   HOME_FAB_EXPANDED_WIDTH,
+  HOME_FAB_ICON_GAP,
+  HOME_FAB_TEXT_MAX_WIDTH,
   HOME_LOGO_SCROLL_LIFT,
   HOME_SCROLL_BOTTOM_LOCK_THRESHOLD,
 } from '@/constants/homeChrome';
-import { homeChromeProgress } from '@/store/homeChrome.store';
+import { chromeTargetProgress, homeChromeProgress } from '@/store/homeChrome.store';
 import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import {
-  Easing,
   Extrapolation,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
-  withTiming,
 } from 'react-native-reanimated';
 
-/** Duration of the "complete the transition" ease after the user lets go. */
-const CHROME_SETTLE_DURATION_MS = 220;
+/**
+ * Time constant for the exponential smoothing that eases `homeChromeProgress`
+ * toward the raw scroll-driven target. The chrome trails the finger by a few
+ * frames so fast scrolls glide instead of whipping 1:1, while slow scrolls
+ * still feel directly connected. ~50ms keeps the on-release settle close to the
+ * original ~220ms perceived duration (it takes ≈ 4.6·τ to reach within 1%).
+ */
+const CHROME_PROGRESS_SMOOTHING_TAU_MS = 50;
+
+/** When the smoothed progress is within this of its target, snap exactly. */
+const PROGRESS_SNAP_EPSILON = 0.001;
 
 /** Expanded list bottom inset: tab bar + FAB clearance. */
 const tabBarInsetExpanded = 108;
@@ -49,6 +59,9 @@ const resetChromeValues = (
   chromeScrollOffset.value = 0;
   prevScrollY.value = 0;
   chromeDirection.value = 0;
+  // Snap both target and displayed progress so reset is instant — the smoother
+  // is told there is nothing to ease toward.
+  chromeTargetProgress.value = 0;
   homeChromeProgress.value = 0;
 };
 
@@ -64,7 +77,10 @@ const isAtListBottom = (y: number, maxY: number) => {
 
 const syncChromeProgress = (chromeScrollOffset: { value: number; }) => {
   'worklet';
-  homeChromeProgress.value = chromeScrollOffset.value / HOME_CHROME_COLLAPSE_DISTANCE;
+  // Drive only the raw target. The display progress (`homeChromeProgress`)
+  // is eased toward it in `useChromeProgressSmoother` below, so fast scrolls
+  // glide instead of snapping 1:1 with the finger.
+  chromeTargetProgress.value = chromeScrollOffset.value / HOME_CHROME_COLLAPSE_DISTANCE;
 };
 
 const updateChromeFromScroll = (
@@ -102,8 +118,12 @@ const updateChromeFromScroll = (
  * always expands; at the bottom (or short lists) it always collapses;
  * anywhere else it completes in whichever direction the user was last
  * scrolling, so "let go while scrolling down" hides it and "let go while
- * scrolling up" brings it back. The finish is eased rather than snapped
- * instantly so the motion still reads as a graceful transition.
+ * scrolling up" brings it back.
+ *
+ * The settle runs the raw target straight to its endpoint; the per-frame
+ * smoother (see `useChromeProgressSmoother`) eases `homeChromeProgress` toward
+ * that target with the same easing feel as the live drag, so the completion
+ * reads as the transition gracefully finishing — not an abrupt cut.
  */
 const settleChromeAtScrollEnd = (
   y: number,
@@ -119,10 +139,7 @@ const settleChromeAtScrollEnd = (
   const target = shouldCollapse ? HOME_CHROME_COLLAPSE_DISTANCE : 0;
 
   chromeScrollOffset.value = target;
-  homeChromeProgress.value = withTiming(target / HOME_CHROME_COLLAPSE_DISTANCE, {
-    duration: CHROME_SETTLE_DURATION_MS,
-    easing: Easing.out(Easing.cubic),
-  });
+  chromeTargetProgress.value = target / HOME_CHROME_COLLAPSE_DISTANCE;
 };
 
 /**
@@ -139,7 +156,54 @@ const canCollapseChrome = (maxY: number, headerSwing: number) => {
   return expandedMaxY > totalSwing + CHROME_COLLAPSE_SAFETY_MARGIN;
 };
 
+/**
+ * Per-frame exponential smoother that eases the displayed `homeChromeProgress`
+ * toward the raw scroll-driven `chromeTargetProgress`. This is the single
+ * change that makes the chrome glide on fast scrolls instead of tracking the
+ * finger 1:1: every scroll event slams the target, and this callback spreads
+ * the motion over a few subsequent frames with a frame-rate-independent decay.
+ *
+ * - `homeChromeProgress` is what the header / tab bar / FAB styles read, so
+ *   easing it here eases all three at once from one source of truth.
+ * - `chromeTargetProgress` keeps the raw, unfiltered value the scroll logic
+ *   (direction, bottom-lock, short-list guard, settle) still reasons about, so
+ *   none of those correctness rules are affected by the smoothing.
+ * - The geometric invariant in `canCollapseChrome` holds for any progress, so
+ *   smoothing the displayed value cannot reintroduce the short-list feedback
+ *   loop — it only changes how the chrome *feels*, not what it decides.
+ */
+const useChromeProgressSmoother = () => {
+  useFrameCallback((frameInfo) => {
+    'worklet';
+    const target = chromeTargetProgress.value;
+    const current = homeChromeProgress.value;
+    const error = target - current;
+
+    if (Math.abs(error) <= PROGRESS_SNAP_EPSILON) {
+      // Within rounding distance of the target — snap exactly so we never leave
+      // the chrome a hair off the fully-visible / fully-hidden endpoint.
+      if (current !== target) {
+        homeChromeProgress.value = target;
+      }
+      return;
+    }
+
+    // Frame-rate-independent first-order low-pass:
+    //   next = current + (target - current) * (1 - e^(-dt / τ))
+    // `timeSincePreviousFrame` is the actual frame delta in ms, so the feel is
+    // identical on 60Hz, 90Hz, 120Hz, and under dropped frames. Falls back to a
+    // 16.67ms assumption on the first frame (when it is null).
+    const dt = frameInfo.timeSincePreviousFrame ?? 16.6667;
+    const alpha = 1 - Math.exp(-dt / CHROME_PROGRESS_SMOOTHING_TAU_MS);
+    homeChromeProgress.value = current + error * alpha;
+  });
+};
+
 export const useHomeScrollChrome = () => {
+  // Eases the displayed chrome progress toward the raw scroll target every
+  // frame. Mounted for the Home screen's lifetime.
+  useChromeProgressSmoother();
+
   const prevScrollY = useSharedValue(0);
   const chromeScrollOffset = useSharedValue(0);
   const expandedHeaderHeight = useSharedValue(220);
@@ -307,8 +371,21 @@ export const useHomeFloatingAskStyle = (tabBarHeight: number) => {
       [1, 0],
       Extrapolation.CLAMP,
     ),
-    width: interpolate(homeChromeProgress.value, [0, 1], [132, 0], Extrapolation.CLAMP),
-    marginLeft: interpolate(homeChromeProgress.value, [0, 1], [6, 0], Extrapolation.CLAMP),
+    // maxWidth (not width) lets the label shrink to its natural text width so
+    // the icon + label group centers evenly in the pill — a fixed width leaves
+    // slack on the right that reads as extra right padding.
+    maxWidth: interpolate(
+      homeChromeProgress.value,
+      [0, 1],
+      [HOME_FAB_TEXT_MAX_WIDTH, 0],
+      Extrapolation.CLAMP,
+    ),
+    marginLeft: interpolate(
+      homeChromeProgress.value,
+      [0, 1],
+      [HOME_FAB_ICON_GAP, 0],
+      Extrapolation.CLAMP,
+    ),
   }));
 
   return { fabContainerStyle, fabTextStyle };

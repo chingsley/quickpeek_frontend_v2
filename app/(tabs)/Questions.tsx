@@ -6,6 +6,7 @@ import { getIncomingRequests, getOutgoingRequests } from '@/services/requests.se
 import SocketService from '@/services/socket.services';
 import { useQuestionStore } from '@/store/question.store';
 import { useRequestStore } from '@/store/request.store';
+import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TQuestion } from '@/types/question.types';
 import { TabType } from '@/types/ui.types';
@@ -30,6 +31,7 @@ const Questions = () => {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
+  const authUserId = useAuthStore((state) => state.user?.id);
 
   const myQuestions = useQuestionStore((state) => state.myQuestions);
   const setMyQuestions = useQuestionStore((state) => state.setMyQuestions);
@@ -187,6 +189,7 @@ const Questions = () => {
               onClick={() => handleQuestionClick(item)}
               displayName={item.title}
               profileImageUrl={null}
+              viewerId={authUserId}
               isNew={(item.requestCounts?.PENDING ?? 0) > 0}
             />
           )}

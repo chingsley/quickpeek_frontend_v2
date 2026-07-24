@@ -2,6 +2,7 @@ import BackButton from '@/components/shared/BackButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
+import QuestionStatusIcons from '@/components/QuestionStatusIcons';
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
@@ -22,6 +23,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
+import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -232,11 +234,15 @@ const QuestionDetail = () => {
     socket.on('request:new', handler);
     socket.on('request:accepted', handler);
     socket.on('request:rejected', handler);
+    socket.on('question:answered', handler);
+    socket.on('question:cancelled', handler);
     socket.on('message:new', messageHandler);
     return () => {
       socket.off('request:new', handler);
       socket.off('request:accepted', handler);
       socket.off('request:rejected', handler);
+      socket.off('question:answered', handler);
+      socket.off('question:cancelled', handler);
       socket.off('message:new', messageHandler);
     };
   }, [load, questionId]);
@@ -414,6 +420,17 @@ const QuestionDetail = () => {
   const pendingRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Pending);
   const acceptedRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Accepted);
 
+  // Status icons for the detail view. Outgoing questions pass the live pending
+  // count so the pending icon stays fresh as the owner approves/declines.
+  const mainStatusIcons = getMainStatusIcons(question, authUserId, {
+    outgoingPendingCount: isOwner ? pendingRequests.length : undefined,
+  });
+  const hasNearMe =
+    !isOwner &&
+    question.nearMe === true &&
+    question.latitude != null &&
+    question.longitude != null;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -422,12 +439,20 @@ const QuestionDetail = () => {
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
+          <QuestionStatusIcons icons={mainStatusIcons} size={16} withLabels />
         </View>
 
         {question.address && (
           <View style={styles.locationCard}>
             <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
             <Text style={styles.locationText}>{question.address}</Text>
+            {hasNearMe && (
+              <QuestionStatusIcons
+                icons={[{ key: 'near_me', label: 'Near you' }]}
+                size={13}
+                withLabels
+              />
+            )}
           </View>
         )}
 
@@ -694,7 +719,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   chip: { backgroundColor: colors.LIGHT_GREEN },
-  locationCard: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
+  locationCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   card: {
     backgroundColor: colors.CARD_BG,

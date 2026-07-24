@@ -1,5 +1,5 @@
 import CustomButton from '@/components/shared/CustomButton';
-import PillChip from '@/components/shared/PillChip';
+import QuestionStatusIcons, { SingleStatusIcon, STATUS_ICON_VISUALS } from '@/components/QuestionStatusIcons';
 import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
@@ -13,6 +13,13 @@ import { useDrawerStore } from '@/store/drawer.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
+import {
+  STATUS_TAG_DEFS,
+  getMainStatusIcons,
+  getNearMeIcon,
+  questionMatchesTag,
+  StatusTagKey,
+} from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Location from 'expo-location';
@@ -23,6 +30,7 @@ import {
   Image,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -49,7 +57,6 @@ const HomeScreen = () => {
   const authUserId = useAuthStore((state) => state.user?.id);
   const [feedItems, setFeedItems] = useState<TFeedQuestion[]>([]);
   const [feedCounts, setFeedCounts] = useState<TFeedCounts>({ all: 0, incoming: 0, outgoing: 0 });
-  const [nearMe, setNearMe] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
@@ -57,8 +64,15 @@ const HomeScreen = () => {
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<TFeedQuestion[]>([]);
   const [searching, setSearching] = useState(false);
+  // Active status-filter tags (multi-select). Toggling `near_me` requests the
+  // viewer's location if it isn't already available, then filters server-side.
+  const [activeTags, setActiveTags] = useState<Set<StatusTagKey>>(new Set());
 
   const isSearchActive = search.trim().length > 0;
+
+  // True when the near-me filter is engaged. Derived from activeTags so the
+  // existing `toggleNearMe` flow stays single-source.
+  const nearMe = activeTags.has('near_me');
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -160,38 +174,79 @@ const HomeScreen = () => {
     };
   }, [isLoggedIn, refreshAll]);
 
+  const ensureCoords = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
+    if (coords) return coords;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const loc = await Location.getCurrentPositionAsync({});
+      const next = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+      setCoords(next);
+      return next;
+    } catch (error) {
+      console.warn('Could not retrieve current location; falling back to saved location', error);
+      return null;
+    }
+  }, [coords]);
+
   const toggleNearMe = async () => {
-    if (!nearMe) {
-      setNearMe(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({});
-        setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      } catch (error) {
-        console.warn('Could not retrieve current location; falling back to saved location', error);
-      }
+    if (!activeTags.has('near_me')) {
+      const next = await ensureCoords();
+      if (!next) return; // permission denied — don't activate the tag
+      setActiveTags((prev) => new Set(prev).add('near_me'));
     } else {
-      setNearMe(false);
+      setActiveTags((prev) => {
+        const next = new Set(prev);
+        next.delete('near_me');
+        return next;
+      });
     }
   };
+
+  const toggleTag = useCallback(
+    async (key: StatusTagKey) => {
+      if (key === 'near_me') {
+        toggleNearMe();
+        return;
+      }
+      setActiveTags((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    },
+    [activeTags],
+  );
 
   const handleQuestionPress = (item: TFeedQuestion) => {
     router.push({ pathname: '/question-detail', params: { questionId: item.id } });
   };
 
   const displayedItems = useMemo(() => {
-    if (selectedCategoryKey === ALL_QUESTIONS_CATEGORY_KEY) {
-      return feedItems;
-    }
+    let items = feedItems;
+
+    // Direction filter from the side drawer (All / Incoming / Outgoing).
     if (selectedCategoryKey === INCOMING_CATEGORY_KEY) {
-      return feedItems.filter((item) => item.userId !== authUserId);
+      items = items.filter((item) => item.userId !== authUserId);
+    } else if (selectedCategoryKey === OUTGOING_CATEGORY_KEY) {
+      items = items.filter((item) => item.userId === authUserId);
     }
-    if (selectedCategoryKey === OUTGOING_CATEGORY_KEY) {
-      return feedItems.filter((item) => item.userId === authUserId);
+
+    // Status-tag filters from the chip bar (AND-combined across active tags).
+    // Each tag uses the same predicate that decides whether the matching icon
+    // renders, so the filtered list always agrees with what's on the cards.
+    if (activeTags.size > 0) {
+      items = items.filter((item) => {
+        for (const tag of activeTags) {
+          if (!questionMatchesTag(item, authUserId, tag)) return false;
+        }
+        return true;
+      });
     }
-    return feedItems;
-  }, [authUserId, feedItems, selectedCategoryKey]);
+
+    return items;
+  }, [activeTags, authUserId, feedItems, selectedCategoryKey]);
 
   useEffect(() => {
     setMenuCategories(
@@ -228,6 +283,8 @@ const HomeScreen = () => {
         ? 'You'
         : `${item.questioner.name}`
       : null;
+    const mainIcons = getMainStatusIcons(item, authUserId);
+    const nearMeIcon = getNearMeIcon(item, authUserId);
 
     return (
       <TouchableOpacity
@@ -254,9 +311,21 @@ const HomeScreen = () => {
         <Text style={styles.cardDetail} numberOfLines={viewMode === 'card' ? 3 : 2}>
           {item.detail}
         </Text>
-        {item.distanceKm != null && (
+        {(mainIcons.length > 0 || item.distanceKm != null) && (
           <View style={styles.cardFooter}>
-            <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km</Text>
+            {mainIcons.length > 0 && (
+              <QuestionStatusIcons icons={mainIcons} size={13} />
+            )}
+            {item.distanceKm != null && (
+              nearMeIcon ? (
+                <View style={styles.distancePill}>
+                  <SingleStatusIcon iconKey="near_me" size={12} badged={false} />
+                  <Text style={styles.distancePillText}>{item.distanceKm.toFixed(1)} km away</Text>
+                </View>
+              ) : (
+                <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km</Text>
+              )
+            )}
           </View>
         )}
       </TouchableOpacity>
@@ -361,13 +430,44 @@ const HomeScreen = () => {
                   )}
                 </View>
 
+                <View style={styles.tagsWrap}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tagsContent}
+                  >
+                    {STATUS_TAG_DEFS.map((def) => {
+                      const active = activeTags.has(def.key);
+                      const visual = STATUS_ICON_VISUALS[def.key];
+                      return (
+                        <Pressable
+                          key={def.key}
+                          onPress={() => toggleTag(def.key)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active }}
+                          style={[
+                            styles.tagChip,
+                            {
+                              backgroundColor: active ? visual.color : visual.bg,
+                              borderColor: active ? visual.color : 'transparent',
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name={visual.name}
+                            size={13}
+                            color={active ? colors.BG_WHITE : visual.color}
+                          />
+                          <Text style={[styles.tagChipText, { color: active ? colors.BG_WHITE : visual.color }]}>
+                            {def.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
                 <View style={styles.filterWrap}>
-                  <PillChip
-                    label="Near me"
-                    active={nearMe}
-                    icon={<Ionicons name="navigate-outline" size={14} color={nearMe ? colors.BG_WHITE : colors.PRIMARY} />}
-                    onPress={toggleNearMe}
-                  />
                   <Pressable
                     onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
                     style={styles.viewModeBtn}
@@ -571,6 +671,44 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     marginBottom: 12,
+    alignItems: 'center',
+  },
+  tagsWrap: {
+    marginBottom: 10,
+  },
+  tagsContent: {
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 34,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    borderRadius: 18,
+    borderWidth: 1.5,
+  },
+  tagChipText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_XS,
+  },
+  distancePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: colors.LIGHT_BLUE,
+    marginLeft: 'auto',
+  },
+  distancePillText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.PRIMARY,
   },
   listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
@@ -649,7 +787,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '100%',
     height: '100%',
-    paddingHorizontal: 4,
   },
   floatingAskBtnText: {
     fontFamily: 'roboto-bold',
