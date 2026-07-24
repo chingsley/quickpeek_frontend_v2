@@ -1,5 +1,6 @@
-import { colors } from '@/constants/colors';
+import AnimatedHomeTabBar from '@/components/AnimatedHomeTabBar';
 import HomeDrawerLayout from '@/components/HomeDrawerLayout';
+import { colors } from '@/constants/colors';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useQuestionStore } from '@/store/question.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -32,6 +33,7 @@ const TabLayout = () => {
   return (
     <HomeDrawerLayout>
       <Tabs
+        tabBar={(props) => <AnimatedHomeTabBar {...props} />}
         screenOptions={{
         tabBarShowLabel: true,
         tabBarLabelStyle: {
@@ -40,6 +42,10 @@ const TabLayout = () => {
           color: colors.PRIMARY,
         },
         tabBarStyle: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
           borderTopWidth: 2,
           borderTopColor: colors.LIGHT_GRAY,
           height: 100,

@@ -1,23 +1,26 @@
 import CustomButton from '@/components/shared/CustomButton';
 import PillChip from '@/components/shared/PillChip';
-import { ALL_QUESTIONS_SECTION_KEY, FEED_FILTER_DEFS, INCOMING_SECTION_KEY, OUTGOING_SECTION_KEY } from '@/constants/feedSections';
+import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
+import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
+import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScrollChrome';
 import { getQuestionFeed, searchQuestions } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
+import { homeChromeProgress } from '@/store/homeChrome.store';
 import { useDrawerStore } from '@/store/drawer.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Image,
   Platform,
   Pressable,
@@ -29,15 +32,19 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAvoidingView, KeyboardController } from 'react-native-keyboard-controller';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = () => {
   const router = useRouter();
-  const feedListRef = useRef<FlatList<TFeedQuestion>>(null);
+  const tabBarHeight = useBottomTabBarHeight();
+  const feedListRef = useRef<Animated.FlatList<TFeedQuestion>>(null);
   const searchRequestIdRef = useRef(0);
-  const setMenuSections = useDrawerStore((state) => state.setMenuSections);
+  const { scrollHandler, headerShellStyle, chromeFadeStyle, onHeaderLayout } = useHomeScrollChrome();
+  const { fabContainerStyle, fabTextStyle } = useHomeFloatingAskStyle(tabBarHeight);
+  const setMenuCategories = useDrawerStore((state) => state.setMenuCategories);
   const toggleDrawer = useDrawerStore((state) => state.toggle);
-  const selectedSectionKey = useDrawerStore((state) => state.selectedSectionKey);
+  const selectedCategoryKey = useDrawerStore((state) => state.selectedCategoryKey);
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
   const authUserId = useAuthStore((state) => state.user?.id);
   const [feedItems, setFeedItems] = useState<TFeedQuestion[]>([]);
@@ -174,31 +181,44 @@ const HomeScreen = () => {
   };
 
   const displayedItems = useMemo(() => {
-    if (selectedSectionKey === ALL_QUESTIONS_SECTION_KEY) {
+    if (selectedCategoryKey === ALL_QUESTIONS_CATEGORY_KEY) {
       return feedItems;
     }
-    if (selectedSectionKey === INCOMING_SECTION_KEY) {
+    if (selectedCategoryKey === INCOMING_CATEGORY_KEY) {
       return feedItems.filter((item) => item.userId !== authUserId);
     }
-    if (selectedSectionKey === OUTGOING_SECTION_KEY) {
+    if (selectedCategoryKey === OUTGOING_CATEGORY_KEY) {
       return feedItems.filter((item) => item.userId === authUserId);
     }
     return feedItems;
-  }, [authUserId, feedItems, selectedSectionKey]);
+  }, [authUserId, feedItems, selectedCategoryKey]);
 
   useEffect(() => {
-    setMenuSections(
-      FEED_FILTER_DEFS.map((def) => ({
+    setMenuCategories(
+      FEED_CATEGORY_DEFS.map((def) => ({
         key: def.key,
         title: def.title,
         count: feedCounts[def.key],
       })),
     );
-  }, [feedCounts, setMenuSections]);
+  }, [feedCounts, setMenuCategories]);
 
   useEffect(() => {
+    homeChromeProgress.value = 0;
     feedListRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [selectedSectionKey]);
+  }, [selectedCategoryKey]);
+
+  const activeCategory = useMemo(
+    () => FEED_CATEGORY_DEFS.find((def) => def.key === selectedCategoryKey) ?? FEED_CATEGORY_DEFS[0],
+    [selectedCategoryKey],
+  );
+
+  const categorySubtitle =
+    selectedCategoryKey === INCOMING_CATEGORY_KEY
+      ? 'From other people'
+      : selectedCategoryKey === OUTGOING_CATEGORY_KEY
+        ? 'Asked by you'
+        : null;
 
   const renderQuestion = ({ item }: { item: TFeedQuestion; }) => {
     const unread = item.incomingRequest?.unreadCount ?? item.viewerRequest?.unreadCount ?? 0;
@@ -243,6 +263,41 @@ const HomeScreen = () => {
     );
   };
 
+  const listData = isSearchActive ? searchResults : displayedItems;
+  const showFeedLoading = !isSearchActive && loading;
+  const listGrows = showFeedLoading || listData.length === 0;
+
+  const renderListEmpty = () => {
+    if (showFeedLoading) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.PRIMARY} />
+        </View>
+      );
+    }
+
+    if (isSearchActive) {
+      if (searching) return null;
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No questions match "{search.trim()}".</Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyText}>No open questions yet.</Text>
+        <CustomButton
+          text="Ask a question"
+          onPress={() => router.push('/ask')}
+          style={styles.emptyAskBtn}
+          noTopMargin
+        />
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <TouchableWithoutFeedback
@@ -250,154 +305,137 @@ const HomeScreen = () => {
         onPress={() => KeyboardController.dismiss()}
       >
         <View style={styles.screenBody}>
-          <View style={styles.header}>
-            <View style={styles.headerSide}>
-              <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
-                <Ionicons name="menu" size={30} color={colors.PRIMARY} />
-              </Pressable>
-            </View>
-            <View style={styles.headerCenter} pointerEvents="none">
-              <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
-            </View>
-            <View style={[styles.headerSide, styles.headerSideRight]}>
-              <Pressable
-                style={styles.chatIconBtn}
-                onPress={() => router.push('/chats')}
-                accessibilityLabel="Open chats"
-              >
-                <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
-                {unreadChatCount > 0 && (
-                  <View style={styles.chatBadge}>
-                    <Text style={styles.chatBadgeText}>
-                      {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-            </View>
-          </View>
-
-      <View style={styles.titleRow}>
-        <Text style={styles.pageTitle}>Questions</Text>
-      </View>
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={colors.MEDIUM_GRAY} style={styles.searchIcon} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search questions"
-          placeholderTextColor={colors.MEDIUM_GRAY}
-          style={styles.searchInput}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} style={styles.searchClearBtn} accessibilityLabel="Clear search">
-            <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
-          </Pressable>
-        )}
-      </View>
-
-      <View style={styles.filterWrap}>
-        <PillChip
-          label="Near me"
-          active={nearMe}
-          icon={<Ionicons name="navigate-outline" size={14} color={nearMe ? colors.BG_WHITE : colors.PRIMARY} />}
-          onPress={toggleNearMe}
-        />
-        <Pressable
-          onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
-          style={styles.viewModeBtn}
-          accessibilityLabel="Toggle view mode"
-        >
-          <Ionicons
-            name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
-            size={22}
-            color={colors.PRIMARY}
-          />
-        </Pressable>
-      </View>
-
-      {isSearchActive ? (
-        <KeyboardAvoidingView
-          behavior="padding"
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-          style={styles.listAvoider}
-        >
-          <FlatList
-            data={searchResults}
-            keyExtractor={(item) => item.id}
-            renderItem={renderQuestion}
-            contentContainerStyle={styles.listContent}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              searching ? null : (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>No questions match "{search.trim()}".</Text>
+          <Animated.View style={[styles.headerShell, headerShellStyle]}>
+            <View
+              style={styles.headerMeasureWrap}
+              onLayout={(event) => onHeaderLayout(event.nativeEvent.layout.height)}
+            >
+              <View style={styles.header}>
+                <Animated.View style={[styles.headerSide, chromeFadeStyle]}>
+                  <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
+                    <Ionicons name="menu" size={30} color={colors.PRIMARY} />
+                  </Pressable>
+                </Animated.View>
+                <View style={styles.headerCenter} pointerEvents="none">
+                  <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
                 </View>
-              )
-            }
-            ListHeaderComponent={
-              searching ? (
-                <View style={styles.searchLoadingRow}>
-                  <ActivityIndicator size="small" color={colors.PRIMARY} />
-                  <Text style={styles.searchLoadingText}>Searching…</Text>
-                </View>
-              ) : searchResults.length > 0 ? (
-                <Text style={styles.resultCountText}>
-                  {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
-                </Text>
-              ) : null
-            }
-          />
-        </KeyboardAvoidingView>
-      ) : loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.PRIMARY} />
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          behavior="padding"
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-          style={styles.listAvoider}
-        >
-          <FlatList
-            ref={feedListRef}
-            data={displayedItems}
-            keyExtractor={(item) => item.id}
-            renderItem={renderQuestion}
-            contentContainerStyle={styles.listContent}
-            keyboardDismissMode="interactive"
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No open questions yet.</Text>
-                <CustomButton
-                  text="Ask a question"
-                  onPress={() => router.push('/ask')}
-                  style={styles.emptyAskBtn}
-                  noTopMargin
-                />
+                <Animated.View style={[styles.headerSide, styles.headerSideRight, chromeFadeStyle]}>
+                  <Pressable
+                    style={styles.chatIconBtn}
+                    onPress={() => router.push('/chats')}
+                    accessibilityLabel="Open chats"
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
+                    {unreadChatCount > 0 && (
+                      <View style={styles.chatBadge}>
+                        <Text style={styles.chatBadgeText}>
+                          {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+                </Animated.View>
               </View>
-            }
-          />
-        </KeyboardAvoidingView>
-      )}
 
-      </View>
+              <Animated.View style={chromeFadeStyle} pointerEvents="box-none">
+                <View style={styles.titleRow}>
+                  <Text style={styles.pageTitle}>{activeCategory.title}</Text>
+                  {categorySubtitle ? (
+                    <Text style={styles.categorySubtitle}>{categorySubtitle}</Text>
+                  ) : null}
+                </View>
+
+                <View style={styles.searchWrap}>
+                  <Ionicons name="search-outline" size={18} color={colors.MEDIUM_GRAY} style={styles.searchIcon} />
+                  <TextInput
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Search questions"
+                    placeholderTextColor={colors.MEDIUM_GRAY}
+                    style={styles.searchInput}
+                    returnKeyType="search"
+                    autoCorrect={false}
+                  />
+                  {search.length > 0 && (
+                    <Pressable onPress={() => setSearch('')} style={styles.searchClearBtn} accessibilityLabel="Clear search">
+                      <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
+                    </Pressable>
+                  )}
+                </View>
+
+                <View style={styles.filterWrap}>
+                  <PillChip
+                    label="Near me"
+                    active={nearMe}
+                    icon={<Ionicons name="navigate-outline" size={14} color={nearMe ? colors.BG_WHITE : colors.PRIMARY} />}
+                    onPress={toggleNearMe}
+                  />
+                  <Pressable
+                    onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+                    style={styles.viewModeBtn}
+                    accessibilityLabel="Toggle view mode"
+                  >
+                    <Ionicons
+                      name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
+                      size={22}
+                      color={colors.PRIMARY}
+                    />
+                  </Pressable>
+                </View>
+
+                {isSearchActive && searching ? (
+                  <View style={styles.searchLoadingRow}>
+                    <ActivityIndicator size="small" color={colors.PRIMARY} />
+                    <Text style={styles.searchLoadingText}>Searching…</Text>
+                  </View>
+                ) : null}
+                {isSearchActive && !searching && searchResults.length > 0 ? (
+                  <Text style={styles.resultCountText}>
+                    {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                  </Text>
+                ) : null}
+              </Animated.View>
+            </View>
+          </Animated.View>
+
+          <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            style={styles.listAvoider}
+          >
+            <Animated.FlatList
+              ref={feedListRef}
+              data={showFeedLoading ? [] : listData}
+              keyExtractor={(item) => item.id}
+              renderItem={renderQuestion}
+              contentContainerStyle={[
+                styles.listContent,
+                listGrows && styles.listContentGrow,
+              ]}
+              keyboardDismissMode="interactive"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={renderListEmpty}
+              ListFooterComponent={HomeListBottomSpacer}
+              onScroll={scrollHandler}
+              scrollEventThrottle={16}
+            />
+          </KeyboardAvoidingView>
+        </View>
       </TouchableWithoutFeedback>
 
-      <Pressable
-        style={styles.floatingAskBtn}
-        onPress={() => router.push('/ask')}
-        accessibilityLabel="Ask a Question"
-        accessibilityRole="button"
-      >
-        <Ionicons name="add" size={18} color={colors.BG_WHITE} />
-        <Text style={styles.floatingAskBtnText}>Ask a Question</Text>
-      </Pressable>
+      <Animated.View style={[styles.floatingAskBtn, fabContainerStyle]}>
+        <Pressable
+          style={styles.floatingAskBtnInner}
+          onPress={() => router.push('/ask')}
+          accessibilityLabel="Ask a Question"
+          accessibilityRole="button"
+        >
+          <Ionicons name="add" size={22} color={colors.BG_WHITE} />
+          <Animated.Text style={[styles.floatingAskBtnText, fabTextStyle]} numberOfLines={1}>
+            Ask a Question
+          </Animated.Text>
+        </Pressable>
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -407,6 +445,17 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   screenBody: { flex: 1 },
+  headerShell: {
+    overflow: 'hidden',
+    backgroundColor: colors.BG_WHITE,
+    zIndex: 2,
+  },
+  headerMeasureWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -479,6 +528,12 @@ const styles = StyleSheet.create({
   },
   menuBtn: { padding: 4, marginRight: 4 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
+  categorySubtitle: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    marginTop: 2,
+  },
   chatIconBtn: { padding: 4, position: 'relative' },
   chatBadge: {
     position: 'absolute',
@@ -505,7 +560,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   listAvoider: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingBottom: 80 },
+  listContent: { paddingHorizontal: 16 },
+  listContentGrow: { flexGrow: 1 },
   card: {
     backgroundColor: colors.BG_WHITE,
     borderRadius: 14,
@@ -564,23 +620,28 @@ const styles = StyleSheet.create({
   floatingAskBtn: {
     position: 'absolute',
     right: 16,
-    bottom: 18,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     backgroundColor: colors.PRIMARY,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
     shadowColor: colors.BG_BLACK,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,
     elevation: 5,
+    overflow: 'hidden',
+  },
+  floatingAskBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    paddingHorizontal: 4,
   },
   floatingAskBtnText: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.BG_WHITE,
+    overflow: 'hidden',
   },
 });

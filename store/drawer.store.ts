@@ -1,36 +1,36 @@
-import { DrawerMenuSectionKey } from '@/constants/feedSections';
+import { DrawerMenuCategoryKey } from '@/constants/feedCategories';
 import { create } from 'zustand';
 
-export type DrawerMenuSection = {
-  key: DrawerMenuSectionKey;
+export type DrawerMenuCategory = {
+  key: DrawerMenuCategoryKey;
   title: string;
   count: number;
 };
 
 type DrawerState = {
   isOpen: boolean;
-  menuSections: DrawerMenuSection[];
-  selectedSectionKey: DrawerMenuSectionKey;
+  menuCategories: DrawerMenuCategory[];
+  selectedCategoryKey: DrawerMenuCategoryKey;
   settingsSheetVisible: boolean;
   open: () => void;
   close: () => void;
   toggle: () => void;
-  setMenuSections: (sections: DrawerMenuSection[]) => void;
-  selectSection: (key: DrawerMenuSectionKey) => void;
+  setMenuCategories: (categories: DrawerMenuCategory[]) => void;
+  selectCategory: (key: DrawerMenuCategoryKey) => void;
   openSettingsSheet: () => void;
   closeSettingsSheet: () => void;
 };
 
 export const useDrawerStore = create<DrawerState>((set) => ({
   isOpen: false,
-  menuSections: [],
-  selectedSectionKey: 'all',
+  menuCategories: [],
+  selectedCategoryKey: 'all',
   settingsSheetVisible: false,
   open: () => set({ isOpen: true }),
   close: () => set({ isOpen: false }),
   toggle: () => set((state) => ({ isOpen: !state.isOpen })),
-  setMenuSections: (sections) => set({ menuSections: sections }),
-  selectSection: (key) => set({ selectedSectionKey: key, isOpen: false }),
+  setMenuCategories: (categories) => set({ menuCategories: categories }),
+  selectCategory: (key) => set({ selectedCategoryKey: key, isOpen: false }),
   openSettingsSheet: () => set({ settingsSheetVisible: true }),
   closeSettingsSheet: () => set({ settingsSheetVisible: false }),
 }));

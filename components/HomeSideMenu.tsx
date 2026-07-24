@@ -1,6 +1,12 @@
-import { DrawerMenuSectionKey } from '@/constants/feedSections';
+import { DrawerMenuCategoryKey } from '@/constants/feedCategories';
 import { colors } from '@/constants/colors';
-import { MENU_CONTENT_WIDTH_RATIO, DRAWER_BRAND_SECTION_GAP, DRAWER_ASK_TO_SECTIONS_GAP, DRAWER_SECTION_HEADING_FONT_SIZE, DRAWER_SECTION_ITEM_INSET } from '@/constants/drawer';
+import {
+  MENU_CONTENT_WIDTH_RATIO,
+  DRAWER_BRAND_CATEGORY_GAP,
+  DRAWER_ASK_TO_CATEGORIES_GAP,
+  DRAWER_CATEGORY_HEADING_FONT_SIZE,
+  DRAWER_CATEGORY_ITEM_INSET,
+} from '@/constants/drawer';
 import { fonts } from '@/constants/fonts';
 import { useAuthStore } from '@/store/auth.store';
 import { useDrawerStore } from '@/store/drawer.store';
@@ -16,9 +22,9 @@ const HomeSideMenu = () => {
   const insets = useSafeAreaInsets();
   const menuPanelWidth = width * MENU_CONTENT_WIDTH_RATIO;
   const userEmail = useAuthStore((state) => state.user?.email ?? '');
-  const menuSections = useDrawerStore((state) => state.menuSections);
-  const selectedSectionKey = useDrawerStore((state) => state.selectedSectionKey);
-  const selectSection = useDrawerStore((state) => state.selectSection);
+  const menuCategories = useDrawerStore((state) => state.menuCategories);
+  const selectedCategoryKey = useDrawerStore((state) => state.selectedCategoryKey);
+  const selectCategory = useDrawerStore((state) => state.selectCategory);
   const close = useDrawerStore((state) => state.close);
   const openSettingsSheet = useDrawerStore((state) => state.openSettingsSheet);
 
@@ -27,8 +33,8 @@ const HomeSideMenu = () => {
     router.push('/ask');
   };
 
-  const handleSectionPress = (key: DrawerMenuSectionKey) => {
-    selectSection(key);
+  const handleCategoryPress = (key: DrawerMenuCategoryKey) => {
+    selectCategory(key);
     router.push('/(tabs)/Home');
   };
 
@@ -50,26 +56,26 @@ const HomeSideMenu = () => {
         <Text style={styles.askButtonText}>Ask a Question</Text>
       </Pressable>
 
-      <Text style={styles.sectionHeading}>SECTIONS</Text>
+      <Text style={styles.categoryHeading}>CATEGORIES</Text>
 
-      <ScrollView style={styles.sectionList} showsVerticalScrollIndicator={false}>
-        {menuSections.length === 0 ? (
-          <Text style={styles.emptySections}>No filters available.</Text>
+      <ScrollView style={styles.categoryList} showsVerticalScrollIndicator={false}>
+        {menuCategories.length === 0 ? (
+          <Text style={styles.emptyCategories}>No categories available.</Text>
         ) : (
-          menuSections.map((section) => {
-            const isSelected = selectedSectionKey === section.key;
+          menuCategories.map((category) => {
+            const isSelected = selectedCategoryKey === category.key;
             return (
               <Pressable
-                key={section.key}
-                style={styles.sectionRow}
-                onPress={() => handleSectionPress(section.key)}
+                key={category.key}
+                style={styles.categoryRow}
+                onPress={() => handleCategoryPress(category.key)}
               >
-                <View style={[styles.sectionRowContent, isSelected && styles.sectionRowSelected]}>
+                <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
                   <Text
-                    style={[styles.sectionTitle, isSelected && styles.sectionTitleSelected]}
+                    style={[styles.categoryTitle, isSelected && styles.categoryTitleSelected]}
                     numberOfLines={2}
                   >
-                    {section.title} ({section.count})
+                    {category.title} ({category.count})
                   </Text>
                 </View>
               </Pressable>
@@ -102,8 +108,8 @@ const styles = StyleSheet.create({
     fontFamily: 'roboto-bold',
     fontSize: 28,
     color: colors.TEXT_DARK,
-    marginBottom: DRAWER_BRAND_SECTION_GAP,
-    paddingLeft: DRAWER_SECTION_ITEM_INSET,
+    marginBottom: DRAWER_BRAND_CATEGORY_GAP,
+    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
   askButton: {
     alignSelf: 'flex-start',
@@ -114,51 +120,51 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 18,
-    marginBottom: DRAWER_ASK_TO_SECTIONS_GAP,
-    marginLeft: DRAWER_SECTION_ITEM_INSET,
+    marginBottom: DRAWER_ASK_TO_CATEGORIES_GAP,
+    marginLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
   askButtonText: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.BG_WHITE,
   },
-  sectionHeading: {
+  categoryHeading: {
     fontFamily: 'roboto-medium',
-    fontSize: DRAWER_SECTION_HEADING_FONT_SIZE,
+    fontSize: DRAWER_CATEGORY_HEADING_FONT_SIZE,
     color: colors.MEDIUM_GRAY,
     letterSpacing: 1.2,
     marginBottom: 10,
-    paddingLeft: DRAWER_SECTION_ITEM_INSET,
+    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
-  sectionList: {
+  categoryList: {
     flex: 1,
   },
-  emptySections: {
+  emptyCategories: {
     fontFamily: 'roboto-light',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
-    paddingLeft: DRAWER_SECTION_ITEM_INSET,
+    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
-  sectionRow: {
+  categoryRow: {
     paddingVertical: 4,
   },
-  sectionRowContent: {
+  categoryRowContent: {
     alignSelf: 'stretch',
     paddingVertical: 9,
-    paddingLeft: DRAWER_SECTION_ITEM_INSET,
+    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
-  sectionRowSelected: {
+  categoryRowSelected: {
     backgroundColor: colors.LIGHT_GREEN,
     borderRadius: 14,
-    paddingRight: DRAWER_SECTION_ITEM_INSET,
+    paddingRight: DRAWER_CATEGORY_ITEM_INSET,
   },
-  sectionTitle: {
+  categoryTitle: {
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
     lineHeight: 22,
   },
-  sectionTitleSelected: {
+  categoryTitleSelected: {
     color: colors.PRIMARY,
   },
   accountRow: {
@@ -168,7 +174,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingTop: 14,
     marginTop: 4,
-    paddingLeft: DRAWER_SECTION_ITEM_INSET,
+    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
   accountEmail: {
     flex: 1,
