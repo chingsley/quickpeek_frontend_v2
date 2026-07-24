@@ -39,6 +39,7 @@ const AnimatedHomeTabBar = (props: BottomTabBarProps) => {
     }
 
     return {
+      opacity: interpolate(homeChromeProgress.value, [0, 1], [1, 0], Extrapolation.CLAMP),
       transform: [
         {
           translateY: interpolate(

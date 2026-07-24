@@ -9,7 +9,6 @@ import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScr
 import { getQuestionFeed, searchQuestions } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
-import { homeChromeProgress } from '@/store/homeChrome.store';
 import { useDrawerStore } from '@/store/drawer.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
@@ -40,7 +39,8 @@ const HomeScreen = () => {
   const tabBarHeight = useBottomTabBarHeight();
   const feedListRef = useRef<Animated.FlatList<TFeedQuestion>>(null);
   const searchRequestIdRef = useRef(0);
-  const { scrollHandler, headerShellStyle, chromeFadeStyle, onHeaderLayout } = useHomeScrollChrome();
+  const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome } =
+    useHomeScrollChrome();
   const { fabContainerStyle, fabTextStyle } = useHomeFloatingAskStyle(tabBarHeight);
   const setMenuCategories = useDrawerStore((state) => state.setMenuCategories);
   const toggleDrawer = useDrawerStore((state) => state.toggle);
@@ -204,9 +204,9 @@ const HomeScreen = () => {
   }, [feedCounts, setMenuCategories]);
 
   useEffect(() => {
-    homeChromeProgress.value = 0;
+    resetChrome();
     feedListRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, [selectedCategoryKey]);
+  }, [resetChrome, selectedCategoryKey]);
 
   const activeCategory = useMemo(
     () => FEED_CATEGORY_DEFS.find((def) => def.key === selectedCategoryKey) ?? FEED_CATEGORY_DEFS[0],
@@ -310,34 +310,32 @@ const HomeScreen = () => {
               style={styles.headerMeasureWrap}
               onLayout={(event) => onHeaderLayout(event.nativeEvent.layout.height)}
             >
-              <View style={styles.header}>
-                <Animated.View style={[styles.headerSide, chromeFadeStyle]}>
-                  <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
-                    <Ionicons name="menu" size={30} color={colors.PRIMARY} />
-                  </Pressable>
-                </Animated.View>
-                <View style={styles.headerCenter} pointerEvents="none">
-                  <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
+              <Animated.View style={headerChromeSlideStyle}>
+                <View style={styles.header}>
+                  <View style={styles.headerSide}>
+                    <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
+                      <Ionicons name="menu" size={30} color={colors.PRIMARY} />
+                    </Pressable>
+                  </View>
+                  <View style={styles.headerCenter} />
+                  <View style={[styles.headerSide, styles.headerSideRight]}>
+                    <Pressable
+                      style={styles.chatIconBtn}
+                      onPress={() => router.push('/chats')}
+                      accessibilityLabel="Open chats"
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
+                      {unreadChatCount > 0 && (
+                        <View style={styles.chatBadge}>
+                          <Text style={styles.chatBadgeText}>
+                            {unreadChatCount > 99 ? '99+' : unreadChatCount}
+                          </Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
-                <Animated.View style={[styles.headerSide, styles.headerSideRight, chromeFadeStyle]}>
-                  <Pressable
-                    style={styles.chatIconBtn}
-                    onPress={() => router.push('/chats')}
-                    accessibilityLabel="Open chats"
-                  >
-                    <Ionicons name="chatbubble-ellipses-outline" size={26} color={colors.PRIMARY} />
-                    {unreadChatCount > 0 && (
-                      <View style={styles.chatBadge}>
-                        <Text style={styles.chatBadgeText}>
-                          {unreadChatCount > 99 ? '99+' : unreadChatCount}
-                        </Text>
-                      </View>
-                    )}
-                  </Pressable>
-                </Animated.View>
-              </View>
 
-              <Animated.View style={chromeFadeStyle} pointerEvents="box-none">
                 <View style={styles.titleRow}>
                   <Text style={styles.pageTitle}>{activeCategory.title}</Text>
                   {categorySubtitle ? (
@@ -396,6 +394,10 @@ const HomeScreen = () => {
                 ) : null}
               </Animated.View>
             </View>
+
+            <Animated.View style={[styles.logoPinned, logoSlideStyle]} pointerEvents="none">
+              <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
+            </Animated.View>
           </Animated.View>
 
           <KeyboardAvoidingView
@@ -449,12 +451,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.BG_WHITE,
     zIndex: 2,
+    position: 'relative',
   },
   headerMeasureWrap: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+  },
+  logoPinned: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
   header: {
     flexDirection: 'row',
