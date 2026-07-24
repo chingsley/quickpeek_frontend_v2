@@ -1,4 +1,5 @@
 import { colors } from '@/constants/colors';
+import { BORDER_RADIUS_PILL } from '@/constants/layout';
 import { icons } from '@/constants/icons';
 import React from 'react';
 import { Image, StyleSheet, TextInput, View } from 'react-native';
@@ -13,10 +14,10 @@ const Searchbar = ({ placeholder, inputValue, setValue }: Props) => {
   // const [value, setValue] = useState(inputValue);
   return (
     <View style={styles.container}>
-      <Image style={styles.searchIcon} source={icons.search} resizeMode="contain" tintColor='#333' />
+      <Image style={styles.searchIcon} source={icons.search} resizeMode="contain" tintColor={colors.PRIMARY} />
       <TextInput
         placeholder={placeholder}
-        placeholderTextColor='#a8b5db'
+        placeholderTextColor={colors.PLACEHOLDER}
         value={inputValue}
         onChangeText={(value) => setValue(value)}
         style={styles.input}
@@ -31,23 +32,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0.4,
-    borderRadius: 10,
-    paddingLeft: 20,
-    backgroundColor: colors.BG_WHITE,
-    // backgroundColor: '#F5F5F5',
-    height: 50
+    borderRadius: BORDER_RADIUS_PILL,
+    paddingHorizontal: 16,
+    backgroundColor: colors.INPUT_BG,
+    minHeight: 48,
   },
   searchIcon: {
     width: 20,
     height: 20,
+    marginRight: 10,
   },
   input: {
     flex: 1,
-    marginLeft: 8,
-    color: '#333',
-    height: '100%',
-    fontSize: 20,
+    color: colors.TEXT_DARK,
+    fontSize: 16,
+    paddingVertical: 12,
     paddingRight: 10,
   },
   label: {

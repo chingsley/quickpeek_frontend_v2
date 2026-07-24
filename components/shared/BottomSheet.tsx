@@ -3,6 +3,7 @@ import {
   BOTTOM_SHEET_CLOSE_DURATION_MS,
   BOTTOM_SHEET_OPEN_DURATION_MS,
 } from '@/constants/bottomSheet';
+import { colors } from '@/constants/colors';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Modal,
@@ -44,7 +45,7 @@ const BottomSheet = ({
   onClosed,
   children,
   sheetStyle,
-  backdropColor = 'rgba(0, 0, 0, 0.4)',
+  backdropColor = colors.BACKDROP_DARK,
 }: BottomSheetProps) => {
   const { height: windowHeight } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);

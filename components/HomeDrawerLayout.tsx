@@ -3,7 +3,6 @@ import SettingsBottomSheet from '@/components/SettingsBottomSheet';
 import {
   DRAWER_ANIMATION_MS,
   DRAWER_BORDER_RADIUS,
-  DRAWER_FADE_OVERLAY,
   DRAWER_SCALE,
   DRAWER_SHIFT_RATIO,
 } from '@/constants/drawer';
@@ -97,21 +96,21 @@ const styles = StyleSheet.create({
         offsetY: 0,
         blurRadius: 42,
         spreadDistance: 2,
-        color: 'rgba(0, 0, 0, 0.07)',
+        color: colors.SHADOW_MEDIUM,
       },
       {
         offsetX: 0,
         offsetY: -4,
         blurRadius: 30,
         spreadDistance: 1,
-        color: 'rgba(0, 0, 0, 0.035)',
+        color: colors.SHADOW_SOFT,
       },
       {
         offsetX: 0,
         offsetY: 4,
         blurRadius: 30,
         spreadDistance: 1,
-        color: 'rgba(0, 0, 0, 0.035)',
+        color: colors.SHADOW_SOFT,
       },
     ],
   },
@@ -124,6 +123,6 @@ const styles = StyleSheet.create({
   },
   fadeVeil: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: DRAWER_FADE_OVERLAY,
+    backgroundColor: colors.DRAWER_FADE_OVERLAY,
   },
 });

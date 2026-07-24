@@ -84,7 +84,7 @@ const ChatsScreen = () => {
     }, [load]),
   );
 
-  const renderItem = ({ item }: { item: TConversation }) => {
+  const renderItem = ({ item }: { item: TConversation; }) => {
     const isBold = item.hasUnread;
     const titleStyle = isBold ? styles.titleBold : styles.titleNormal;
     const subtitleStyle = isBold ? styles.subtitleBold : styles.subtitleNormal;

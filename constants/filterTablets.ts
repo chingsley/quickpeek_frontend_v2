@@ -2,9 +2,10 @@ import { Platform, TextStyle, ViewStyle } from 'react-native';
 import { colors } from './colors';
 import { fonts } from './fonts';
 import { BORDER_RADIUS_PILL } from './layout';
+import { STATUS_ICON_QUESTION_ITEM_SIZE } from './statusIcons';
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
-const chipTextFix: TextStyle =
+const tabletTextFix: TextStyle =
   Platform.select({
     android: {
       includeFontPadding: false,
@@ -13,8 +14,19 @@ const chipTextFix: TextStyle =
     default: {},
   }) ?? {};
 
-export const chipStyles = {
-  pillContainer: {
+/**
+ * Home feed filter tablet styles.
+ * Tune inactive/active appearance, typography, and icon sizing here.
+ */
+export const FILTER_TABLET_ICON_SIZE = STATUS_ICON_QUESTION_ITEM_SIZE;
+
+export const filterTabletColors = {
+  icon: colors.TEXT_DARK,
+  iconActive: colors.BG_BLACK,
+} as const;
+
+export const filterTabletStyles = {
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -28,47 +40,21 @@ export const chipStyles = {
     backgroundColor: colors.BG_WHITE,
   } satisfies ViewStyle,
 
-  pillContainerActive: {
+  containerActive: {
     backgroundColor: colors.SECONDARY,
-    borderColor: colors.PRIMARY,
   } satisfies ViewStyle,
 
-  pillText: {
+  text: {
     fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
+    fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
-    ...chipTextFix,
+    ...tabletTextFix,
   } satisfies TextStyle,
 
-  pillTextActive: {
-    color: colors.PRIMARY,
-  } satisfies TextStyle,
-
-  presetContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 36,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  } satisfies ViewStyle,
-
-  presetContainerActive: {
-    backgroundColor: colors.PRIMARY,
-    borderColor: colors.PRIMARY,
-  } satisfies ViewStyle,
-
-  presetText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.DARK_GRAY,
-    ...chipTextFix,
-  } satisfies TextStyle,
-
-  presetTextActive: {
-    color: colors.BG_WHITE,
+  /** Matches card body text size (`cardDetail` on Home). */
+  textActive: {
+    // fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.BG_BLACK,
+    ...tabletTextFix,
   } satisfies TextStyle,
 };

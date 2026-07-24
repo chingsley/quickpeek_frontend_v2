@@ -21,7 +21,7 @@ const SettingsBottomSheet = () => {
     <BottomSheet
       visible={visible}
       onClose={closeSettingsSheet}
-      backdropColor="rgba(0, 0, 0, 0.12)"
+      backdropColor={colors.BACKDROP_LIGHT}
       sheetStyle={[
         styles.sheet,
         {

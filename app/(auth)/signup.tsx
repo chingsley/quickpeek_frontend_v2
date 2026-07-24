@@ -1,3 +1,4 @@
+import { colors } from '@/constants/colors';
 import PreferencesForm from '@/components/signup/PreferencesForm';
 import ReviewDetails from '@/components/signup/ReviewDetails';
 import UserDetailsForm from '@/components/signup/UserDetailsForm';
@@ -87,7 +88,7 @@ const Signup = () => {
 export default Signup;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#fff' },
+  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
