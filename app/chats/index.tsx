@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   time: { fontFamily: 'roboto-light', fontSize: 11, color: colors.MEDIUM_GRAY },
   footer: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
   statusChip: {
-    backgroundColor: colors.LIGHT_GREEN,
+    backgroundColor: colors.SECONDARY,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,

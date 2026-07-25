@@ -267,7 +267,7 @@ const ChatScreen = () => {
               onPress={openProfileModal}
             >
               <Text style={styles.viewProfileBtnText}>View {thread?.counterparty?.name}'s profile</Text>
-              <Ionicons name="chevron-forward" size={12} color={colors.PRIMARY} />
+              <Ionicons name="chevron-forward" size={12} color={colors.TEXT_DARK} />
             </Pressable>
           )}
         </View>
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   headerSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
-  closedBanner: { backgroundColor: colors.LIGHT_GREEN, padding: 10, alignItems: 'center' },
+  closedBanner: { backgroundColor: colors.SECONDARY, padding: 10, alignItems: 'center' },
   closedText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
   pendingBanner: {
     flexDirection: 'row',
@@ -552,14 +552,14 @@ const styles = StyleSheet.create({
   messageTimeMine: { color: colors.TEXT_ON_PRIMARY_MUTED },
   systemBubble: {
     alignSelf: 'center',
-    backgroundColor: colors.LIGHT_GREEN,
+    backgroundColor: colors.SECONDARY,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginVertical: 8,
     maxWidth: '90%',
   },
-  systemText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY, textAlign: 'center', lineHeight: 18 },
+  systemText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK, textAlign: 'center', lineHeight: 18 },
   viewProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.CARD_BORDER,
     gap: 4,
   },
-  viewProfileBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  viewProfileBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
   reviewBtn: { marginHorizontal: 16, marginBottom: 8 },
   composerWrap: {
     flexShrink: 0,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  presetChipSelected: { backgroundColor: colors.LIGHT_GREEN, borderColor: colors.PRIMARY },
+  presetChipSelected: { backgroundColor: colors.SECONDARY, borderColor: colors.PRIMARY },
   presetChipText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY },
   presetChipTextSelected: { color: colors.PRIMARY },
   modalInput: {

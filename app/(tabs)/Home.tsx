@@ -1,10 +1,10 @@
 import CustomButton from '@/components/shared/CustomButton';
+import Searchbar from '@/components/Searchbar';
 import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { filterTabletColors, filterTabletStyles, FILTER_TABLET_ICON_SIZE } from '@/constants/filterTablets';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { BORDER_RADIUS_PILL } from '@/constants/layout';
 import { images } from '@/constants/images';
 import {
   STATUS_ICON_QUESTION_ITEM_SIZE,
@@ -37,7 +37,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
@@ -408,23 +407,12 @@ const HomeScreen = () => {
                   ) : null}
                 </View>
 
-                <View style={styles.searchWrap}>
-                  <Ionicons name="search-outline" size={20} color={colors.PRIMARY} style={styles.searchIcon} />
-                  <TextInput
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Search questions"
-                    placeholderTextColor={colors.PLACEHOLDER}
-                    style={styles.searchInput}
-                    returnKeyType="search"
-                    autoCorrect={false}
-                  />
-                  {search.length > 0 && (
-                    <Pressable onPress={() => setSearch('')} style={styles.searchClearBtn} accessibilityLabel="Clear search">
-                      <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
-                    </Pressable>
-                  )}
-                </View>
+                <Searchbar
+                  placeholder="Search questions"
+                  inputValue={search}
+                  setValue={setSearch}
+                  style={styles.searchBarPlacement}
+                />
 
                 <View style={styles.tagsWrap}>
                   <ScrollView
@@ -565,7 +553,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
   },
@@ -590,22 +578,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 8,
   },
-  searchWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: BORDER_RADIUS_PILL,
-    paddingHorizontal: 16,
+  searchBarPlacement: {
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.INPUT_BG,
-    minHeight: 48,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchClearBtn: {
-    padding: 4,
-    marginLeft: 4,
   },
   searchLoadingRow: {
     flexDirection: 'row',
@@ -624,14 +599,7 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
     paddingVertical: 6,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    paddingVertical: 12,
-  },
-  menuBtn: { padding: 4, marginRight: 4 },
+  menuBtn: { paddingTop: 4, paddingBottom: 4, paddingRight: 4 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
   categorySubtitle: {
     fontFamily: 'roboto-light',

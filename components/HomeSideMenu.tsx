@@ -71,10 +71,7 @@ const HomeSideMenu = () => {
                 onPress={() => handleCategoryPress(category.key)}
               >
                 <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
-                  <Text
-                    style={[styles.categoryTitle, isSelected && styles.categoryTitleSelected]}
-                    numberOfLines={2}
-                  >
+                  <Text style={styles.categoryTitle} numberOfLines={2}>
                     {category.title} ({category.count})
                   </Text>
                 </View>
@@ -154,7 +151,7 @@ const styles = StyleSheet.create({
     paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
   },
   categoryRowSelected: {
-    backgroundColor: colors.LIGHT_GREEN,
+    backgroundColor: colors.SECONDARY,
     borderRadius: 14,
     paddingRight: DRAWER_CATEGORY_ITEM_INSET,
   },
@@ -163,9 +160,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
     lineHeight: 22,
-  },
-  categoryTitleSelected: {
-    color: colors.PRIMARY,
   },
   accountRow: {
     flexDirection: 'row',

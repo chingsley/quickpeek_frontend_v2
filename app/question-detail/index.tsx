@@ -491,13 +491,16 @@ const QuestionDetail = () => {
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>{getResponderStatusMessage(question)}</Text>
                 {showOpenChat && requestIdForChat && (
-                  <CustomButton
-                    text="Open chat"
+                  <Pressable
+                    style={styles.infoOpenChatBtn}
                     onPress={() =>
                       router.push({ pathname: '/chat', params: { requestId: requestIdForChat } })
                     }
-                    style={{ marginTop: 12 }}
-                  />
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.infoOpenChatBtnText}>Open chat</Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.PRIMARY} />
+                  </Pressable>
                 )}
               </View>
             )}
@@ -706,7 +709,7 @@ const styles = StyleSheet.create({
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
-  chip: { backgroundColor: colors.LIGHT_GREEN },
+  chip: { backgroundColor: colors.SECONDARY },
   locationCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   card: {
@@ -726,8 +729,27 @@ const styles = StyleSheet.create({
   viewProfileHint: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, marginTop: 4 },
   timestamp: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 20 },
   actionArea: { marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
-  infoBox: { backgroundColor: colors.LIGHT_GREEN, borderRadius: 12, padding: 16 },
-  infoText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, lineHeight: 20 },
+  infoBox: {
+    backgroundColor: colors.CARD_BG,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  infoText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
+  infoOpenChatBtn: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.CARD_BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  infoOpenChatBtnText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
+  },
   requestSection: {
     marginTop: 32,
     paddingTop: 24,

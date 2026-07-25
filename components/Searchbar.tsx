@@ -1,27 +1,57 @@
 import { colors } from '@/constants/colors';
+import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_PILL } from '@/constants/layout';
-import { icons } from '@/constants/icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
-import { Image, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  TextInput,
+  TextInputProps,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 interface Props {
   placeholder: string;
   inputValue: string;
   setValue: (value: string) => void;
+  /** Layout-only styles (e.g. margins). Box chrome lives in this component. */
+  style?: StyleProp<ViewStyle>;
+  returnKeyType?: TextInputProps['returnKeyType'];
+  autoCorrect?: boolean;
 }
 
-const Searchbar = ({ placeholder, inputValue, setValue }: Props) => {
-  // const [value, setValue] = useState(inputValue);
+const Searchbar = ({
+  placeholder,
+  inputValue,
+  setValue,
+  style,
+  returnKeyType = 'search',
+  autoCorrect = false,
+}: Props) => {
   return (
-    <View style={styles.container}>
-      <Image style={styles.searchIcon} source={icons.search} resizeMode="contain" tintColor={colors.PRIMARY} />
+    <View style={[styles.container, style]}>
+      <Ionicons name="search-outline" size={20} color={colors.PRIMARY} style={styles.searchIcon} />
       <TextInput
         placeholder={placeholder}
         placeholderTextColor={colors.PLACEHOLDER}
         value={inputValue}
-        onChangeText={(value) => setValue(value)}
+        onChangeText={setValue}
         style={styles.input}
+        returnKeyType={returnKeyType}
+        autoCorrect={autoCorrect}
       />
+      {inputValue.length > 0 && (
+        <Pressable
+          onPress={() => setValue('')}
+          style={styles.clearBtn}
+          accessibilityLabel="Clear search"
+        >
+          <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
+        </Pressable>
+      )}
     </View>
   );
 };
@@ -36,21 +66,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: colors.INPUT_BG,
     minHeight: 48,
+    borderWidth: 1,
+    borderColor: colors.PRIMARY,
   },
   searchIcon: {
-    width: 20,
-    height: 20,
     marginRight: 10,
   },
   input: {
     flex: 1,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
-    fontSize: 16,
     paddingVertical: 12,
-    paddingRight: 10,
   },
-  label: {
-    // default Text styling
+  clearBtn: {
+    padding: 4,
+    marginLeft: 4,
   },
-
 });

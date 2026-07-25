@@ -1,5 +1,6 @@
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { STATUS_ICON_NEUTRAL_COLOR } from '@/constants/statusIcons';
 import {
   STATUS_ICON_LABELS,
   StatusIcon,
@@ -27,7 +28,7 @@ const isBadgedVisual = (visual: IconVisual) => visual.bg !== colors.TRANSPARENT;
  * Visual language for each status icon. Exported so other surfaces (e.g. the
  * Home filter-tag bar) can reuse the exact same glyph + color pairing.
  *
- * Direction and request-status icons are black circle-outline glyphs (or
+ * Direction and request-status icons are gray-black circle-outline glyphs (or
  * circle-contained icons where the source glyph is already circular).
  *
  * Where the requested glyph is not circular, the circle-outline equivalent from
@@ -38,39 +39,39 @@ export const STATUS_ICON_VISUALS: Record<StatusIconKey, IconVisual> = {
   outgoing: {
     family: 'MaterialCommunityIcons',
     name: 'arrow-top-right-thin-circle-outline',
-    color: colors.BG_BLACK,
+    color: STATUS_ICON_NEUTRAL_COLOR,
     bg: colors.TRANSPARENT,
   },
   // Octicons `arrow-down-left` → circle-outline diagonal equivalent
   incoming: {
     family: 'MaterialCommunityIcons',
     name: 'arrow-bottom-left-thin-circle-outline',
-    color: colors.BG_BLACK,
+    color: STATUS_ICON_NEUTRAL_COLOR,
     bg: colors.TRANSPARENT,
   },
   // FontAwesome6 `clock` → circle-outline clock equivalent
   request_pending: {
     family: 'Ionicons',
     name: 'time-outline',
-    color: colors.BG_BLACK,
+    color: STATUS_ICON_NEUTRAL_COLOR,
     bg: colors.TRANSPARENT,
   },
   request_approved: {
     family: 'Ionicons',
     name: 'checkmark-circle-sharp',
-    color: colors.BG_BLACK,
+    color: colors.PRIMARY,
     bg: colors.TRANSPARENT,
   },
   request_denied: {
     family: 'Ionicons',
     name: 'close-circle-outline',
-    color: colors.BG_BLACK,
+    color: STATUS_ICON_NEUTRAL_COLOR,
     bg: colors.TRANSPARENT,
   },
   near_me: {
     family: 'Ionicons',
     name: 'navigate-circle-outline',
-    color: colors.BG_BLACK,
+    color: STATUS_ICON_NEUTRAL_COLOR,
     bg: colors.TRANSPARENT,
   },
 };

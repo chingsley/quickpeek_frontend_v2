@@ -214,7 +214,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
           <Switch
             value={notificationsEnabled}
             onValueChange={handleToggleNotifications}
-            trackColor={{ false: colors.LIGHT_GRAY, true: colors.LIGHT_GREEN }}
+            trackColor={{ false: colors.LIGHT_GRAY, true: colors.SECONDARY }}
             thumbColor={notificationsEnabled ? colors.PRIMARY : colors.BG_WHITE}
           />
         </View>
@@ -232,7 +232,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
           <Switch
             value={locationSharingEnabled}
             onValueChange={handleToggleLocation}
-            trackColor={{ false: colors.LIGHT_GRAY, true: colors.LIGHT_GREEN }}
+            trackColor={{ false: colors.LIGHT_GRAY, true: colors.SECONDARY }}
             thumbColor={locationSharingEnabled ? colors.PRIMARY : colors.BG_WHITE}
           />
         </View>
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: colors.LIGHT_GREEN,
+    backgroundColor: colors.SECONDARY,
     alignItems: 'center',
     justifyContent: 'center',
   },

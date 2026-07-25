@@ -2,7 +2,7 @@ import { Platform, TextStyle, ViewStyle } from 'react-native';
 import { colors } from './colors';
 import { fonts } from './fonts';
 import { BORDER_RADIUS_PILL } from './layout';
-import { STATUS_ICON_QUESTION_ITEM_SIZE } from './statusIcons';
+import { STATUS_ICON_NEUTRAL_COLOR, STATUS_ICON_QUESTION_ITEM_SIZE } from './statusIcons';
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
 const tabletTextFix: TextStyle =
@@ -21,7 +21,7 @@ const tabletTextFix: TextStyle =
 export const FILTER_TABLET_ICON_SIZE = STATUS_ICON_QUESTION_ITEM_SIZE;
 
 export const filterTabletColors = {
-  icon: colors.TEXT_DARK,
+  icon: STATUS_ICON_NEUTRAL_COLOR,
   iconActive: colors.BG_BLACK,
 } as const;
 
