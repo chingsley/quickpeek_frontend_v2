@@ -18,4 +18,10 @@ else
   /usr/libexec/PlistBuddy -c "Add :MetroPackagerHost string ${LOCAL_IP}" "${INFO_PLIST}"
 fi
 
-echo "[device] Embedded Metro packager host: ${LOCAL_IP}"
+if /usr/libexec/PlistBuddy -c "Print :MetroUseLanPackager" "${INFO_PLIST}" >/dev/null 2>&1; then
+  /usr/libexec/PlistBuddy -c "Set :MetroUseLanPackager true" "${INFO_PLIST}"
+else
+  /usr/libexec/PlistBuddy -c "Add :MetroUseLanPackager bool true" "${INFO_PLIST}"
+fi
+
+echo "[device] Embedded Metro packager host: ${LOCAL_IP} (LAN mode)"

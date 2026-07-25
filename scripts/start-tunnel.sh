@@ -31,14 +31,14 @@ stop_metro_on_port() {
 
 start_tunnel() {
   cd "${PROJECT_ROOT}"
-  # Tunnel mode proxies API traffic through Metro; don't pin a LAN API URL.
-  unset EXPO_PUBLIC_API_URL
+  unset_lan_metro_env
   npx expo start --tunnel "$@"
 }
 
 echo "Preparing Expo tunnel..."
 kill_stale_ngrok
 stop_metro_on_port
+bash "${SCRIPT_DIR}/set-metro-tunnel-packager.sh"
 
 if curl -sf "${METRO_STATUS_URL}" >/dev/null 2>&1; then
   echo "ERROR: Port ${METRO_PORT} is still in use. Stop other Metro/ngrok processes and retry."

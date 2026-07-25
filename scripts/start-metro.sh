@@ -5,4 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=dev-env.sh
 source "${SCRIPT_DIR}/dev-env.sh"
 
+export_lan_metro_env
+
 exec expo start --lan "$@"

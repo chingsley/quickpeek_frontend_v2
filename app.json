@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.chingsley.quickpeek-frontend-v2",
       "infoPlist": {
         "MetroPackagerHost": "localhost",
+        "MetroUseLanPackager": false,
         "NSBonjourServices": [
           "_react-native._tcp"
         ],

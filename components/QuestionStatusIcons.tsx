@@ -53,7 +53,7 @@ export const STATUS_ICON_VISUALS: Record<StatusIconKey, IconVisual> = {
   request_pending: {
     family: 'Ionicons',
     name: 'time-outline',
-    color: STATUS_ICON_NEUTRAL_COLOR,
+    color: colors.AMBER,
     bg: colors.TRANSPARENT,
   },
   request_approved: {

@@ -32,9 +32,9 @@ fi
 echo "[device] Metro is not running. Starting LAN dev server at ${LOCAL_IP}:8081 ..."
 cd "${PROJECT_ROOT}"
 
-nohup env REACT_NATIVE_PACKAGER_HOSTNAME="${LOCAL_IP}" \
-  EXPO_PUBLIC_API_URL="http://${LOCAL_IP}:8081" \
-  npx expo start --lan >"${METRO_LOG}" 2>&1 &
+export_lan_metro_env
+
+nohup npx expo start --lan >"${METRO_LOG}" 2>&1 &
 
 if ! wait_for_metro; then
   echo "[device] Metro failed to start. Recent logs:"

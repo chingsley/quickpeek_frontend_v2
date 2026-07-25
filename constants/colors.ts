@@ -37,6 +37,7 @@ export const colors = {
   // Semantic
   RED: '#FF0000',
   SUCCESS_GREEN: '#1DB954',
+  AMBER: '#F59E0B',
   LINK: '#007AFF',
 
   // Tinted backgrounds

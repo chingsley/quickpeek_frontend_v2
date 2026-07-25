@@ -2,7 +2,7 @@ import { Platform, TextStyle, ViewStyle } from 'react-native';
 import { colors } from './colors';
 import { fonts } from './fonts';
 import { BORDER_RADIUS_PILL } from './layout';
-import { STATUS_ICON_NEUTRAL_COLOR, STATUS_ICON_QUESTION_ITEM_SIZE } from './statusIcons';
+import { STATUS_ICON_QUESTION_ITEM_SIZE } from './statusIcons';
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
 const tabletTextFix: TextStyle =
@@ -21,8 +21,8 @@ const tabletTextFix: TextStyle =
 export const FILTER_TABLET_ICON_SIZE = STATUS_ICON_QUESTION_ITEM_SIZE;
 
 export const filterTabletColors = {
-  icon: STATUS_ICON_NEUTRAL_COLOR,
-  iconActive: colors.BG_BLACK,
+  icon: colors.PRIMARY,
+  iconActive: colors.PRIMARY,
 } as const;
 
 export const filterTabletStyles = {
@@ -33,7 +33,7 @@ export const filterTabletStyles = {
     gap: 6,
     minHeight: 36,
     paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: BORDER_RADIUS_PILL,
     borderWidth: 1,
     borderColor: colors.CARD_BORDER,
@@ -42,19 +42,20 @@ export const filterTabletStyles = {
 
   containerActive: {
     backgroundColor: colors.SECONDARY,
+    // borderColor: colors.PRIMARY,
   } satisfies ViewStyle,
 
   text: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
+    fontFamily: fonts.FONT_FAMILY_MEDIUM,
+    fontSize: fonts.FONT_SIZE_TABLET,
+    color: colors.PRIMARY,
     ...tabletTextFix,
   } satisfies TextStyle,
 
-  /** Matches card body text size (`cardDetail` on Home). */
   textActive: {
-    // fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.BG_BLACK,
+    fontFamily: fonts.FONT_FAMILY_MEDIUM,
+    fontSize: fonts.FONT_SIZE_TABLET,
+    color: colors.PRIMARY,
     ...tabletTextFix,
   } satisfies TextStyle,
 };

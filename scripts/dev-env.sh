@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sets LAN IP env vars so physical devices can reach Metro + API.
+# Shared dev helpers. LAN Metro env is applied only when explicitly requested
+# (see start-metro.sh / ensure-metro.sh). Tunnel mode must NOT set packager hostname.
 
 get_local_ip() {
   local iface ip
@@ -14,5 +15,13 @@ get_local_ip() {
 }
 
 LOCAL_IP="$(get_local_ip)"
-export REACT_NATIVE_PACKAGER_HOSTNAME="${LOCAL_IP}"
-export EXPO_PUBLIC_API_URL="http://${LOCAL_IP}:8081"
+
+export_lan_metro_env() {
+  export REACT_NATIVE_PACKAGER_HOSTNAME="${LOCAL_IP}"
+  export EXPO_PUBLIC_API_URL="http://${LOCAL_IP}:8081"
+}
+
+unset_lan_metro_env() {
+  unset REACT_NATIVE_PACKAGER_HOSTNAME
+  unset EXPO_PUBLIC_API_URL
+}

@@ -66,7 +66,12 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     let bundleRoot = ".expo/.virtual-metro-entry"
 
 #if !targetEnvironment(simulator)
-    if let host = Bundle.main.object(forInfoDictionaryKey: "MetroPackagerHost") as? String,
+    // LAN device builds embed MetroPackagerHost via set-metro-packager-host.sh.
+    // Tunnel mode leaves MetroUseLanPackager false so Expo can supply the tunnel URL
+    // and Fast Refresh WebSocket stays on the same connection.
+    let useLanPackager = Bundle.main.object(forInfoDictionaryKey: "MetroUseLanPackager") as? Bool ?? false
+    if useLanPackager,
+       let host = Bundle.main.object(forInfoDictionaryKey: "MetroPackagerHost") as? String,
        !host.isEmpty,
        host != "localhost" {
       settings.jsLocation = "\(host):8081"

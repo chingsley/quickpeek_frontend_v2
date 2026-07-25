@@ -1,4 +1,3 @@
-import CustomButton from '@/components/shared/CustomButton';
 import Searchbar from '@/components/Searchbar';
 import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
@@ -7,6 +6,7 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
 import {
+  STATUS_ICON_NEUTRAL_COLOR,
   STATUS_ICON_QUESTION_ITEM_SIZE,
 } from '@/constants/statusIcons';
 import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
@@ -352,12 +352,6 @@ const HomeScreen = () => {
     return (
       <View style={styles.emptyState}>
         <Text style={styles.emptyText}>No open questions yet.</Text>
-        <CustomButton
-          text="Ask a question"
-          onPress={() => router.push('/ask')}
-          style={styles.emptyAskBtn}
-          noTopMargin
-        />
       </View>
     );
   };
@@ -437,7 +431,13 @@ const HomeScreen = () => {
                           <StatusIconGlyph
                             visual={visual}
                             size={FILTER_TABLET_ICON_SIZE}
-                            color={active ? filterTabletColors.iconActive : filterTabletColors.icon}
+                            color={
+                              visual.color !== STATUS_ICON_NEUTRAL_COLOR
+                                ? visual.color
+                                : active
+                                  ? filterTabletColors.iconActive
+                                  : filterTabletColors.icon
+                            }
                           />
                           <Text style={[filterTabletStyles.text, active && filterTabletStyles.textActive]}>
                             {def.label}
@@ -697,7 +697,6 @@ const styles = StyleSheet.create({
   postedAt: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 },
-  emptyAskBtn: { marginTop: 16, alignSelf: 'center' },
   emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY },
   floatingAskBtn: {
     position: 'absolute',
