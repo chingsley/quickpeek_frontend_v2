@@ -4,8 +4,7 @@ import { TRoleRating } from './user.types';
 
 export enum QuestionStatus {
   Open = 'OPEN',
-  Answered = 'ANSWERED',
-  Cancelled = 'CANCELLED',
+  Closed = 'CLOSED',
 }
 
 export type TQuestionerRating = {
@@ -28,6 +27,8 @@ export type TQuestion = {
   status: QuestionStatus;
   createdAt: string;
   answeredAt: string | null;
+  closedAt: string | null;
+  closeReason: string | null;
   category?: TCategory;
   distanceKm?: number | null;
   nearMe?: boolean;
@@ -90,9 +91,18 @@ export type TIncomingRequest = {
   };
 };
 
+export type TQuestionFeedAttention = {
+  hasAttention: boolean;
+  unreadMessageCount: number;
+  pendingIncomingCount: number;
+  acceptedChatCount: number;
+  primaryChatRequestId: string | null;
+};
+
 export type TFeedQuestion = TQuestion & {
   viewerRequest?: TViewerRequest | null;
   incomingRequest?: TIncomingRequest | null;
+  feedAttention?: TQuestionFeedAttention | null;
   questioner?: {
     id: string;
     name: string;

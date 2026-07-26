@@ -2,7 +2,7 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_PILL } from '@/constants/layout';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React from 'react';
+import React, { forwardRef } from 'react';
 import {
   Pressable,
   StyleProp,
@@ -23,18 +23,22 @@ interface Props {
   autoCorrect?: boolean;
 }
 
-const Searchbar = ({
-  placeholder,
-  inputValue,
-  setValue,
-  style,
-  returnKeyType = 'search',
-  autoCorrect = false,
-}: Props) => {
+const Searchbar = forwardRef<TextInput, Props>(function Searchbar(
+  {
+    placeholder,
+    inputValue,
+    setValue,
+    style,
+    returnKeyType = 'search',
+    autoCorrect = false,
+  },
+  ref,
+) {
   return (
     <View style={[styles.container, style]}>
       <Ionicons name="search-outline" size={20} color={colors.PRIMARY} style={styles.searchIcon} />
       <TextInput
+        ref={ref}
         placeholder={placeholder}
         placeholderTextColor={colors.PLACEHOLDER}
         value={inputValue}
@@ -54,7 +58,7 @@ const Searchbar = ({
       )}
     </View>
   );
-};
+});
 
 export default Searchbar;
 

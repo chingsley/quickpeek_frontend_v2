@@ -73,13 +73,13 @@ const ChatsScreen = () => {
       socket.on('request:new', refresh);
       socket.on('request:accepted', refresh);
       socket.on('request:rejected', refresh);
-      socket.on('question:answered', refresh);
+      socket.on('question:closed', refresh);
       return () => {
         socket.off('message:new', refresh);
         socket.off('request:new', refresh);
         socket.off('request:accepted', refresh);
         socket.off('request:rejected', refresh);
-        socket.off('question:answered', refresh);
+        socket.off('question:closed', refresh);
       };
     }, [load]),
   );

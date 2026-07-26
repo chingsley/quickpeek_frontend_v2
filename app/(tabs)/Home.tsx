@@ -18,12 +18,17 @@ import { useDrawerStore } from '@/store/drawer.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
+import { drawBorder } from '@/utils';
 import {
   STATUS_TAG_DEFS,
   getMainStatusIcons,
   questionMatchesTag,
   StatusTagKey,
 } from '@/utils/questionStatus';
+import {
+  questionHasFeedAttention,
+  resolveQuestionCardPress,
+} from '@/utils/questionFeedAttention';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Location from 'expo-location';
@@ -37,18 +42,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { KeyboardAvoidingView, KeyboardController } from 'react-native-keyboard-controller';
-import Animated from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedScrollHandler, useComposedEventHandler } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = () => {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
   const feedListRef = useRef<Animated.FlatList<TFeedQuestion>>(null);
+  const searchInputRef = useRef<TextInput>(null);
   const searchRequestIdRef = useRef(0);
   const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome } =
     useHomeScrollChrome();
@@ -76,6 +83,20 @@ const HomeScreen = () => {
   // True when the near-me filter is engaged. Derived from activeTags so the
   // existing `toggleNearMe` flow stays single-source.
   const nearMe = activeTags.has('near_me');
+
+  const dismissSearchFocus = useCallback(() => {
+    if (!isSearchActive || searching) return;
+    searchInputRef.current?.blur();
+    KeyboardController.dismiss();
+  }, [isSearchActive, searching]);
+
+  const searchDismissScrollHandler = useAnimatedScrollHandler({
+    onBeginDrag: () => {
+      runOnJS(dismissSearchFocus)();
+    },
+  });
+
+  const feedScrollHandler = useComposedEventHandler([scrollHandler, searchDismissScrollHandler]);
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -167,13 +188,13 @@ const HomeScreen = () => {
     socket.on('request:new', refreshAll);
     socket.on('request:accepted', refreshAll);
     socket.on('request:rejected', refreshAll);
-    socket.on('question:answered', refreshAll);
+    socket.on('question:closed', refreshAll);
     return () => {
       socket.off('message:new', refreshAll);
       socket.off('request:new', refreshAll);
       socket.off('request:accepted', refreshAll);
       socket.off('request:rejected', refreshAll);
-      socket.off('question:answered', refreshAll);
+      socket.off('question:closed', refreshAll);
     };
   }, [isLoggedIn, refreshAll]);
 
@@ -223,7 +244,8 @@ const HomeScreen = () => {
   );
 
   const handleQuestionPress = (item: TFeedQuestion) => {
-    router.push({ pathname: '/question-detail', params: { questionId: item.id } });
+    const route = resolveQuestionCardPress(item, authUserId);
+    router.push(route);
   };
 
   const displayedItems = useMemo(() => {
@@ -279,7 +301,7 @@ const HomeScreen = () => {
         : null;
 
   const renderQuestion = ({ item }: { item: TFeedQuestion; }) => {
-    const unread = item.incomingRequest?.unreadCount ?? item.viewerRequest?.unreadCount ?? 0;
+    const showAttentionDot = questionHasFeedAttention(item);
     const postedAt = formatRelativeTime(item.createdAt);
     const authorLabel = item.questioner
       ? item.questioner.id === authUserId
@@ -306,7 +328,7 @@ const HomeScreen = () => {
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
           <View style={styles.headerRight}>
-            {unread > 0 && <View style={styles.unreadDot} />}
+            {showAttentionDot && <View style={styles.unreadDot} />}
             <Text style={styles.price}>${item.price.toFixed(2)}</Text>
           </View>
         </View>
@@ -402,6 +424,7 @@ const HomeScreen = () => {
                 </View>
 
                 <Searchbar
+                  ref={searchInputRef}
                   placeholder="Search questions"
                   inputValue={search}
                   setValue={setSearch}
@@ -448,7 +471,19 @@ const HomeScreen = () => {
                   </ScrollView>
                 </View>
 
+                {isSearchActive && searching ? (
+                  <View style={styles.searchLoadingRow}>
+                    <ActivityIndicator size="small" color={colors.PRIMARY} />
+                    <Text style={styles.searchLoadingText}>Searching…</Text>
+                  </View>
+                ) : null}
+
                 <View style={styles.filterWrap}>
+                  {isSearchActive && !searching && searchResults.length > 0 ? (
+                    <Text style={styles.resultCountText}>
+                      {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                    </Text>
+                  ) : null}
                   <Pressable
                     onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
                     style={styles.viewModeBtn}
@@ -461,18 +496,6 @@ const HomeScreen = () => {
                     />
                   </Pressable>
                 </View>
-
-                {isSearchActive && searching ? (
-                  <View style={styles.searchLoadingRow}>
-                    <ActivityIndicator size="small" color={colors.PRIMARY} />
-                    <Text style={styles.searchLoadingText}>Searching…</Text>
-                  </View>
-                ) : null}
-                {isSearchActive && !searching && searchResults.length > 0 ? (
-                  <Text style={styles.resultCountText}>
-                    {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
-                  </Text>
-                ) : null}
               </Animated.View>
             </View>
 
@@ -495,11 +518,11 @@ const HomeScreen = () => {
                 styles.listContent,
                 listGrows && styles.listContentGrow,
               ]}
-              keyboardDismissMode="interactive"
+              keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={renderListEmpty}
               ListFooterComponent={HomeListBottomSpacer}
-              onScroll={scrollHandler}
+              onScroll={feedScrollHandler}
               scrollEventThrottle={16}
             />
           </KeyboardAvoidingView>
@@ -554,8 +577,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingVertical: 8,
+    // ...drawBorder('red', true),
+    marginBottom: 12,
   },
   headerSide: {
     width: 72,
@@ -575,8 +599,9 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingVertical: 8,
+    // ...drawBorder('red', true),
+    marginBottom: 12,
   },
   searchBarPlacement: {
     marginHorizontal: 16,
@@ -594,10 +619,10 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
   },
   resultCountText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
+    flex: 1,
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
-    paddingVertical: 6,
   },
   menuBtn: { paddingTop: 4, paddingBottom: 4, paddingRight: 4 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
@@ -627,11 +652,9 @@ const styles = StyleSheet.create({
   },
   filterWrap: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 12,
-    alignItems: 'center',
   },
   tagsWrap: {
     marginBottom: 10,

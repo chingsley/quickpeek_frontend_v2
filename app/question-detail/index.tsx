@@ -17,7 +17,14 @@ import {
   getRejectionReasons,
   rejectRequest,
 } from '@/services/requests.services';
-import { cancelQuestion, getQuestionDetail, getRejectedResponders, markQuestionAnswered, unblockResponder } from '@/services/questions.services';
+import { markMessagesRead } from '@/services/messages.services';
+import {
+  closeQuestion,
+  getCloseReasons,
+  getQuestionDetail,
+  getRejectedResponders,
+  unblockResponder,
+} from '@/services/questions.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
@@ -26,7 +33,7 @@ import { formatDate } from '@/utils/date';
 import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -42,8 +49,7 @@ const CAN_REQUEST_LABELS: Record<string, string> = {
   OUTSIDE_RADIUS: 'You are outside the answer radius for this question.',
   ALREADY_REQUESTED: 'You already sent a request for this question.',
   BLOCKED: 'The questioner declined your request. You cannot request again unless they allow it.',
-  ANSWERED: 'This question has been answered.',
-  CANCELLED: 'This question was cancelled.',
+  CLOSED: 'This question has been closed.',
   OWN_QUESTION: 'You cannot request to answer your own question.',
   NO_VIEWER_LOCATION: 'Enable location to request location-based questions.',
 };
@@ -168,8 +174,9 @@ const ResponderIdentity = ({
 
 const QuestionDetail = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ questionId: string; }>();
+  const params = useLocalSearchParams<{ questionId: string; section?: string; }>();
   const questionId = params.questionId as string;
+  const focusSection = params.section;
   const authUserId = useAuthStore((state) => state.user?.id);
 
   const [loading, setLoading] = useState(true);
@@ -182,8 +189,15 @@ const QuestionDetail = () => {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [presetReasons, setPresetReasons] = useState<string[]>([]);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [rejectPresetReasons, setRejectPresetReasons] = useState<string[]>([]);
+  const [selectedRejectPreset, setSelectedRejectPreset] = useState<string | null>(null);
+
+  // Close question modal
+  const [closeModalVisible, setCloseModalVisible] = useState(false);
+  const [closeReason, setCloseReason] = useState('');
+  const [closePresetReasons, setClosePresetReasons] = useState<string[]>([]);
+  const [selectedClosePreset, setSelectedClosePreset] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
 
   // Profile modal
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
@@ -218,7 +232,8 @@ const QuestionDetail = () => {
   }, [load]);
 
   useEffect(() => {
-    getRejectionReasons().then(setPresetReasons).catch(() => setPresetReasons([]));
+    getRejectionReasons().then(setRejectPresetReasons).catch(() => setRejectPresetReasons([]));
+    getCloseReasons().then(setClosePresetReasons).catch(() => setClosePresetReasons([]));
   }, []);
 
   // Live updates: new/changed request → reload list
@@ -234,15 +249,13 @@ const QuestionDetail = () => {
     socket.on('request:new', handler);
     socket.on('request:accepted', handler);
     socket.on('request:rejected', handler);
-    socket.on('question:answered', handler);
-    socket.on('question:cancelled', handler);
+    socket.on('question:closed', handler);
     socket.on('message:new', messageHandler);
     return () => {
       socket.off('request:new', handler);
       socket.off('request:accepted', handler);
       socket.off('request:rejected', handler);
-      socket.off('question:answered', handler);
-      socket.off('question:cancelled', handler);
+      socket.off('question:closed', handler);
       socket.off('message:new', messageHandler);
     };
   }, [load, questionId]);
@@ -302,13 +315,13 @@ const QuestionDetail = () => {
   const openRejectModal = (requestId: string) => {
     setRejectTargetId(requestId);
     setRejectionReason('');
-    setSelectedPreset(null);
+    setSelectedRejectPreset(null);
     setRejectModalVisible(true);
   };
 
   const handleReject = async () => {
     if (!rejectTargetId) return;
-    const reason = (selectedPreset || rejectionReason).trim();
+    const reason = (selectedRejectPreset || rejectionReason).trim();
     if (!reason) return;
     try {
       await rejectRequest(rejectTargetId, reason);
@@ -319,41 +332,26 @@ const QuestionDetail = () => {
     }
   };
 
-  const handleMarkAnswered = async () => {
-    if (!question) return;
-    Alert.alert('Mark answered?', 'This will close all pending requests.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: async () => {
-          try {
-            await markQuestionAnswered(question.id);
-            load();
-          } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.error || 'Could not mark answered.');
-          }
-        },
-      },
-    ]);
+  const openCloseModal = () => {
+    setCloseReason('');
+    setSelectedClosePreset(null);
+    setCloseModalVisible(true);
   };
 
-  const handleCancel = async () => {
+  const handleCloseQuestion = async () => {
     if (!question) return;
-    Alert.alert('Cancel question?', 'This cannot be undone.', [
-      { text: 'Keep', style: 'cancel' },
-      {
-        text: 'Cancel question',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await cancelQuestion(question.id);
-            router.back();
-          } catch (error: any) {
-            Alert.alert('Error', error?.response?.data?.error || 'Could not cancel.');
-          }
-        },
-      },
-    ]);
+    const reason = (selectedClosePreset || closeReason).trim();
+    if (!reason) return;
+    setClosing(true);
+    try {
+      await closeQuestion(question.id, reason);
+      setCloseModalVisible(false);
+      router.back();
+    } catch (error: any) {
+      Alert.alert('Error', error?.response?.data?.error || 'Could not close question.');
+    } finally {
+      setClosing(false);
+    }
   };
 
   const openProfile = (userId: string, requestId?: string) => {
@@ -419,6 +417,15 @@ const QuestionDetail = () => {
 
   const pendingRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Pending);
   const acceptedRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Accepted);
+  const acceptedRequestIds = useMemo(
+    () => acceptedRequests.map((req) => req.id),
+    [acceptedRequests],
+  );
+
+  useEffect(() => {
+    if (focusSection !== 'active-chats' || !isOwner || acceptedRequestIds.length === 0) return;
+    Promise.all(acceptedRequestIds.map((id) => markMessagesRead(id))).catch(() => undefined);
+  }, [acceptedRequestIds, focusSection, isOwner]);
 
   // Status icons for the detail view. Outgoing questions pass the live pending
   // count so the pending icon stays fresh as the owner approves/declines.
@@ -515,6 +522,7 @@ const QuestionDetail = () => {
               itemLabel="request"
               description="These people want to answer your question. Review their profile before you approve or decline."
               note="If you approve more than one person, you may need to pay each responder whose answer meets your acceptance criteria."
+              defaultExpanded={focusSection !== 'active-chats'}
             >
               {pendingRequests.length === 0 ? (
                 <Text style={styles.sectionEmptyText}>No one has requested to answer yet.</Text>
@@ -548,6 +556,7 @@ const QuestionDetail = () => {
               count={acceptedRequests.length}
               itemLabel="chat"
               description="Responders you've approved. Open a chat to continue the conversation."
+              defaultExpanded={focusSection !== 'answer-requests'}
             >
               {acceptedRequests.length === 0 ? (
                 <Text style={styles.sectionEmptyText}>No active chats yet. Approve a request to start one.</Text>
@@ -609,8 +618,7 @@ const QuestionDetail = () => {
             </RequestSection>
 
             <View style={styles.actionArea}>
-              <CustomButton text="Mark as answered" onPress={handleMarkAnswered} />
-              <CustomButton text="Cancel question" onPress={handleCancel} style={{ marginTop: 12 }} />
+              <CustomButton text="Close question" onPress={openCloseModal} />
             </View>
           </>
         )}
@@ -625,16 +633,16 @@ const QuestionDetail = () => {
         <Text style={styles.modalTitle}>Reject request</Text>
         <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
 
-        {presetReasons.length > 0 && (
+        {rejectPresetReasons.length > 0 && (
           <View style={styles.presetWrap}>
-            {presetReasons.map((reason) => {
-              const active = selectedPreset === reason;
+            {rejectPresetReasons.map((reason) => {
+              const active = selectedRejectPreset === reason;
               return (
                 <Pressable
                   key={reason}
                   style={[chipStyles.presetContainer, active && chipStyles.presetContainerActive]}
                   onPress={() => {
-                    setSelectedPreset(reason);
+                    setSelectedRejectPreset(reason);
                     setRejectionReason('');
                   }}
                 >
@@ -653,14 +661,65 @@ const QuestionDetail = () => {
           value={rejectionReason}
           onChangeText={(text) => {
             setRejectionReason(text);
-            setSelectedPreset(null);
+            setSelectedRejectPreset(null);
           }}
           multiline
         />
         <CustomButton
           text="Reject"
           onPress={handleReject}
-          disabled={!(selectedPreset || rejectionReason.trim())}
+          disabled={!(selectedRejectPreset || rejectionReason.trim())}
+        />
+      </BottomSheet>
+
+      <BottomSheet
+        visible={closeModalVisible}
+        onClose={() => setCloseModalVisible(false)}
+        sheetStyle={styles.modalSheet}
+      >
+        <Text style={styles.modalTitle}>Close question</Text>
+        <Text style={styles.modalSubtitle}>
+          This cannot be undone. Pending answer requests will be declined. Choose why you are closing
+          this question.
+        </Text>
+
+        {closePresetReasons.length > 0 && (
+          <View style={styles.presetWrap}>
+            {closePresetReasons.map((reason) => {
+              const active = selectedClosePreset === reason;
+              return (
+                <Pressable
+                  key={reason}
+                  style={[chipStyles.presetContainer, active && chipStyles.presetContainerActive]}
+                  onPress={() => {
+                    setSelectedClosePreset(reason);
+                    setCloseReason('');
+                  }}
+                >
+                  <Text style={[chipStyles.presetText, active && chipStyles.presetTextActive]}>
+                    {reason}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        <TextInput
+          style={styles.modalInput}
+          placeholder="Or write a custom reason…"
+          value={closeReason}
+          onChangeText={(text) => {
+            setCloseReason(text);
+            setSelectedClosePreset(null);
+          }}
+          multiline
+        />
+        <CustomButton
+          text={closing ? 'Closing…' : 'Close question'}
+          onPress={handleCloseQuestion}
+          disabled={closing || !(selectedClosePreset || closeReason.trim())}
+          loading={closing}
         />
       </BottomSheet>
 

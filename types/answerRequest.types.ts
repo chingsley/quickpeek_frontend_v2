@@ -69,8 +69,7 @@ export type CanRequestReason =
   | 'OUTSIDE_RADIUS'
   | 'ALREADY_REQUESTED'
   | 'BLOCKED'
-  | 'ANSWERED'
-  | 'CANCELLED'
+  | 'CLOSED'
   | 'OWN_QUESTION'
   | 'NO_VIEWER_LOCATION';
 

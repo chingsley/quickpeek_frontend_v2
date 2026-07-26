@@ -109,13 +109,8 @@ const Questions = () => {
         fetchData();
       });
 
-      socket.on('question:answered', (payload: { questionId: string; }) => {
-        updateMyQuestion(payload.questionId, { status: QuestionStatus.Answered });
-        fetchData();
-      });
-
-      socket.on('question:cancelled', (payload: { questionId: string; }) => {
-        updateMyQuestion(payload.questionId, { status: QuestionStatus.Cancelled });
+      socket.on('question:closed', (payload: { questionId: string; }) => {
+        updateMyQuestion(payload.questionId, { status: QuestionStatus.Closed });
         fetchData();
       });
     };
@@ -138,8 +133,7 @@ const Questions = () => {
         socket.off('request:new');
         socket.off('request:accepted');
         socket.off('request:rejected');
-        socket.off('question:answered');
-        socket.off('question:cancelled');
+        socket.off('question:closed');
       }
     };
   }, [fetchData, myQuestions, prependIncomingRequest, updateIncomingRequest, updateMyQuestion, updateOutgoingRequest]);

@@ -83,7 +83,7 @@ const AskScreen = () => {
       };
       const question = await createQuestion(payload);
       prependMyQuestion(question);
-      Alert.alert('Published', 'Your question is now live on the marketplace.', [
+      Alert.alert('Published', 'Your question is now live.', [
         { text: 'OK', onPress: () => router.replace('/(tabs)/Questions') },
       ]);
     } catch (error: any) {
@@ -98,7 +98,7 @@ const AskScreen = () => {
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
         <BackButton color={colors.PRIMARY} />
         <Text style={styles.pageTitle}>Ask a question</Text>
-        <Text style={styles.subtitle}>Publish to the marketplace for responders to answer.</Text>
+        <Text style={styles.subtitle}>Post a question to responders.</Text>
 
         <Text style={styles.label}>Title</Text>
         <TextInput

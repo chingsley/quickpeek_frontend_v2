@@ -68,13 +68,13 @@ export const getQuestionDetail = async (questionId: string): Promise<TQuestion> 
   return response.data.data as TQuestion;
 };
 
-export const markQuestionAnswered = async (questionId: string) => {
-  const response = await Axios.post(`/questions/${questionId}/answered`);
-  return response.data.data;
+export const getCloseReasons = async (): Promise<string[]> => {
+  const response = await Axios.get('/questions/close-reasons');
+  return response.data.data.items as string[];
 };
 
-export const cancelQuestion = async (questionId: string) => {
-  const response = await Axios.delete(`/questions/${questionId}`);
+export const closeQuestion = async (questionId: string, reason: string) => {
+  const response = await Axios.post(`/questions/${questionId}/close`, { reason });
   return response.data.data;
 };
 
@@ -84,8 +84,8 @@ export default {
   searchQuestions,
   getMyQuestions,
   getQuestionDetail,
-  markQuestionAnswered,
-  cancelQuestion,
+  closeQuestion,
+  getCloseReasons,
   getRejectedResponders,
   unblockResponder,
 };
