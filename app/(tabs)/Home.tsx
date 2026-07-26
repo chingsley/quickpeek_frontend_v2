@@ -29,6 +29,7 @@ import {
   questionHasFeedAttention,
   resolveQuestionCardPress,
 } from '@/utils/questionFeedAttention';
+import { sortFeedByDefaultPriority } from '@/utils/questionFeedSort';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Location from 'expo-location';
@@ -57,6 +58,10 @@ const HomeScreen = () => {
   const feedListRef = useRef<Animated.FlatList<TFeedQuestion>>(null);
   const searchInputRef = useRef<TextInput>(null);
   const searchRequestIdRef = useRef(0);
+  const feedScrollOffsetRef = useRef(0);
+  const shouldRestoreFeedScrollRef = useRef(false);
+  const lastPressedQuestionIdRef = useRef<string | null>(null);
+  const hasLoadedFeedRef = useRef(false);
   const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome } =
     useHomeScrollChrome();
   const { fabContainerStyle, fabTextStyle } = useHomeFloatingAskStyle(tabBarHeight);
@@ -96,7 +101,21 @@ const HomeScreen = () => {
     },
   });
 
-  const feedScrollHandler = useComposedEventHandler([scrollHandler, searchDismissScrollHandler]);
+  const persistFeedScrollOffset = useCallback((offset: number) => {
+    feedScrollOffsetRef.current = offset;
+  }, []);
+
+  const trackFeedScrollOffsetHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      runOnJS(persistFeedScrollOffset)(event.contentOffset.y);
+    },
+  });
+
+  const feedScrollHandler = useComposedEventHandler([
+    scrollHandler,
+    searchDismissScrollHandler,
+    trackFeedScrollOffsetHandler,
+  ]);
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -107,40 +126,41 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (options?: { silent?: boolean }) => {
     if (!isLoggedIn) return;
 
-    setLoading(true);
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+    }
+
     try {
       const feedParams: Parameters<typeof getQuestionFeed>[0] = {};
+      if (coords) {
+        feedParams.lat = coords.lat;
+        feedParams.lng = coords.lng;
+      }
       if (nearMe) {
         feedParams.nearMe = true;
-        if (coords) {
-          feedParams.lat = coords.lat;
-          feedParams.lng = coords.lng;
-        }
       }
       const data = await getQuestionFeed(feedParams);
       setFeedItems(data.items);
       setFeedCounts(data.counts);
+      hasLoadedFeedRef.current = true;
     } catch (error) {
       console.error('Failed to load feed:', error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [coords, isLoggedIn, nearMe]);
 
-  const refreshAll = useCallback(() => {
+  const refreshAll = useCallback(async () => {
     if (!isLoggedIn) return;
-    loadUnreadCount();
-    loadFeed();
+    void loadUnreadCount();
+    await loadFeed({ silent: hasLoadedFeedRef.current });
   }, [isLoggedIn, loadFeed, loadUnreadCount]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refreshAll();
-    }, [refreshAll]),
-  );
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -244,6 +264,8 @@ const HomeScreen = () => {
   );
 
   const handleQuestionPress = (item: TFeedQuestion) => {
+    shouldRestoreFeedScrollRef.current = true;
+    lastPressedQuestionIdRef.current = item.id;
     const route = resolveQuestionCardPress(item, authUserId);
     router.push(route);
   };
@@ -270,8 +292,59 @@ const HomeScreen = () => {
       });
     }
 
+    const isDefaultFeedView =
+      selectedCategoryKey === ALL_QUESTIONS_CATEGORY_KEY && activeTags.size === 0;
+    if (isDefaultFeedView) {
+      items = sortFeedByDefaultPriority(items, authUserId);
+    }
+
     return items;
   }, [activeTags, authUserId, feedItems, selectedCategoryKey]);
+
+  const restoreFeedScrollPosition = useCallback(() => {
+    const listRef = feedListRef.current;
+    if (!listRef) return;
+
+    const questionId = lastPressedQuestionIdRef.current;
+    const data = isSearchActive ? searchResults : displayedItems;
+    const index = questionId ? data.findIndex((item) => item.id === questionId) : -1;
+
+    if (index >= 0) {
+      listRef.scrollToIndex({ index, animated: false, viewPosition: 0.25 });
+      return;
+    }
+
+    if (feedScrollOffsetRef.current > 0) {
+      listRef.scrollToOffset({ offset: feedScrollOffsetRef.current, animated: false });
+    }
+  }, [displayedItems, isSearchActive, searchResults]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const run = async () => {
+        const shouldRestore = shouldRestoreFeedScrollRef.current;
+        await refreshAll();
+        if (cancelled || !shouldRestore) return;
+
+        shouldRestoreFeedScrollRef.current = false;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!cancelled) {
+              restoreFeedScrollPosition();
+            }
+          });
+        });
+      };
+
+      void run();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [refreshAll, restoreFeedScrollPosition]),
+  );
 
   useEffect(() => {
     setMenuCategories(
@@ -285,6 +358,7 @@ const HomeScreen = () => {
 
   useEffect(() => {
     resetChrome();
+    shouldRestoreFeedScrollRef.current = false;
     feedListRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, [resetChrome, selectedCategoryKey]);
 
@@ -350,7 +424,7 @@ const HomeScreen = () => {
   };
 
   const listData = isSearchActive ? searchResults : displayedItems;
-  const showFeedLoading = !isSearchActive && loading;
+  const showFeedLoading = !isSearchActive && loading && feedItems.length === 0;
   const listGrows = showFeedLoading || listData.length === 0;
 
   const renderListEmpty = () => {
@@ -524,6 +598,12 @@ const HomeScreen = () => {
               ListFooterComponent={HomeListBottomSpacer}
               onScroll={feedScrollHandler}
               scrollEventThrottle={16}
+              onScrollToIndexFailed={(info) => {
+                feedListRef.current?.scrollToOffset({
+                  offset: Math.max(0, info.averageItemLength * info.index),
+                  animated: false,
+                });
+              }}
             />
           </KeyboardAvoidingView>
         </View>

@@ -10,6 +10,7 @@ export const questionHasFeedAttention = (item: TFeedQuestion): boolean =>
 
 /**
  * Home card tap routing for questioners and responders.
+ * Chat opens only when there are unread messages; otherwise question detail.
  */
 export const resolveQuestionCardPress = (
   item: TFeedQuestion,
@@ -23,38 +24,27 @@ export const resolveQuestionCardPress = (
 
   const isOwner = item.userId === viewerId;
   const attention = item.feedAttention;
+  const unreadMessageCount = attention?.unreadMessageCount ?? 0;
 
-  if (!isOwner) {
-    const requestId = item.viewerRequest?.id ?? attention?.primaryChatRequestId;
-    if (requestId) {
-      return { pathname: '/chat', params: { requestId } };
-    }
-    return { pathname: '/question-detail', params: { questionId } };
-  }
-
-  if (!attention) {
-    return { pathname: '/question-detail', params: { questionId } };
-  }
-
-  if (attention.pendingIncomingCount > 0) {
+  if (isOwner && attention && attention.pendingIncomingCount > 0) {
     return {
       pathname: '/question-detail',
       params: { questionId, section: 'answer-requests' },
     };
   }
 
-  if (attention.acceptedChatCount > 1 && attention.unreadMessageCount > 0) {
+  if (isOwner && attention && attention.acceptedChatCount > 1 && unreadMessageCount > 0) {
     return {
       pathname: '/question-detail',
       params: { questionId, section: 'active-chats' },
     };
   }
 
-  if (attention.acceptedChatCount === 1 && attention.primaryChatRequestId) {
-    return {
-      pathname: '/chat',
-      params: { requestId: attention.primaryChatRequestId },
-    };
+  if (unreadMessageCount > 0) {
+    const requestId = item.viewerRequest?.id ?? attention?.primaryChatRequestId ?? null;
+    if (requestId) {
+      return { pathname: '/chat', params: { requestId } };
+    }
   }
 
   return { pathname: '/question-detail', params: { questionId } };

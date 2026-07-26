@@ -94,6 +94,7 @@ export type TIncomingRequest = {
 export type TQuestionFeedAttention = {
   hasAttention: boolean;
   unreadMessageCount: number;
+  earliestUnreadAt: string | null;
   pendingIncomingCount: number;
   acceptedChatCount: number;
   primaryChatRequestId: string | null;

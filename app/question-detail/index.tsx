@@ -262,6 +262,19 @@ const QuestionDetail = () => {
 
   const isOwner = question?.userId === authUserId;
 
+  const acceptedRequestIds = useMemo(
+    () =>
+      incomingRequests
+        .filter((r) => r.status === AnswerRequestStatus.Accepted)
+        .map((req) => req.id),
+    [incomingRequests],
+  );
+
+  useEffect(() => {
+    if (focusSection !== 'active-chats' || !isOwner || acceptedRequestIds.length === 0) return;
+    Promise.all(acceptedRequestIds.map((id) => markMessagesRead(id))).catch(() => undefined);
+  }, [acceptedRequestIds, focusSection, isOwner]);
+
   const handleRequestToAnswer = async () => {
     if (!question) return;
     setSubmitting(true);
@@ -417,15 +430,6 @@ const QuestionDetail = () => {
 
   const pendingRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Pending);
   const acceptedRequests = incomingRequests.filter((r) => r.status === AnswerRequestStatus.Accepted);
-  const acceptedRequestIds = useMemo(
-    () => acceptedRequests.map((req) => req.id),
-    [acceptedRequests],
-  );
-
-  useEffect(() => {
-    if (focusSection !== 'active-chats' || !isOwner || acceptedRequestIds.length === 0) return;
-    Promise.all(acceptedRequestIds.map((id) => markMessagesRead(id))).catch(() => undefined);
-  }, [acceptedRequestIds, focusSection, isOwner]);
 
   // Status icons for the detail view. Outgoing questions pass the live pending
   // count so the pending icon stays fresh as the owner approves/declines.
