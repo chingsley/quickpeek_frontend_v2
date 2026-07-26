@@ -7,8 +7,12 @@ type PaginatedRequests = {
   pagination: { page: number; limit: number; total: number; hasMore: boolean };
 };
 
-export const createRequest = async (questionId: string) => {
-  const response = await Axios.post(`/questions/${questionId}/requests`);
+export const createRequest = async (
+  questionId: string,
+  coords?: { lat: number; lng: number },
+) => {
+  const body = coords ? { lat: coords.lat, lng: coords.lng } : {};
+  const response = await Axios.post(`/questions/${questionId}/requests`, body);
   return response.data.data as { id: string; status: AnswerRequestStatus };
 };
 

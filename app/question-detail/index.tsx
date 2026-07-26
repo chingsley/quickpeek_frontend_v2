@@ -27,6 +27,7 @@ import {
 } from '@/services/questions.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
+import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
@@ -45,13 +46,40 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const CAN_REQUEST_LABELS: Record<string, string> = {
-  OUTSIDE_RADIUS: 'You are outside the answer radius for this question.',
-  ALREADY_REQUESTED: 'You already sent a request for this question.',
-  BLOCKED: 'The questioner declined your request. You cannot request again unless they allow it.',
-  CLOSED: 'This question has been closed.',
-  OWN_QUESTION: 'You cannot request to answer your own question.',
-  NO_VIEWER_LOCATION: 'Enable location to request location-based questions.',
+const buildLocationMessage = (question: {
+  address?: string | null;
+  restrictToNearby?: boolean;
+}): string | null => {
+  if (!question.restrictToNearby) return null;
+  const place = question.address?.trim() || 'the pinned location';
+  return `This question needs responders close to ${place}.`;
+};
+
+const getCanRequestMessage = (
+  question: NonNullable<Awaited<ReturnType<typeof getQuestionDetail>>>,
+): string => {
+  switch (question.canRequestReason) {
+    case 'OUTSIDE_RADIUS': {
+      const base = buildLocationMessage(question);
+      return base ?? 'You are outside the required radius for this question.';
+    }
+    case 'NO_VIEWER_LOCATION': {
+      const base = buildLocationMessage(question);
+      return base
+        ? `${base} Enable your location to check if you are close.`
+        : 'Enable your location to request location-based questions.';
+    }
+    case 'ALREADY_REQUESTED':
+      return 'You already sent a request for this question.';
+    case 'BLOCKED':
+      return 'The questioner declined your request. You cannot request again unless they allow it.';
+    case 'CLOSED':
+      return 'This question has been closed.';
+    case 'OWN_QUESTION':
+      return 'You cannot request to answer your own question.';
+    default:
+      return 'You cannot request this question.';
+  }
 };
 
 const getResponderStatusMessage = (
@@ -68,9 +96,9 @@ const getResponderStatusMessage = (
   }
   if (vr?.status === AnswerRequestStatus.Rejected || vr?.isBlocked || question.canRequestReason === 'BLOCKED') {
     const reason = vr?.rejectionReason;
-    return reason ? `Declined: ${reason}` : CAN_REQUEST_LABELS.BLOCKED;
+    return reason ? `Declined: ${reason}` : getCanRequestMessage(question);
   }
-  return CAN_REQUEST_LABELS[question.canRequestReason || ''] || 'You cannot request this question.';
+  return getCanRequestMessage(question);
 };
 
 type RequestSectionProps = {
@@ -210,7 +238,9 @@ const QuestionDetail = () => {
     if (!questionId) return;
     setLoading(true);
     try {
-      const detail = await getQuestionDetail(questionId);
+      // Pass live GPS so the backend can compute distance + canRequestReason.
+      const liveCoords = await useLiveLocationStore.getState().ensureCoords();
+      const detail = await getQuestionDetail(questionId, liveCoords ?? undefined);
       setQuestion(detail);
       if (detail.userId === authUserId) {
         const [incoming, rejected] = await Promise.all([
@@ -279,7 +309,11 @@ const QuestionDetail = () => {
     if (!question) return;
     setSubmitting(true);
     try {
-      const result = await createRequest(question.id);
+      const liveCoords = await useLiveLocationStore.getState().ensureCoords();
+      const result = await createRequest(
+        question.id,
+        liveCoords ?? undefined,
+      );
       Alert.alert('Request sent', 'The questioner will review your request.', [
         { text: 'Open chat', onPress: () => router.replace({ pathname: '/chat', params: { requestId: result.id } }) },
         { text: 'OK', onPress: () => load() },

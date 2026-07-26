@@ -1,5 +1,4 @@
 import { setAuthToken, setUnauthorizedHandler } from '@/config/axios.config';
-import { requestLocationPermissions, startLocationUpdates, stopLocationUpdates } from '@/services/location.services';
 import { useQuestionStore } from '@/store/question.store';
 import { useRequestStore } from '@/store/request.store';
 import { useUserStore } from '@/store/user.store';
@@ -10,7 +9,6 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 interface AuthState {
   isAuthenticated: boolean;
-  isLocationActive: boolean;
   user: TUser | null;
   token: string | null;
   hasHydrated: boolean;
@@ -26,7 +24,6 @@ const applySessionState = (
   set: (state: Partial<AuthState>) => void,
   token: string | null,
   user: TUser | null,
-  isLocationActive = false,
 ) => {
   const authenticated = hasValidSession(token, user);
   setAuthToken(authenticated ? token : null);
@@ -34,42 +31,26 @@ const applySessionState = (
     token: authenticated ? token : null,
     user: authenticated ? user : null,
     isAuthenticated: authenticated,
-    isLocationActive: authenticated ? isLocationActive : false,
   });
 };
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       isAuthenticated: false,
-      isLocationActive: false,
       user: null,
       token: null,
       hasHydrated: false,
 
-      login: async (locationSharingEnabled: boolean, userData: TUser, token: string) => {
+      login: async (_locationSharingEnabled: boolean, userData: TUser, token: string) => {
         applySessionState(set, token, userData);
-
-        if (locationSharingEnabled) {
-          const hasPermissions = await requestLocationPermissions();
-          if (hasPermissions) {
-            await startLocationUpdates();
-            set({ isLocationActive: true });
-          }
-        }
       },
 
       logout: async () => {
-        const { isLocationActive } = get();
-
         applySessionState(set, null, null);
         useQuestionStore.getState().clearQuestions();
         useRequestStore.getState().clearRequests();
         useUserStore.getState().clearProfile();
-
-        if (isLocationActive) {
-          await stopLocationUpdates();
-        }
       },
 
       updateUser: (userData: Partial<TUser>) => {
@@ -83,7 +64,6 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => ssrSafeStorage),
       skipHydration: true,
       partialize: (state) => ({
-        isLocationActive: state.isLocationActive,
         user: state.user,
         token: state.token,
       }),
@@ -97,9 +77,8 @@ export const useAuthStore = create<AuthState>()(
 
         const token = state?.token ?? null;
         const user = state?.user ?? null;
-        const isLocationActive = state?.isLocationActive ?? false;
 
-        applySessionState(useAuthStore.setState, token, user, isLocationActive);
+        applySessionState(useAuthStore.setState, token, user);
         useAuthStore.setState({ hasHydrated: true });
       },
     },

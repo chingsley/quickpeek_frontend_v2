@@ -1,13 +1,26 @@
 import { TFeedQuestion } from '@/types/question.types';
 
+const hasViewerRequest = (item: TFeedQuestion): boolean =>
+  item.viewerRequest != null;
+
+/**
+ * Default Home feed priority tiers (highest first):
+ * 1. Incoming or outgoing with unread messages (FIFO by earliest unread)
+ * 2. Incoming nearby without a request to answer (distance ascending)
+ * 3. Other incoming without a request to answer (createdAt descending)
+ * 4. Incoming with interaction but all messages read (createdAt descending)
+ * 5. Outgoing with all messages read (createdAt descending)
+ */
 const tierForItem = (item: TFeedQuestion, viewerId: string): number => {
   const unreadCount = item.feedAttention?.unreadMessageCount ?? 0;
   if (unreadCount > 0) return 1;
 
   const isIncoming = item.userId !== viewerId;
-  if (isIncoming && item.nearMe) return 2;
-  if (isIncoming) return 3;
-  return 4;
+  if (isIncoming && !hasViewerRequest(item) && item.nearMe) return 2;
+  if (isIncoming && !hasViewerRequest(item)) return 3;
+  if (isIncoming) return 4;
+
+  return 5;
 };
 
 const toTime = (value: string | null | undefined): number | null => {

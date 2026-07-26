@@ -16,7 +16,6 @@ export const createQuestion = async (payload: TCreateQuestionPayload): Promise<T
 export const getQuestionFeed = async (params?: {
   lat?: number;
   lng?: number;
-  radiusKm?: number;
   nearMe?: boolean;
   page?: number;
   limit?: number;
@@ -24,7 +23,6 @@ export const getQuestionFeed = async (params?: {
   const search = new URLSearchParams();
   if (params?.lat != null) search.set('lat', String(params.lat));
   if (params?.lng != null) search.set('lng', String(params.lng));
-  if (params?.radiusKm != null) search.set('radiusKm', String(params.radiusKm));
   if (params?.nearMe) search.set('nearMe', 'true');
   if (params?.page) search.set('page', String(params.page));
   if (params?.limit) search.set('limit', String(params.limit));
@@ -63,8 +61,15 @@ export const getMyQuestions = async (): Promise<TQuestion[]> => {
   return response.data.data as TQuestion[];
 };
 
-export const getQuestionDetail = async (questionId: string): Promise<TQuestion> => {
-  const response = await Axios.get(`/questions/${questionId}`);
+export const getQuestionDetail = async (
+  questionId: string,
+  params?: { lat?: number; lng?: number },
+): Promise<TQuestion> => {
+  const search = new URLSearchParams();
+  if (params?.lat != null) search.set('lat', String(params.lat));
+  if (params?.lng != null) search.set('lng', String(params.lng));
+  const qs = search.toString();
+  const response = await Axios.get(`/questions/${questionId}${qs ? `?${qs}` : ''}`);
   return response.data.data as TQuestion;
 };
 

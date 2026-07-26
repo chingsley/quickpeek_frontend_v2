@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.INPUT_BG,
     minHeight: 48,
     borderWidth: 1,
-    borderColor: colors.PRIMARY,
+    borderColor: colors.CARD_BORDER,
   },
   searchIcon: {
     marginRight: 10,

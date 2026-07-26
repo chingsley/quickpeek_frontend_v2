@@ -15,6 +15,7 @@ import { getQuestionFeed, searchQuestions } from '@/services/questions.services'
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
 import { useDrawerStore } from '@/store/drawer.store';
+import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
@@ -32,7 +33,6 @@ import {
 import { sortFeedByDefaultPriority } from '@/utils/questionFeedSort';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import * as Location from 'expo-location';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -74,7 +74,9 @@ const HomeScreen = () => {
   const [feedCounts, setFeedCounts] = useState<TFeedCounts>({ all: 0, incoming: 0, outgoing: 0 });
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [loading, setLoading] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
+  const coords = useLiveLocationStore((s) => s.coords);
+  const ensureLiveCoords = useLiveLocationStore((s) => s.ensureCoords);
+  const refreshCoords = useLiveLocationStore((s) => s.refreshCoords);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<TFeedQuestion[]>([]);
@@ -126,7 +128,7 @@ const HomeScreen = () => {
     }
   }, []);
 
-  const loadFeed = useCallback(async (options?: { silent?: boolean }) => {
+  const loadFeed = useCallback(async (options?: { silent?: boolean; }) => {
     if (!isLoggedIn) return;
 
     const silent = options?.silent ?? false;
@@ -164,8 +166,11 @@ const HomeScreen = () => {
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    loadFeed();
-  }, [isLoggedIn, loadFeed]);
+    // Pre-warm live GPS so the feed can show distances without waiting for
+    // the user to toggle Near me. Does NOT prompt — only reads if permission
+    // was already granted.
+    void refreshCoords();
+  }, [isLoggedIn, refreshCoords]);
 
   // Debounced fuzzy search. Fires 300ms after the user stops typing.
   useEffect(() => {
@@ -218,24 +223,9 @@ const HomeScreen = () => {
     };
   }, [isLoggedIn, refreshAll]);
 
-  const ensureCoords = useCallback(async (): Promise<{ lat: number; lng: number; } | null> => {
-    if (coords) return coords;
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-      const loc = await Location.getCurrentPositionAsync({});
-      const next = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-      setCoords(next);
-      return next;
-    } catch (error) {
-      console.warn('Could not retrieve current location; falling back to saved location', error);
-      return null;
-    }
-  }, [coords]);
-
   const toggleNearMe = async () => {
     if (!activeTags.has('near_me')) {
-      const next = await ensureCoords();
+      const next = await ensureLiveCoords();
       if (!next) return; // permission denied — don't activate the tag
       setActiveTags((prev) => new Set(prev).add('near_me'));
     } else {
@@ -319,6 +309,9 @@ const HomeScreen = () => {
     }
   }, [displayedItems, isSearchActive, searchResults]);
 
+  const restoreFeedScrollPositionRef = useRef(restoreFeedScrollPosition);
+  restoreFeedScrollPositionRef.current = restoreFeedScrollPosition;
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -332,7 +325,7 @@ const HomeScreen = () => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (!cancelled) {
-              restoreFeedScrollPosition();
+              restoreFeedScrollPositionRef.current();
             }
           });
         });
@@ -343,7 +336,7 @@ const HomeScreen = () => {
       return () => {
         cancelled = true;
       };
-    }, [refreshAll, restoreFeedScrollPosition]),
+    }, [refreshAll]),
   );
 
   useEffect(() => {
@@ -383,6 +376,14 @@ const HomeScreen = () => {
         : `${item.questioner.name}`
       : null;
     const mainIcons = getMainStatusIcons(item, authUserId);
+    // Distance label only when the questioner limited answers to nearby users.
+    const isOutgoing = item.userId === authUserId;
+    const showDistance =
+      !isOutgoing &&
+      item.restrictToNearby === true &&
+      item.latitude != null &&
+      item.longitude != null &&
+      item.distanceKm != null;
 
     return (
       <TouchableOpacity
@@ -409,13 +410,13 @@ const HomeScreen = () => {
         <Text style={styles.cardDetail} numberOfLines={viewMode === 'card' ? 3 : 2}>
           {item.detail}
         </Text>
-        {(mainIcons.length > 0 || item.distanceKm != null) && (
+        {(mainIcons.length > 0 || showDistance) && (
           <View style={styles.cardFooter}>
             {mainIcons.length > 0 && (
               <QuestionStatusIcons icons={mainIcons} size={STATUS_ICON_QUESTION_ITEM_SIZE} />
             )}
-            {item.distanceKm != null && (
-              <Text style={styles.distance}>{item.distanceKm.toFixed(1)} km away</Text>
+            {showDistance && (
+              <Text style={styles.distance}>{item.distanceKm!.toFixed(1)} km away</Text>
             )}
           </View>
         )}
@@ -441,6 +442,28 @@ const HomeScreen = () => {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No questions match "{search.trim()}".</Text>
+        </View>
+      );
+    }
+
+    if (nearMe && !coords) {
+      // The backend already returns an empty list in this case, but the
+      // message is what actually helps the user understand why.
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>
+            Enable your location to see questions close to you.
+          </Text>
+        </View>
+      );
+    }
+
+    if (nearMe) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>
+            No open questions close to you right now. Try turning off the Near me filter to see more.
+          </Text>
         </View>
       );
     }

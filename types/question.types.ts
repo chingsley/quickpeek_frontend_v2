@@ -22,7 +22,7 @@ export type TQuestion = {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
-  answerRadiusKm: number | null;
+  restrictToNearby: boolean;
   userId: string;
   status: QuestionStatus;
   createdAt: string;
@@ -67,7 +67,7 @@ export type TCreateQuestionPayload = {
   latitude?: number | null;
   longitude?: number | null;
   address?: string | null;
-  answerRadiusKm?: number | null;
+  restrictToNearby?: boolean;
 };
 
 export type TViewerRequest = {

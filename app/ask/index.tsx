@@ -15,6 +15,7 @@ import {
   Alert,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -33,7 +34,9 @@ const AskScreen = () => {
   const [includeLocation, setIncludeLocation] = useState(false);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
-  const [answerRadiusKm, setAnswerRadiusKm] = useState('5');
+  // When true (default), only viewers the backend can verify are within the
+  // market near-me radius of `coords` may request to answer.
+  const [restrictToNearby, setRestrictToNearby] = useState(true);
 
   const priceNum = parseFloat(price);
 
@@ -77,7 +80,7 @@ const AskScreen = () => {
             latitude: coords.lat,
             longitude: coords.lng,
             address: address.trim() || null,
-            answerRadiusKm: parseFloat(answerRadiusKm) || 5,
+            restrictToNearby,
           }
           : {}),
       };
@@ -161,13 +164,20 @@ const AskScreen = () => {
 
         {includeLocation && (
           <>
-            <Text style={styles.label}>Answer radius (km)</Text>
-            <TextInput
-              style={styles.input}
-              value={answerRadiusKm}
-              onChangeText={setAnswerRadiusKm}
-              keyboardType="decimal-pad"
-            />
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleTextWrap}>
+                <Text style={styles.label}>Only allow users close to this location to answer</Text>
+                <Text style={styles.helperText}>
+                  Everyone can see the question. Only users who share their live location and are within the market near-me radius can request to answer.
+                </Text>
+              </View>
+              <Switch
+                value={restrictToNearby}
+                onValueChange={setRestrictToNearby}
+                trackColor={{ false: colors.LIGHT_GRAY, true: colors.PRIMARY }}
+                thumbColor={colors.BG_WHITE}
+              />
+            </View>
           </>
         )}
 
@@ -227,5 +237,18 @@ const styles = StyleSheet.create({
   },
   locationToggleText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   locationAddress: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 12,
+  },
+  toggleTextWrap: { flex: 1 },
+  helperText: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    marginTop: 4,
+  },
   publishBtn: { marginTop: 28 },
 });

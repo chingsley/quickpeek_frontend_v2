@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { ensureApiConfigReady } from '@/config';
 import SocketService from '@/services/socket.services';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
+import { useMarketConfigStore } from '@/store/marketConfig.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
@@ -15,11 +16,13 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 export default function RootLayout() {
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
+  const loadMarketConfig = useMarketConfigStore((state) => state.loadConfig);
 
   useEffect(() => {
     void (async () => {
       await ensureApiConfigReady();
       await useAuthStore.persist.rehydrate();
+      await loadMarketConfig();
     })();
   }, []);
 

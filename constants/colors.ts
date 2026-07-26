@@ -13,8 +13,8 @@ export const colors = {
   BG_BLACK: '#000000',
   DARK_WHITE: '#F0F0F0',
   CARD_BG: '#F8F9FA',
-  INPUT_BG: '#F5F5F5',
-  // INPUT_BG: '#eff3f6',
+  // INPUT_BG: '#F5F5F5',
+  INPUT_BG: '#eff3f6',
   MAP_PLACEHOLDER_BG: '#E8EDF2',
 
   // Neutrals — borders & dividers

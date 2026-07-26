@@ -34,7 +34,7 @@ export type TAnswerRequest = {
     latitude?: number | null;
     longitude?: number | null;
     address?: string | null;
-    answerRadiusKm?: number | null;
+    restrictToNearby?: boolean;
     category?: TCategory;
   };
   counterparty?: TCounterparty;
@@ -59,7 +59,7 @@ export type TRequestDetail = {
     latitude: number | null;
     longitude: number | null;
     address: string | null;
-    answerRadiusKm: number | null;
+    restrictToNearby: boolean;
     category: TCategory;
   };
   counterparty: TCounterparty | null;
