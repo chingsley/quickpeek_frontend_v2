@@ -52,6 +52,8 @@ export const colors = {
 
   // Overlays, shadows & utility
   TRANSPARENT: 'transparent',
+  /** Tint of the collapsed Home header strip; ~0.6 opacity so cards scroll visibly underneath. */
+  HOME_HEADER_COLLAPSED_TINT: 'rgba(255, 255, 255, 0.6)',
   BACKDROP_DARK: 'rgba(0, 0, 0, 0.4)',
   BACKDROP_LIGHT: 'rgba(0, 0, 0, 0.12)',
   DRAWER_FADE_OVERLAY: 'rgba(255, 255, 255, 0.52)',

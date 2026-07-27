@@ -62,7 +62,7 @@ const HomeScreen = () => {
   const shouldRestoreFeedScrollRef = useRef(false);
   const lastPressedQuestionIdRef = useRef<string | null>(null);
   const hasLoadedFeedRef = useRef(false);
-  const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome } =
+  const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome, expandedHeaderHeight } =
     useHomeScrollChrome();
   const { fabContainerStyle, fabTextStyle } = useHomeFloatingAskStyle(tabBarHeight);
   const setMenuCategories = useDrawerStore((state) => state.setMenuCategories);
@@ -482,6 +482,44 @@ const HomeScreen = () => {
         onPress={() => KeyboardController.dismiss()}
       >
         <View style={styles.screenBody}>
+          {/*
+            List is absolutely positioned and sits underneath the header so that
+            as the header collapses, cards scroll up and visibly pass under the
+            remaining (translucent) logo strip. paddingTop is the static expanded
+            header height — constant during collapse to avoid a contentSize
+            feedback loop (animating it would shrink maxY and re-trigger the
+            chrome's short-list guard).
+          */}
+          <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            style={styles.listAvoider}
+          >
+            <Animated.FlatList
+              ref={feedListRef}
+              data={showFeedLoading ? [] : listData}
+              keyExtractor={(item) => item.id}
+              renderItem={renderQuestion}
+              contentContainerStyle={[
+                styles.listContent,
+                listGrows && styles.listContentGrow,
+                { paddingTop: expandedHeaderHeight },
+              ]}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={renderListEmpty}
+              ListFooterComponent={HomeListBottomSpacer}
+              onScroll={feedScrollHandler}
+              scrollEventThrottle={16}
+              onScrollToIndexFailed={(info) => {
+                feedListRef.current?.scrollToOffset({
+                  offset: Math.max(0, info.averageItemLength * info.index),
+                  animated: false,
+                });
+              }}
+            />
+          </KeyboardAvoidingView>
+
           <Animated.View style={[styles.headerShell, headerShellStyle]}>
             <View
               style={styles.headerMeasureWrap}
@@ -600,35 +638,6 @@ const HomeScreen = () => {
               <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
             </Animated.View>
           </Animated.View>
-
-          <KeyboardAvoidingView
-            behavior="padding"
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-            style={styles.listAvoider}
-          >
-            <Animated.FlatList
-              ref={feedListRef}
-              data={showFeedLoading ? [] : listData}
-              keyExtractor={(item) => item.id}
-              renderItem={renderQuestion}
-              contentContainerStyle={[
-                styles.listContent,
-                listGrows && styles.listContentGrow,
-              ]}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={renderListEmpty}
-              ListFooterComponent={HomeListBottomSpacer}
-              onScroll={feedScrollHandler}
-              scrollEventThrottle={16}
-              onScrollToIndexFailed={(info) => {
-                feedListRef.current?.scrollToOffset({
-                  offset: Math.max(0, info.averageItemLength * info.index),
-                  animated: false,
-                });
-              }}
-            />
-          </KeyboardAvoidingView>
         </View>
       </TouchableWithoutFeedback>
 
@@ -656,9 +665,11 @@ const styles = StyleSheet.create({
   screenBody: { flex: 1 },
   headerShell: {
     overflow: 'hidden',
-    backgroundColor: colors.BG_WHITE,
     zIndex: 2,
-    position: 'relative',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   headerMeasureWrap: {
     position: 'absolute',
@@ -767,7 +778,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 2,
   },
-  listAvoider: { flex: 1 },
+  listAvoider: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   listContent: { paddingHorizontal: 16 },
   listContentGrow: { flexGrow: 1 },
   card: {

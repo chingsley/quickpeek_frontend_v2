@@ -8,6 +8,8 @@ import {
   DRAWER_CATEGORY_ITEM_INSET,
 } from '@/constants/drawer';
 import { fonts } from '@/constants/fonts';
+import { STATUS_ICON_NEUTRAL_COLOR } from '@/constants/statusIcons';
+import { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { useAuthStore } from '@/store/auth.store';
 import { useDrawerStore } from '@/store/drawer.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -15,6 +17,28 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+/** Icon size for a drawer category row; matches the row's text line-height. */
+const CATEGORY_ICON_SIZE = 20;
+
+/**
+ * Per-category icon. Incoming/Outgoing reuse the same status-icon visuals as
+ * the Home filter chips so the drawer and the feed always agree. "All
+ * questions" uses a stack glyph that reads as "everything in one pile".
+ */
+const allQuestionsIconVisual = {
+  family: 'Ionicons' as const,
+  name: 'layers-outline',
+  color: STATUS_ICON_NEUTRAL_COLOR,
+  bg: colors.TRANSPARENT,
+};
+
+const categoryIconVisual = (key: DrawerMenuCategoryKey) => {
+  if (key === 'incoming' || key === 'outgoing') {
+    return STATUS_ICON_VISUALS[key];
+  }
+  return allQuestionsIconVisual;
+};
 
 const HomeSideMenu = () => {
   const router = useRouter();
@@ -64,6 +88,7 @@ const HomeSideMenu = () => {
         ) : (
           menuCategories.map((category) => {
             const isSelected = selectedCategoryKey === category.key;
+            const iconVisual = categoryIconVisual(category.key);
             return (
               <Pressable
                 key={category.key}
@@ -71,9 +96,12 @@ const HomeSideMenu = () => {
                 onPress={() => handleCategoryPress(category.key)}
               >
                 <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
-                  <Text style={styles.categoryTitle} numberOfLines={2}>
-                    {category.title} ({category.count})
-                  </Text>
+                  <View style={styles.categoryTitleRow}>
+                    <StatusIconGlyph visual={iconVisual} size={CATEGORY_ICON_SIZE} />
+                    <Text style={styles.categoryTitle} numberOfLines={2}>
+                      {category.title} ({category.count})
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             );
@@ -135,6 +163,9 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     flex: 1,
+    // borderWidth: 1,
+    // borderColor: 'red',
+    width: 250,
   },
   emptyCategories: {
     fontFamily: 'roboto-light',
@@ -144,22 +175,32 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     paddingVertical: 4,
+    // borderWidth: 1,
+    // borderColor: 'blue',
   },
   categoryRowContent: {
     alignSelf: 'stretch',
-    paddingVertical: 9,
-    paddingLeft: DRAWER_CATEGORY_ITEM_INSET,
+    paddingVertical: DRAWER_CATEGORY_ITEM_INSET,
+    paddingHorizontal: DRAWER_CATEGORY_ITEM_INSET,
+    width: '100%',
   },
   categoryRowSelected: {
     backgroundColor: colors.SECONDARY,
     borderRadius: 14,
-    paddingRight: DRAWER_CATEGORY_ITEM_INSET,
+    borderWidth: 1,
+    borderColor: colors.CARD_BORDER,
   },
   categoryTitle: {
+    flex: 1,
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
     lineHeight: 22,
+  },
+  categoryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   accountRow: {
     flexDirection: 'row',
