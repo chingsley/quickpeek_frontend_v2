@@ -2,7 +2,6 @@ import AnimatedHomeTabBar from '@/components/AnimatedHomeTabBar';
 import HomeDrawerLayout from '@/components/HomeDrawerLayout';
 import { colors } from '@/constants/colors';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
-import { useQuestionStore } from '@/store/question.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
@@ -11,12 +10,6 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 const TabLayout = () => {
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
-  const myQuestions = useQuestionStore((state) => state.myQuestions);
-
-  const pendingCount = myQuestions.reduce(
-    (sum, q) => sum + (q.requestCounts?.PENDING ?? 0),
-    0,
-  );
 
   if (!hasHydrated) {
     return (
@@ -66,21 +59,6 @@ const TabLayout = () => {
               ) : (
                 <Ionicons name="home-outline" size={size} color={colors.PRIMARY} />
               ),
-          }}
-        />
-        <Tabs.Screen
-          name="Questions"
-          options={{
-            title: 'Questions',
-            headerShown: false,
-            tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
-            tabBarIcon: ({ focused, size }) =>
-              focused ? (
-                <Ionicons name="list-circle" size={size + 5} color={colors.PRIMARY} />
-              ) : (
-                <Ionicons name="list-circle-outline" size={size + 5} color={colors.PRIMARY} />
-              ),
-            tabBarLabel: 'Questions',
           }}
         />
         <Tabs.Screen

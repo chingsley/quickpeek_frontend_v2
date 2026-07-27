@@ -4,11 +4,11 @@ export const HOME_LOGO_SCROLL_LIFT = 8;
 /** Logo-only header height when chrome is collapsed. */
 export const HOME_COLLAPSED_HEADER_HEIGHT = 48;
 
-/**
- * Pixels of downward scroll (accumulated) required to fully hide chrome.
- * Higher = slower, more gradual fade/slide.
- */
-export const HOME_CHROME_COLLAPSE_DISTANCE = 100;
+// NOTE: there is intentionally no fixed "collapse distance" constant. The
+// distance scrolled to fully hide the chrome equals the measured header swing
+// (expanded header height − HOME_COLLAPSED_HEADER_HEIGHT), so the header's
+// bottom edge tracks the list content 1:1 and never outruns the first card.
+// See useHomeScrollChrome.ts.
 
 /**
  * Progress (0–1) at which header/tab-bar opacity reaches zero.

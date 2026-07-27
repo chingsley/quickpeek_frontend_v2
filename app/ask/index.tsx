@@ -6,7 +6,6 @@ import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
-import { useQuestionStore } from '@/store/question.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -25,7 +24,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const AskScreen = () => {
   const router = useRouter();
   const { loading, setLoading } = useAppStore();
-  const { prependMyQuestion } = useQuestionStore();
 
   const [title, setTitle] = useState('');
   const [detail, setDetail] = useState('');
@@ -84,10 +82,9 @@ const AskScreen = () => {
           }
           : {}),
       };
-      const question = await createQuestion(payload);
-      prependMyQuestion(question);
+      await createQuestion(payload);
       Alert.alert('Published', 'Your question is now live.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/Questions') },
+        { text: 'OK', onPress: () => router.replace('/(tabs)/Home') },
       ]);
     } catch (error: any) {
       Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to publish.');

@@ -1,6 +1,4 @@
 import { setAuthToken, setUnauthorizedHandler } from '@/config/axios.config';
-import { useQuestionStore } from '@/store/question.store';
-import { useRequestStore } from '@/store/request.store';
 import { useUserStore } from '@/store/user.store';
 import TUser from '@/types/user.types';
 import { ssrSafeStorage } from '@/utils/ssr-safe-storage';
@@ -48,8 +46,6 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         applySessionState(set, null, null);
-        useQuestionStore.getState().clearQuestions();
-        useRequestStore.getState().clearRequests();
         useUserStore.getState().clearProfile();
       },
 

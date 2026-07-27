@@ -1,5 +1,4 @@
 import {
-  HOME_CHROME_COLLAPSE_DISTANCE,
   HOME_COLLAPSED_HEADER_HEIGHT,
   HOME_CHROME_FADE_OUT_END,
   HOME_CHROME_SLIDE_END,
@@ -77,12 +76,15 @@ const isAtListBottom = (y: number, maxY: number) => {
   return maxY > 0 && y >= maxY - HOME_SCROLL_BOTTOM_LOCK_THRESHOLD;
 };
 
-const syncChromeProgress = (chromeScrollOffset: { value: number; }) => {
+const syncChromeProgress = (
+  chromeScrollOffset: { value: number; },
+  collapseDistance: number,
+) => {
   'worklet';
   // Drive only the raw target. The display progress (`homeChromeProgress`)
   // is eased toward it in `useChromeProgressSmoother` below, so fast scrolls
   // glide instead of snapping 1:1 with the finger.
-  chromeTargetProgress.value = chromeScrollOffset.value / HOME_CHROME_COLLAPSE_DISTANCE;
+  chromeTargetProgress.value = chromeScrollOffset.value / collapseDistance;
 };
 
 const updateChromeFromScroll = (
@@ -90,6 +92,7 @@ const updateChromeFromScroll = (
   diff: number,
   maxY: number,
   chromeScrollOffset: { value: number; },
+  collapseDistance: number,
 ) => {
   'worklet';
 
@@ -103,24 +106,29 @@ const updateChromeFromScroll = (
     // frame diff flip sign as the list springs back; ignore it here so the
     // header/tab bar/FAB stay steady. Restoring resumes only once the user
     // scrolls up out of the bottom zone (handled below).
-    chromeScrollOffset.value = HOME_CHROME_COLLAPSE_DISTANCE;
+    chromeScrollOffset.value = collapseDistance;
     return;
   }
 
   const nextOffset = chromeScrollOffset.value + diff;
   chromeScrollOffset.value = Math.min(
-    HOME_CHROME_COLLAPSE_DISTANCE,
+    collapseDistance,
     Math.max(0, nextOffset),
   );
 };
 
 /**
  * Snaps chrome to a fully expanded or fully collapsed state — it should never
- * be left part-faded/part-slid once the user lets go. At the very top it
- * always expands; at the bottom (or short lists) it always collapses;
- * anywhere else it completes in whichever direction the user was last
- * scrolling, so "let go while scrolling down" hides it and "let go while
- * scrolling up" brings it back.
+ * be left part-faded/part-slid once the user lets go. At the bottom of the
+ * list it always collapses; anywhere else it completes in whichever direction
+ * the user was last scrolling, so "let go while scrolling down" hides it and
+ * "let go while scrolling up" brings it back.
+ *
+ * A downward release only collapses once the list has scrolled at least one
+ * full collapse distance (`y >= collapseDistance`): the list's paddingTop is
+ * the expanded header height, so collapsing any earlier would leave the first
+ * card stranded below the collapsed strip with a white band between them.
+ * Releasing inside that first stretch springs back to fully expanded instead.
  *
  * The settle runs the raw target straight to its endpoint; the per-frame
  * smoother (see `useChromeProgressSmoother`) eases `homeChromeProgress` toward
@@ -133,15 +141,17 @@ const settleChromeAtScrollEnd = (
   canCollapse: boolean,
   direction: number,
   chromeScrollOffset: { value: number; },
+  collapseDistance: number,
 ) => {
   'worklet';
 
   const shouldCollapse =
-    canCollapse && y > 0 && (isAtListBottom(y, maxY) || direction > 0);
-  const target = shouldCollapse ? HOME_CHROME_COLLAPSE_DISTANCE : 0;
+    canCollapse &&
+    (isAtListBottom(y, maxY) || (direction > 0 && y >= collapseDistance));
+  const target = shouldCollapse ? collapseDistance : 0;
 
   chromeScrollOffset.value = target;
-  chromeTargetProgress.value = target / HOME_CHROME_COLLAPSE_DISTANCE;
+  chromeTargetProgress.value = target / collapseDistance;
 };
 
 /**
@@ -151,11 +161,24 @@ const settleChromeAtScrollEnd = (
  * during a collapse is the footer spacer. `expandedMaxY = maxY + progress *
  * CHROME_SPACER_SWING` stays constant across the animation and gives a stable
  * basis for deciding collapsibility.
+ *
+ * The bar is higher than "still scrollable once collapsed": the list must
+ * stay scrollable by at least the header swing plus the spacer swing, the
+ * bottom-lock threshold, and a safety margin. Only then can the first card
+ * physically reach the collapsed strip (`y >= headerSwing`) before the chrome
+ * is allowed to hide — otherwise collapsing would open a white band between
+ * the strip and the first card (and the bottom lock would pin it there).
  */
-const canCollapseChrome = (maxY: number) => {
+const canCollapseChrome = (maxY: number, headerSwing: number) => {
   'worklet';
   const expandedMaxY = maxY + homeChromeProgress.value * CHROME_SPACER_SWING;
-  return expandedMaxY > CHROME_SPACER_SWING + CHROME_COLLAPSE_SAFETY_MARGIN;
+  return (
+    expandedMaxY >
+    headerSwing +
+      CHROME_SPACER_SWING +
+      HOME_SCROLL_BOTTOM_LOCK_THRESHOLD +
+      CHROME_COLLAPSE_SAFETY_MARGIN
+  );
 };
 
 /**
@@ -247,65 +270,81 @@ export const useHomeScrollChrome = () => {
       const y = event.contentOffset.y;
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
       const diff = y - prevScrollY.value;
+      // Collapsing the chrome takes exactly one header swing of scroll, so the
+      // shell's bottom edge tracks the first card 1:1 and no gap can open
+      // between them while dragging.
+      const collapseDistance = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
       if (diff !== 0) {
         chromeDirection.value = diff > 0 ? 1 : -1;
       }
 
-      if (canCollapseChrome(maxY)) {
-        updateChromeFromScroll(y, diff, maxY, chromeScrollOffset);
+      if (canCollapseChrome(maxY, collapseDistance)) {
+        updateChromeFromScroll(y, diff, maxY, chromeScrollOffset, collapseDistance);
       } else {
         // List too short to sustain a collapse — keep chrome fully visible.
         chromeScrollOffset.value = 0;
       }
-      syncChromeProgress(chromeScrollOffset);
+      syncChromeProgress(chromeScrollOffset, collapseDistance);
       prevScrollY.value = y;
     },
     onEndDrag: (event) => {
       const y = event.contentOffset.y;
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
+      const collapseDistance = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
       settleChromeAtScrollEnd(
         y,
         maxY,
-        canCollapseChrome(maxY),
+        canCollapseChrome(maxY, collapseDistance),
         chromeDirection.value,
         chromeScrollOffset,
+        collapseDistance,
       );
       prevScrollY.value = y;
     },
     onMomentumEnd: (event) => {
       const y = event.contentOffset.y;
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
+      const collapseDistance = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
 
       settleChromeAtScrollEnd(
         y,
         maxY,
-        canCollapseChrome(maxY),
+        canCollapseChrome(maxY, collapseDistance),
         chromeDirection.value,
         chromeScrollOffset,
+        collapseDistance,
       );
       prevScrollY.value = y;
     },
   });
 
-  const headerShellStyle = useAnimatedStyle(() => ({
-    height: interpolate(
-      homeChromeProgress.value,
-      [0, 1],
-      [expandedHeaderHeight.value, HOME_COLLAPSED_HEADER_HEIGHT],
-      Extrapolation.CLAMP,
-    ),
-    // Solid white while the full header is visible, eases to translucent once
-    // the chrome has faded out so question cards scroll visibly underneath
-    // the remaining logo strip. Held at solid through the fade-out window so
-    // the header content never appears to wash out mid-collapse.
-    backgroundColor: interpolateColor(
-      homeChromeProgress.value,
-      [0, HOME_CHROME_FADE_OUT_END, 1],
-      [colors.BG_WHITE, colors.BG_WHITE, colors.HOME_HEADER_COLLAPSED_TINT],
-    ),
-  }));
+  const headerShellStyle = useAnimatedStyle(() => {
+    const headerSwing = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;
+    // Collapse by the eased progress — but never further than the list has
+    // actually scrolled. The collapse distance equals the header swing, so
+    // while dragging the shell's bottom edge tracks the first card 1:1. This
+    // clamp only absorbs the per-frame smoother's lag on fast direction
+    // reversals near the top, which would otherwise open a transient white
+    // band between the shell and the first card.
+    const collapse = Math.min(
+      homeChromeProgress.value * headerSwing,
+      Math.max(prevScrollY.value, 0),
+    );
+    return {
+      height: expandedHeaderHeight.value - collapse,
+      // Solid white while the full header is visible, eases to translucent once
+      // the chrome has faded out so question cards scroll visibly underneath
+      // the remaining logo strip. Held at solid through the fade-out window so
+      // the header content never appears to wash out mid-collapse.
+      backgroundColor: interpolateColor(
+        homeChromeProgress.value,
+        [0, HOME_CHROME_FADE_OUT_END, 1],
+        [colors.BG_WHITE, colors.BG_WHITE, colors.HOME_HEADER_COLLAPSED_TINT],
+      ),
+    };
+  });
 
   const headerChromeSlideStyle = useAnimatedStyle(() => {
     const slideUp = expandedHeaderHeight.value - HOME_COLLAPSED_HEADER_HEIGHT;

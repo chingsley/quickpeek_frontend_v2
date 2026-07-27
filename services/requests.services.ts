@@ -42,20 +42,6 @@ export const getIncomingRequests = async (params?: {
   return response.data.data as PaginatedRequests;
 };
 
-export const getOutgoingRequests = async (params?: {
-  status?: AnswerRequestStatus;
-  page?: number;
-  limit?: number;
-}): Promise<PaginatedRequests> => {
-  const search = new URLSearchParams();
-  if (params?.status) search.set('status', params.status);
-  if (params?.page) search.set('page', String(params.page));
-  if (params?.limit) search.set('limit', String(params.limit));
-  const qs = search.toString();
-  const response = await Axios.get(`/requests/outgoing${qs ? `?${qs}` : ''}`);
-  return response.data.data as PaginatedRequests;
-};
-
 export const getRequestDetail = async (requestId: string): Promise<TRequestDetail> => {
   const response = await Axios.get(`/requests/${requestId}`);
   return response.data.data as TRequestDetail;
@@ -76,7 +62,6 @@ export default {
   acceptRequest,
   rejectRequest,
   getIncomingRequests,
-  getOutgoingRequests,
   getRequestDetail,
   getRejectionReasons,
   getConversations,

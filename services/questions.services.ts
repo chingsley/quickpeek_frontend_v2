@@ -56,11 +56,6 @@ export const unblockResponder = async (questionId: string, responderId: string) 
   return response.data;
 };
 
-export const getMyQuestions = async (): Promise<TQuestion[]> => {
-  const response = await Axios.get('/questions/mine');
-  return response.data.data as TQuestion[];
-};
-
 export const getQuestionDetail = async (
   questionId: string,
   params?: { lat?: number; lng?: number },
@@ -87,7 +82,6 @@ export default {
   createQuestion,
   getQuestionFeed,
   searchQuestions,
-  getMyQuestions,
   getQuestionDetail,
   closeQuestion,
   getCloseReasons,
