@@ -6,6 +6,7 @@ export const colors = {
   // Brand
   PRIMARY: '#0c538f',
   SECONDARY: '#dcedf3',
+  // SECONDARY: '#b5d9f4',
   ACTIVE: '#CB2AF7',
 
   // Neutrals — backgrounds

@@ -1,11 +1,12 @@
 import Axios from '@/config/axios.config';
 import {
+  TAuthenticatedFeedResponse,
+  TClosedQuestionsResponse,
   TCreateQuestionPayload,
   TFeedResponse,
   TQuestion,
   TRejectedResponder,
   TSearchResponse,
-  TAuthenticatedFeedResponse,
 } from '@/types/question.types';
 
 export const createQuestion = async (payload: TCreateQuestionPayload): Promise<TQuestion> => {
@@ -35,6 +36,17 @@ export const getQuestionFeed = async (params?: {
   }
 
   return data as TAuthenticatedFeedResponse;
+};
+
+export const getMyClosedQuestions = async (): Promise<TClosedQuestionsResponse> => {
+  const response = await Axios.get('/questions/mine/closed');
+  const data = response.data?.data;
+
+  if (!Array.isArray(data?.items)) {
+    throw new Error('Expected closed questions response');
+  }
+
+  return data as TClosedQuestionsResponse;
 };
 
 export const getRejectedResponders = async (questionId: string): Promise<TRejectedResponder[]> => {
@@ -81,6 +93,7 @@ export const closeQuestion = async (questionId: string, reason: string) => {
 export default {
   createQuestion,
   getQuestionFeed,
+  getMyClosedQuestions,
   searchQuestions,
   getQuestionDetail,
   closeQuestion,

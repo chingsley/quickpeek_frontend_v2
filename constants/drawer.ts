@@ -1,9 +1,10 @@
 import { colors } from './colors';
+import { BORDER_RADIUS_BUTTON } from './layout';
 
 export const DRAWER_SHIFT_RATIO = 0.68;
 /** Scale of the shifted main view when the drawer is open (1 = no scale). */
 export const DRAWER_SCALE = 0.93;
-export const DRAWER_BORDER_RADIUS = 24;
+export const DRAWER_BORDER_RADIUS = BORDER_RADIUS_BUTTON;
 export const DRAWER_ANIMATION_MS = 280;
 /** Width of the visible menu panel — keeps content from sliding under the shifted main view. */
 export const MENU_CONTENT_WIDTH_RATIO = 0.62;

@@ -116,6 +116,12 @@ export type TFeedCounts = {
   all: number;
   incoming: number;
   outgoing: number;
+  closed: number;
+};
+
+export type TClosedQuestionsResponse = {
+  items: TFeedQuestion[];
+  count: number;
 };
 
 export type TAuthenticatedFeedResponse = {

@@ -8,7 +8,8 @@ import {
   DRAWER_CATEGORY_ITEM_INSET,
 } from '@/constants/drawer';
 import { fonts } from '@/constants/fonts';
-import { STATUS_ICON_NEUTRAL_COLOR } from '@/constants/statusIcons';
+import { BORDER_RADIUS_BUTTON } from '@/constants/layout';
+import { STATUS_ICON_NEUTRAL_COLOR, STATUS_ICON_QUESTION_ITEM_SIZE } from '@/constants/statusIcons';
 import { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { useAuthStore } from '@/store/auth.store';
 import { useDrawerStore } from '@/store/drawer.store';
@@ -17,9 +18,6 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-/** Icon size for a drawer category row; matches the row's text line-height. */
-const CATEGORY_ICON_SIZE = 20;
 
 /**
  * Per-category icon. Incoming/Outgoing reuse the same status-icon visuals as
@@ -36,6 +34,14 @@ const allQuestionsIconVisual = {
 const categoryIconVisual = (key: DrawerMenuCategoryKey) => {
   if (key === 'incoming' || key === 'outgoing') {
     return STATUS_ICON_VISUALS[key];
+  }
+  if (key === 'closed') {
+    return {
+      family: 'Ionicons' as const,
+      name: 'archive-outline',
+      color: STATUS_ICON_NEUTRAL_COLOR,
+      bg: colors.TRANSPARENT,
+    };
   }
   return allQuestionsIconVisual;
 };
@@ -97,8 +103,8 @@ const HomeSideMenu = () => {
               >
                 <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
                   <View style={styles.categoryTitleRow}>
-                    <StatusIconGlyph visual={iconVisual} size={CATEGORY_ICON_SIZE} />
-                    <Text style={styles.categoryTitle} numberOfLines={2}>
+                    <StatusIconGlyph visual={iconVisual} size={STATUS_ICON_QUESTION_ITEM_SIZE} />
+                    <Text style={[styles.categoryTitle, isSelected && styles.categoryTitleSelected]} numberOfLines={2}>
                       {category.title} ({category.count})
                     </Text>
                   </View>
@@ -142,7 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.PRIMARY,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS_BUTTON,
     paddingVertical: 12,
     paddingHorizontal: 18,
     marginBottom: DRAWER_ASK_TO_CATEGORIES_GAP,
@@ -163,8 +169,6 @@ const styles = StyleSheet.create({
   },
   categoryList: {
     flex: 1,
-    // borderWidth: 1,
-    // borderColor: 'red',
     width: 250,
   },
   emptyCategories: {
@@ -175,8 +179,6 @@ const styles = StyleSheet.create({
   },
   categoryRow: {
     paddingVertical: 4,
-    // borderWidth: 1,
-    // borderColor: 'blue',
   },
   categoryRowContent: {
     alignSelf: 'stretch',
@@ -186,9 +188,9 @@ const styles = StyleSheet.create({
   },
   categoryRowSelected: {
     backgroundColor: colors.SECONDARY,
-    borderRadius: 14,
+    borderRadius: BORDER_RADIUS_BUTTON,
     borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
+    borderColor: colors.BORDER_GRAY,
   },
   categoryTitle: {
     flex: 1,
@@ -196,6 +198,9 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
     lineHeight: 22,
+  },
+  categoryTitleSelected: {
+    color: colors.PRIMARY,
   },
   categoryTitleRow: {
     flexDirection: 'row',

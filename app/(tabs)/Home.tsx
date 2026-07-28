@@ -1,6 +1,6 @@
 import Searchbar from '@/components/Searchbar';
 import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
-import { ALL_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
+import { ALL_QUESTIONS_CATEGORY_KEY, CLOSED_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { filterTabletColors, filterTabletStyles, FILTER_TABLET_ICON_SIZE } from '@/constants/filterTablets';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
@@ -11,13 +11,13 @@ import {
 } from '@/constants/statusIcons';
 import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
 import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScrollChrome';
-import { getQuestionFeed, searchQuestions } from '@/services/questions.services';
+import { getMyClosedQuestions, getQuestionFeed, searchQuestions } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
 import { useDrawerStore } from '@/store/drawer.store';
 import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
-import { TFeedCounts, TFeedQuestion } from '@/types/question.types';
+import { QuestionStatus, TFeedCounts, TFeedQuestion } from '@/types/question.types';
 import { formatRelativeTime } from '@/utils/date';
 import { drawBorder } from '@/utils';
 import {
@@ -71,9 +71,11 @@ const HomeScreen = () => {
   const isLoggedIn = useAuthStore(selectIsLoggedIn);
   const authUserId = useAuthStore((state) => state.user?.id);
   const [feedItems, setFeedItems] = useState<TFeedQuestion[]>([]);
-  const [feedCounts, setFeedCounts] = useState<TFeedCounts>({ all: 0, incoming: 0, outgoing: 0 });
+  const [closedItems, setClosedItems] = useState<TFeedQuestion[]>([]);
+  const [feedCounts, setFeedCounts] = useState<TFeedCounts>({ all: 0, incoming: 0, outgoing: 0, closed: 0 });
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [loading, setLoading] = useState(false);
+  const [closedLoading, setClosedLoading] = useState(false);
   const coords = useLiveLocationStore((s) => s.coords);
   const ensureLiveCoords = useLiveLocationStore((s) => s.ensureCoords);
   const refreshCoords = useLiveLocationStore((s) => s.refreshCoords);
@@ -86,6 +88,7 @@ const HomeScreen = () => {
   const [activeTags, setActiveTags] = useState<Set<StatusTagKey>>(new Set());
 
   const isSearchActive = search.trim().length > 0;
+  const isClosedCategory = selectedCategoryKey === CLOSED_QUESTIONS_CATEGORY_KEY;
 
   // True when the near-me filter is engaged. Derived from activeTags so the
   // existing `toggleNearMe` flow stays single-source.
@@ -158,11 +161,29 @@ const HomeScreen = () => {
     }
   }, [coords, isLoggedIn, nearMe]);
 
+  const loadClosedQuestions = useCallback(async () => {
+    if (!isLoggedIn) return;
+
+    setClosedLoading(true);
+    try {
+      const data = await getMyClosedQuestions();
+      setClosedItems(data.items);
+    } catch (error) {
+      console.error('Failed to load closed questions:', error);
+      setClosedItems([]);
+    } finally {
+      setClosedLoading(false);
+    }
+  }, [isLoggedIn]);
+
   const refreshAll = useCallback(async () => {
     if (!isLoggedIn) return;
     void loadUnreadCount();
-    await loadFeed({ silent: hasLoadedFeedRef.current });
-  }, [isLoggedIn, loadFeed, loadUnreadCount]);
+    await Promise.all([
+      loadFeed({ silent: hasLoadedFeedRef.current }),
+      loadClosedQuestions(),
+    ]);
+  }, [isLoggedIn, loadClosedQuestions, loadFeed, loadUnreadCount]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -261,6 +282,10 @@ const HomeScreen = () => {
   };
 
   const displayedItems = useMemo(() => {
+    if (isClosedCategory) {
+      return closedItems;
+    }
+
     let items = feedItems;
 
     // Direction filter from the side drawer (All / Incoming / Outgoing).
@@ -289,7 +314,7 @@ const HomeScreen = () => {
     }
 
     return items;
-  }, [activeTags, authUserId, feedItems, selectedCategoryKey]);
+  }, [activeTags, authUserId, closedItems, feedItems, isClosedCategory, selectedCategoryKey]);
 
   const restoreFeedScrollPosition = useCallback(() => {
     const listRef = feedListRef.current;
@@ -353,6 +378,12 @@ const HomeScreen = () => {
     resetChrome();
     shouldRestoreFeedScrollRef.current = false;
     feedListRef.current?.scrollToOffset({ offset: 0, animated: false });
+    if (selectedCategoryKey === CLOSED_QUESTIONS_CATEGORY_KEY) {
+      setSearch('');
+      setSearchResults([]);
+      setActiveTags(new Set());
+      searchInputRef.current?.blur();
+    }
   }, [resetChrome, selectedCategoryKey]);
 
   const activeCategory = useMemo(
@@ -365,11 +396,16 @@ const HomeScreen = () => {
       ? 'From other people'
       : selectedCategoryKey === OUTGOING_CATEGORY_KEY
         ? 'Asked by you'
-        : null;
+        : selectedCategoryKey === CLOSED_QUESTIONS_CATEGORY_KEY
+          ? 'Only you can view these'
+          : null;
 
   const renderQuestion = ({ item }: { item: TFeedQuestion; }) => {
     const showAttentionDot = questionHasFeedAttention(item);
-    const postedAt = formatRelativeTime(item.createdAt);
+    const postedAt =
+      item.status === QuestionStatus.Closed && item.closedAt
+        ? `Closed ${formatRelativeTime(item.closedAt)}`
+        : formatRelativeTime(item.createdAt);
     const authorLabel = item.questioner
       ? item.questioner.id === authUserId
         ? 'You'
@@ -424,8 +460,10 @@ const HomeScreen = () => {
     );
   };
 
-  const listData = isSearchActive ? searchResults : displayedItems;
-  const showFeedLoading = !isSearchActive && loading && feedItems.length === 0;
+  const listData = isClosedCategory ? closedItems : isSearchActive ? searchResults : displayedItems;
+  const showFeedLoading = isClosedCategory
+    ? closedLoading && closedItems.length === 0
+    : !isSearchActive && loading && feedItems.length === 0;
   const listGrows = showFeedLoading || listData.length === 0;
 
   const renderListEmpty = () => {
@@ -442,6 +480,17 @@ const HomeScreen = () => {
       return (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No questions match "{search.trim()}".</Text>
+        </View>
+      );
+    }
+
+    if (isClosedCategory) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>You have no closed questions yet.</Text>
+          <Text style={styles.emptyHelper}>
+            When you close a question, it moves here and is hidden from responders.
+          </Text>
         </View>
       );
     }
@@ -558,79 +607,101 @@ const HomeScreen = () => {
                   ) : null}
                 </View>
 
-                <Searchbar
-                  ref={searchInputRef}
-                  placeholder="Search questions"
-                  inputValue={search}
-                  setValue={setSearch}
-                  style={styles.searchBarPlacement}
-                />
+                {!isClosedCategory ? (
+                  <Searchbar
+                    ref={searchInputRef}
+                    placeholder="Search questions"
+                    inputValue={search}
+                    setValue={setSearch}
+                    style={styles.searchBarPlacement}
+                  />
+                ) : null}
 
-                <View style={styles.tagsWrap}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.tagsContent}
-                  >
-                    {STATUS_TAG_DEFS.map((def) => {
-                      const active = activeTags.has(def.key);
-                      const visual = STATUS_ICON_VISUALS[def.key];
-                      return (
-                        <Pressable
-                          key={def.key}
-                          onPress={() => toggleTag(def.key)}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                          style={[
-                            filterTabletStyles.container,
-                            active && filterTabletStyles.containerActive,
-                          ]}
-                        >
-                          <StatusIconGlyph
-                            visual={visual}
-                            size={FILTER_TABLET_ICON_SIZE}
-                            color={
-                              visual.color !== STATUS_ICON_NEUTRAL_COLOR
-                                ? visual.color
-                                : active
-                                  ? filterTabletColors.iconActive
-                                  : filterTabletColors.icon
-                            }
-                          />
-                          <Text style={[filterTabletStyles.text, active && filterTabletStyles.textActive]}>
-                            {def.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                {isSearchActive && searching ? (
-                  <View style={styles.searchLoadingRow}>
-                    <ActivityIndicator size="small" color={colors.PRIMARY} />
-                    <Text style={styles.searchLoadingText}>Searching…</Text>
+                {!isClosedCategory ? (
+                  <View style={styles.tagsWrap}>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.tagsContent}
+                    >
+                      {STATUS_TAG_DEFS.map((def) => {
+                        const active = activeTags.has(def.key);
+                        const visual = STATUS_ICON_VISUALS[def.key];
+                        return (
+                          <Pressable
+                            key={def.key}
+                            onPress={() => toggleTag(def.key)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            style={[
+                              filterTabletStyles.container,
+                              active && filterTabletStyles.containerActive,
+                            ]}
+                          >
+                            <StatusIconGlyph
+                              visual={visual}
+                              size={FILTER_TABLET_ICON_SIZE}
+                              color={
+                                visual.color !== STATUS_ICON_NEUTRAL_COLOR
+                                  ? visual.color
+                                  : active
+                                    ? filterTabletColors.iconActive
+                                    : filterTabletColors.icon
+                              }
+                            />
+                            <Text style={[filterTabletStyles.text, active && filterTabletStyles.textActive]}>
+                              {def.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
                   </View>
                 ) : null}
 
-                <View style={styles.filterWrap}>
-                  {isSearchActive && !searching && searchResults.length > 0 ? (
-                    <Text style={styles.resultCountText}>
-                      {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
-                    </Text>
-                  ) : null}
-                  <Pressable
-                    onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
-                    style={styles.viewModeBtn}
-                    accessibilityLabel="Toggle view mode"
-                  >
-                    <Ionicons
-                      name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
-                      size={22}
-                      color={colors.PRIMARY}
-                    />
-                  </Pressable>
-                </View>
+                {!isClosedCategory ? (
+                  <>
+                    {isSearchActive && searching ? (
+                      <View style={styles.searchLoadingRow}>
+                        <ActivityIndicator size="small" color={colors.PRIMARY} />
+                        <Text style={styles.searchLoadingText}>Searching…</Text>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.filterWrap}>
+                      {isSearchActive && !searching && searchResults.length > 0 ? (
+                        <Text style={styles.resultCountText}>
+                          {searchResults.length} result{searchResults.length === 1 ? '' : 's'}
+                        </Text>
+                      ) : null}
+                      <Pressable
+                        onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+                        style={styles.viewModeBtn}
+                        accessibilityLabel="Toggle view mode"
+                      >
+                        <Ionicons
+                          name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
+                          size={22}
+                          color={colors.PRIMARY}
+                        />
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.filterWrap}>
+                    <Pressable
+                      onPress={() => setViewMode(viewMode === 'card' ? 'list' : 'card')}
+                      style={styles.viewModeBtn}
+                      accessibilityLabel="Toggle view mode"
+                    >
+                      <Ionicons
+                        name={viewMode === 'card' ? 'list-outline' : 'grid-outline'}
+                        size={22}
+                        color={colors.PRIMARY}
+                      />
+                    </Pressable>
+                  </View>
+                )}
               </Animated.View>
             </View>
 
@@ -840,7 +911,15 @@ const styles = StyleSheet.create({
   postedAt: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 },
-  emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY },
+  emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center' },
+  emptyHelper: {
+    fontFamily: 'roboto-light',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+  },
   floatingAskBtn: {
     position: 'absolute',
     right: 16,
