@@ -25,8 +25,8 @@ export const STATUS_ICON_LABELS: Record<StatusIconKey, string> = {
   outgoing: 'Outgoing',
   incoming: 'Incoming',
   request_pending: 'Pending request',
-  request_approved: 'Request approved',
-  request_denied: 'Request denied',
+  request_approved: 'Approved requests',
+  request_denied: 'Declined requests',
   near_me: 'Near me',
 };
 

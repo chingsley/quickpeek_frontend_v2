@@ -189,7 +189,7 @@ const UserProfileModal = ({
                   onPress={requestDecision.onReject}
                   disabled={requestDecision.rejectLoading || requestDecision.acceptLoading}
                 >
-                  <Text style={styles.rejectBtnText}>Reject</Text>
+                  <Text style={styles.rejectBtnText}>Decline</Text>
                 </Pressable>
                 <CustomButton
                   text="Accept request"

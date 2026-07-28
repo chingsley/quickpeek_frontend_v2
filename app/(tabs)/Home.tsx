@@ -60,7 +60,6 @@ const HomeScreen = () => {
   const searchRequestIdRef = useRef(0);
   const feedScrollOffsetRef = useRef(0);
   const shouldRestoreFeedScrollRef = useRef(false);
-  const lastPressedQuestionIdRef = useRef<string | null>(null);
   const hasLoadedFeedRef = useRef(false);
   const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome, expandedHeaderHeight } =
     useHomeScrollChrome();
@@ -276,7 +275,6 @@ const HomeScreen = () => {
 
   const handleQuestionPress = (item: TFeedQuestion) => {
     shouldRestoreFeedScrollRef.current = true;
-    lastPressedQuestionIdRef.current = item.id;
     const route = resolveQuestionCardPress(item, authUserId);
     router.push(route);
   };
@@ -316,26 +314,15 @@ const HomeScreen = () => {
     return items;
   }, [activeTags, authUserId, closedItems, feedItems, isClosedCategory, selectedCategoryKey]);
 
-  const restoreFeedScrollPosition = useCallback(() => {
+  const restoreFeedScrollOffset = useCallback(() => {
     const listRef = feedListRef.current;
     if (!listRef) return;
 
-    const questionId = lastPressedQuestionIdRef.current;
-    const data = isSearchActive ? searchResults : displayedItems;
-    const index = questionId ? data.findIndex((item) => item.id === questionId) : -1;
+    listRef.scrollToOffset({ offset: feedScrollOffsetRef.current, animated: false });
+  }, []);
 
-    if (index >= 0) {
-      listRef.scrollToIndex({ index, animated: false, viewPosition: 0.25 });
-      return;
-    }
-
-    if (feedScrollOffsetRef.current > 0) {
-      listRef.scrollToOffset({ offset: feedScrollOffsetRef.current, animated: false });
-    }
-  }, [displayedItems, isSearchActive, searchResults]);
-
-  const restoreFeedScrollPositionRef = useRef(restoreFeedScrollPosition);
-  restoreFeedScrollPositionRef.current = restoreFeedScrollPosition;
+  const restoreFeedScrollOffsetRef = useRef(restoreFeedScrollOffset);
+  restoreFeedScrollOffsetRef.current = restoreFeedScrollOffset;
 
   useFocusEffect(
     useCallback(() => {
@@ -350,7 +337,7 @@ const HomeScreen = () => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (!cancelled) {
-              restoreFeedScrollPositionRef.current();
+              restoreFeedScrollOffsetRef.current();
             }
           });
         });
@@ -560,12 +547,6 @@ const HomeScreen = () => {
               ListFooterComponent={HomeListBottomSpacer}
               onScroll={feedScrollHandler}
               scrollEventThrottle={16}
-              onScrollToIndexFailed={(info) => {
-                feedListRef.current?.scrollToOffset({
-                  offset: Math.max(0, info.averageItemLength * info.index),
-                  animated: false,
-                });
-              }}
             />
           </KeyboardAvoidingView>
 
