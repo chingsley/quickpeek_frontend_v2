@@ -474,7 +474,7 @@ const QuestionDetail = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <BackButton color={colors.PRIMARY} />
+        <BackButton />
         <Text style={styles.pageTitle}>{question.title}</Text>
 
         <View style={styles.metaRow}>

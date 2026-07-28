@@ -1,19 +1,29 @@
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '@/constants/colors';
+import { CHAT_AVATAR_SIZE } from '@/constants/layout';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
-interface IBackButtonProps {
+const BACK_ICON_SIZE = 24;
+
+type BackButtonProps = {
   color?: string;
-  style?: object;
-}
-const BackButton = ({ color, style }: IBackButtonProps) => {
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+};
+
+const BackButton = ({ color = colors.PRIMARY, onPress, style }: BackButtonProps) => {
   const router = useRouter();
 
   return (
-    <Pressable style={style} onPress={() => router.back()}>
-      <FontAwesome6 name="arrow-left-long" size={28} color={color || colors.BG_BLACK} />
+    <Pressable
+      style={[styles.button, { borderColor: color }, style]}
+      onPress={onPress ?? (() => router.back())}
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
+    >
+      <Ionicons name="chevron-back" size={BACK_ICON_SIZE} color={color} />
     </Pressable>
   );
 };
@@ -21,8 +31,12 @@ const BackButton = ({ color, style }: IBackButtonProps) => {
 export default BackButton;
 
 const styles = StyleSheet.create({
-  backArrow: {
-    // paddingHorizontal: 10,
+  button: {
+    height: CHAT_AVATAR_SIZE,
+    width: CHAT_AVATAR_SIZE,
     borderWidth: 1,
-  }
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: CHAT_AVATAR_SIZE / 2,
+  },
 });

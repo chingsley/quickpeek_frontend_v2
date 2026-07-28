@@ -1,3 +1,6 @@
+/** Header avatar and circular back-button size (chat header, etc.). */
+export const CHAT_AVATAR_SIZE = 40;
+
 /** Corner radius for bordered fields (location rows, multiline inputs, cards). */
 export const BORDER_RADIUS_INPUT = 14;
 

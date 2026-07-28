@@ -1,11 +1,12 @@
 import ReviewModal from '@/components/ReviewModal';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
+import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { BORDER_RADIUS_INPUT, CHAT_AVATAR_SIZE } from '@/constants/layout';
 import {
   getMessages,
   getRequestThread,
@@ -304,15 +305,13 @@ const ChatScreen = () => {
         style={styles.chatBody}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.PRIMARY} />
-          </Pressable>
+          <BackButton />
           {thread?.counterparty && (
             <Pressable
               style={styles.headerInfo}
               onPress={openProfileModal}
             >
-              <UserAvatar imageUrl={thread.counterparty.profileImageUrl} size={36} />
+              <UserAvatar imageUrl={thread.counterparty.profileImageUrl} size={CHAT_AVATAR_SIZE} />
               <View>
                 <Text style={styles.headerName}>{thread.counterparty.name}</Text>
                 <Text style={styles.headerSubtitle} numberOfLines={1}>
@@ -505,8 +504,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.CARD_BORDER,
     gap: 8,
   },
-  backBtn: { padding: 4 },
-  headerInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    // borderWidth: 1,
+  },
   goToQuestionLink: {
     marginLeft: 'auto',
     flexDirection: 'row',

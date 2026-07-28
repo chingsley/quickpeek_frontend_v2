@@ -96,7 +96,7 @@ const AskScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
-        <BackButton color={colors.PRIMARY} />
+        <BackButton />
         <Text style={styles.pageTitle}>Ask a question</Text>
         <Text style={styles.subtitle}>Post a question to responders.</Text>
 

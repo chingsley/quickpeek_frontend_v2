@@ -127,7 +127,7 @@ const ChatsScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <BackButton color={colors.PRIMARY} />
+        <BackButton />
         <Text style={styles.pageTitle}>Chats</Text>
         <View style={styles.headerSpacer} />
       </View>
