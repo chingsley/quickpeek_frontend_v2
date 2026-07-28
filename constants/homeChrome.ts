@@ -1,6 +1,3 @@
-/** How far the logo lifts with the header before staying pinned. */
-export const HOME_LOGO_SCROLL_LIFT = 8;
-
 /** Logo-only header height when chrome is collapsed. */
 export const HOME_COLLAPSED_HEADER_HEIGHT = 48;
 

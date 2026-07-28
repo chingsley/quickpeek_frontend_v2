@@ -3,6 +3,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
+import { STATUS_ICON_SIZE } from '@/constants/statusIcons';
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
@@ -213,7 +214,7 @@ const QuestionDetail = () => {
   const [incomingRequests, setIncomingRequests] = useState<TAnswerRequest[]>([]);
   const [rejectedResponders, setRejectedResponders] = useState<TRejectedResponder[]>([]);
 
-  // Reject modal
+  // Decline modal
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
@@ -375,7 +376,7 @@ const QuestionDetail = () => {
       setRejectModalVisible(false);
       load();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.error || 'Could not reject request.');
+      Alert.alert('Error', error?.response?.data?.error || 'Could not decline request.');
     }
   };
 
@@ -479,7 +480,7 @@ const QuestionDetail = () => {
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
-          <QuestionStatusIcons icons={mainStatusIcons} size={16} withLabels />
+          <QuestionStatusIcons icons={mainStatusIcons} size={STATUS_ICON_SIZE} withLabels />
         </View>
 
         {question.address && (
@@ -662,13 +663,13 @@ const QuestionDetail = () => {
         )}
       </KeyboardAwareScreen>
 
-      {/* Reject modal */}
+      {/* Decline modal */}
       <BottomSheet
         visible={rejectModalVisible}
         onClose={() => setRejectModalVisible(false)}
         sheetStyle={styles.modalSheet}
       >
-        <Text style={styles.modalTitle}>Reject request</Text>
+        <Text style={styles.modalTitle}>Decline request</Text>
         <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
 
         {rejectPresetReasons.length > 0 && (
@@ -704,7 +705,7 @@ const QuestionDetail = () => {
           multiline
         />
         <CustomButton
-          text="Reject"
+          text="Decline"
           onPress={handleReject}
           disabled={!(selectedRejectPreset || rejectionReason.trim())}
         />

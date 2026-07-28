@@ -24,10 +24,10 @@ export type StatusIcon = {
 export const STATUS_ICON_LABELS: Record<StatusIconKey, string> = {
   outgoing: 'Outgoing',
   incoming: 'Incoming',
-  request_pending: 'Pending request',
-  request_approved: 'Approved requests',
-  request_denied: 'Declined requests',
-  near_me: 'Near me',
+  request_pending: 'Pending',
+  request_approved: 'Approved',
+  request_denied: 'Declined',
+  near_me: 'Nearby',
 };
 
 const iconFromKey = (key: StatusIconKey): StatusIcon => ({
@@ -123,7 +123,7 @@ export type StatusTagKey =
   | 'request_denied'
   | 'near_me';
 
-export const STATUS_TAG_DEFS: { key: StatusTagKey; label: string }[] = [
+export const STATUS_TAG_DEFS: { key: StatusTagKey; label: string; }[] = [
   { key: 'outgoing', label: STATUS_ICON_LABELS.outgoing },
   { key: 'request_pending', label: STATUS_ICON_LABELS.request_pending },
   { key: 'request_approved', label: STATUS_ICON_LABELS.request_approved },

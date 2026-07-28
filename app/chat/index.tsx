@@ -217,7 +217,7 @@ const ChatScreen = () => {
       setProfileVisible(false);
       await loadThread();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not reject request.');
+      Alert.alert('Error', err?.response?.data?.error || 'Could not decline request.');
     } finally {
       setRejecting(false);
     }
@@ -268,7 +268,7 @@ const ChatScreen = () => {
               onPress={openProfileModal}
             >
               <Text style={styles.viewProfileBtnText}>View {thread?.counterparty?.name}'s profile</Text>
-              <Ionicons name="chevron-forward" size={12} color={colors.TEXT_DARK} />
+              <Ionicons name="chevron-forward" size={12} color={colors.PRIMARY} />
             </Pressable>
           )}
         </View>
@@ -278,10 +278,8 @@ const ChatScreen = () => {
     return (
       <View style={[styles.messageRow, isMine ? styles.messageRowMine : styles.messageRowOther]}>
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
-          <Text style={[styles.messageText, isMine && styles.messageTextMine]}>{message.text}</Text>
-          <Text style={[styles.messageTime, isMine && styles.messageTimeMine]}>
-            {formatMessageTime(message.createdAt)}
-          </Text>
+          <Text style={styles.messageText}>{message.text}</Text>
+          <Text style={styles.messageTime}>{formatMessageTime(message.createdAt)}</Text>
         </View>
       </View>
     );
@@ -337,7 +335,7 @@ const ChatScreen = () => {
           <View style={styles.closedBanner}>
             <Text style={styles.closedText}>
               {thread?.status === AnswerRequestStatus.Rejected
-                ? 'This request was rejected.'
+                ? 'This request was declined.'
                 : 'This question has been answered.'}
             </Text>
           </View>
@@ -442,7 +440,7 @@ const ChatScreen = () => {
         onClose={() => setRejectModalVisible(false)}
         sheetStyle={styles.modalSheet}
       >
-        <Text style={styles.modalTitle}>Reject request</Text>
+        <Text style={styles.modalTitle}>Decline request</Text>
         <Text style={styles.modalSubtitle}>Choose a reason or write your own.</Text>
 
         {presetReasons.length > 0 && (
@@ -478,7 +476,7 @@ const ChatScreen = () => {
           multiline
         />
         <CustomButton
-          text="Reject"
+          text="Decline"
           onPress={handleReject}
           loading={rejecting}
           disabled={!(selectedPreset || rejectionReason.trim())}
@@ -508,7 +506,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    // borderWidth: 1,
   },
   goToQuestionLink: {
     marginLeft: 'auto',
@@ -523,18 +520,18 @@ const styles = StyleSheet.create({
   },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   headerSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
-  closedBanner: { backgroundColor: colors.SECONDARY, padding: 10, alignItems: 'center' },
-  closedText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  closedBanner: { backgroundColor: colors.LIGHT_RED, padding: 10, alignItems: 'center' },
+  closedText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
   pendingBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.LIGHT_BLUE,
+    backgroundColor: colors.AMBER,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
   },
-  pendingText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.PRIMARY },
+  pendingText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
   listContent: { padding: 16, paddingBottom: 8 },
   daySeparator: {
     textAlign: 'center',
@@ -547,22 +544,36 @@ const styles = StyleSheet.create({
   messageRowMine: { alignItems: 'flex-end' },
   messageRowOther: { alignItems: 'flex-start' },
   bubble: { maxWidth: '80%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleMine: { backgroundColor: colors.PRIMARY, borderBottomRightRadius: 4 },
-  bubbleOther: { backgroundColor: colors.CARD_BG, borderBottomLeftRadius: 4 },
+  bubbleMine: {
+    backgroundColor: colors.LIGHT_BLUE,
+    borderBottomRightRadius: 4,
+  },
+  bubbleOther: {
+    backgroundColor: colors.CARD_BG,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.BORDER_GRAY,
+  },
   messageText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
-  messageTextMine: { color: colors.BG_WHITE },
   messageTime: { fontFamily: 'roboto-light', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
-  messageTimeMine: { color: colors.TEXT_ON_PRIMARY_MUTED },
   systemBubble: {
     alignSelf: 'center',
-    backgroundColor: colors.SECONDARY,
+    // backgroundColor: colors.SECONDARY,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginVertical: 8,
     maxWidth: '90%',
+    borderWidth: 1,
+    borderColor: colors.CARD_BG,
   },
-  systemText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK, textAlign: 'center', lineHeight: 18 },
+  systemText: {
+    fontFamily: 'roboto-MEDIUM',
+    fontSize: fonts.FONT_SIZE_XS,
+    // color: colors.PRIMARY,
+    textAlign: 'center',
+    lineHeight: 18
+  },
   viewProfileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -573,11 +584,21 @@ const styles = StyleSheet.create({
     borderTopColor: colors.CARD_BORDER,
     gap: 4,
   },
-  viewProfileBtnText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
-  reviewBtn: { marginHorizontal: 16, marginBottom: 8 },
+  viewProfileBtnText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.PRIMARY
+  },
+  reviewBtn: {
+    marginHorizontal: 16,
+    marginBottom: 8
+  },
+
   composerWrap: {
     flexShrink: 0,
+
   },
+
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

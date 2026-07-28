@@ -1,13 +1,17 @@
 import Searchbar from '@/components/Searchbar';
-import QuestionStatusIcons, { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
+import QuestionStatusIcons from '@/components/QuestionStatusIcons';
+import { FilterTablet, FilterTabletBar } from '@/components/FilterTablet';
 import { ALL_QUESTIONS_CATEGORY_KEY, CLOSED_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
-import { filterTabletColors, filterTabletStyles, FILTER_TABLET_ICON_SIZE } from '@/constants/filterTablets';
+import {
+  FILTER_TABLET_IONICON_NAMES,
+  getFilterTabletIconColor,
+} from '@/constants/filterTablets';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { HOME_COLLAPSED_HEADER_HEIGHT } from '@/constants/homeChrome';
 import { images } from '@/constants/images';
 import {
-  STATUS_ICON_NEUTRAL_COLOR,
-  STATUS_ICON_QUESTION_ITEM_SIZE,
+  STATUS_ICON_SIZE,
 } from '@/constants/statusIcons';
 import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
 import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScrollChrome';
@@ -40,7 +44,6 @@ import {
   Image,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -61,7 +64,7 @@ const HomeScreen = () => {
   const feedScrollOffsetRef = useRef(0);
   const shouldRestoreFeedScrollRef = useRef(false);
   const hasLoadedFeedRef = useRef(false);
-  const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoSlideStyle, onHeaderLayout, resetChrome, expandedHeaderHeight } =
+  const { scrollHandler, headerShellStyle, headerChromeSlideStyle, logoStripStyle, onHeaderLayout, resetChrome } =
     useHomeScrollChrome();
   const { fabContainerStyle, fabTextStyle } = useHomeFloatingAskStyle(tabBarHeight);
   const setMenuCategories = useDrawerStore((state) => state.setMenuCategories);
@@ -436,7 +439,7 @@ const HomeScreen = () => {
         {(mainIcons.length > 0 || showDistance) && (
           <View style={styles.cardFooter}>
             {mainIcons.length > 0 && (
-              <QuestionStatusIcons icons={mainIcons} size={STATUS_ICON_QUESTION_ITEM_SIZE} />
+              <QuestionStatusIcons icons={mainIcons} size={STATUS_ICON_SIZE} />
             )}
             {showDistance && (
               <Text style={styles.distance}>{item.distanceKm!.toFixed(1)} km away</Text>
@@ -519,37 +522,14 @@ const HomeScreen = () => {
       >
         <View style={styles.screenBody}>
           {/*
-            List is absolutely positioned and sits underneath the header so that
-            as the header collapses, cards scroll up and visibly pass under the
-            remaining (translucent) logo strip. paddingTop is the static expanded
-            header height — constant during collapse to avoid a contentSize
-            feedback loop (animating it would shrink maxY and re-trigger the
-            chrome's short-list guard).
+            Header shell is in normal flow ABOVE the list: as it collapses,
+            the list viewport grows and the content slides up glued to the
+            shell's bottom edge — no gap can open at any progress, and a
+            release settle can complete in either direction from any scroll
+            position. The pinned logo lives in a separate overlay strip so it
+            stays visible (and gains its translucent tint) once the shell has
+            collapsed away beneath it.
           */}
-          <KeyboardAvoidingView
-            behavior="padding"
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-            style={styles.listAvoider}
-          >
-            <Animated.FlatList
-              ref={feedListRef}
-              data={showFeedLoading ? [] : listData}
-              keyExtractor={(item) => item.id}
-              renderItem={renderQuestion}
-              contentContainerStyle={[
-                styles.listContent,
-                listGrows && styles.listContentGrow,
-                { paddingTop: expandedHeaderHeight },
-              ]}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={renderListEmpty}
-              ListFooterComponent={HomeListBottomSpacer}
-              onScroll={feedScrollHandler}
-              scrollEventThrottle={16}
-            />
-          </KeyboardAvoidingView>
-
           <Animated.View style={[styles.headerShell, headerShellStyle]}>
             <View
               style={styles.headerMeasureWrap}
@@ -599,45 +579,21 @@ const HomeScreen = () => {
                 ) : null}
 
                 {!isClosedCategory ? (
-                  <View style={styles.tagsWrap}>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.tagsContent}
-                    >
-                      {STATUS_TAG_DEFS.map((def) => {
-                        const active = activeTags.has(def.key);
-                        const visual = STATUS_ICON_VISUALS[def.key];
-                        return (
-                          <Pressable
-                            key={def.key}
-                            onPress={() => toggleTag(def.key)}
-                            accessibilityRole="button"
-                            accessibilityState={{ selected: active }}
-                            style={[
-                              filterTabletStyles.container,
-                              active && filterTabletStyles.containerActive,
-                            ]}
-                          >
-                            <StatusIconGlyph
-                              visual={visual}
-                              size={FILTER_TABLET_ICON_SIZE}
-                              color={
-                                visual.color !== STATUS_ICON_NEUTRAL_COLOR
-                                  ? visual.color
-                                  : active
-                                    ? filterTabletColors.iconActive
-                                    : filterTabletColors.icon
-                              }
-                            />
-                            <Text style={[filterTabletStyles.text, active && filterTabletStyles.textActive]}>
-                              {def.label}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </ScrollView>
-                  </View>
+                  <FilterTabletBar>
+                    {STATUS_TAG_DEFS.map((def) => {
+                      const active = activeTags.has(def.key);
+                      return (
+                        <FilterTablet
+                          key={def.key}
+                          label={def.label}
+                          icon={FILTER_TABLET_IONICON_NAMES[def.key]}
+                          iconColor={getFilterTabletIconColor(def.key, active)}
+                          active={active}
+                          onPress={() => toggleTag(def.key)}
+                        />
+                      );
+                    })}
+                  </FilterTabletBar>
                 ) : null}
 
                 {!isClosedCategory ? (
@@ -685,10 +641,33 @@ const HomeScreen = () => {
                 )}
               </Animated.View>
             </View>
+          </Animated.View>
 
-            <Animated.View style={[styles.logoPinned, logoSlideStyle]} pointerEvents="none">
-              <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
-            </Animated.View>
+          <KeyboardAvoidingView
+            behavior="padding"
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            style={styles.listAvoider}
+          >
+            <Animated.FlatList
+              ref={feedListRef}
+              data={showFeedLoading ? [] : listData}
+              keyExtractor={(item) => item.id}
+              renderItem={renderQuestion}
+              contentContainerStyle={[
+                styles.listContent,
+                listGrows && styles.listContentGrow,
+              ]}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={renderListEmpty}
+              ListFooterComponent={HomeListBottomSpacer}
+              onScroll={feedScrollHandler}
+              scrollEventThrottle={16}
+            />
+          </KeyboardAvoidingView>
+
+          <Animated.View style={[styles.logoStrip, logoStripStyle]} pointerEvents="none">
+            <Image source={images.logo} style={styles.logo} resizeMode="contain" accessibilityLabel="QuickPeek" />
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
@@ -717,11 +696,9 @@ const styles = StyleSheet.create({
   screenBody: { flex: 1 },
   headerShell: {
     overflow: 'hidden',
+    backgroundColor: colors.BG_WHITE,
     zIndex: 2,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    position: 'relative',
   },
   headerMeasureWrap: {
     position: 'absolute',
@@ -729,15 +706,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  logoPinned: {
+  logoStrip: {
     position: 'absolute',
-    top: 8,
+    top: 0,
     left: 0,
     right: 0,
-    height: 44,
+    height: HOME_COLLAPSED_HEADER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
+    zIndex: 3,
   },
   header: {
     flexDirection: 'row',
@@ -822,21 +799,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 12,
   },
-  tagsWrap: {
-    marginBottom: 10,
-  },
-  tagsContent: {
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 2,
-  },
-  listAvoider: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
   listContentGrow: { flexGrow: 1 },
   card: {

@@ -9,8 +9,13 @@ import {
 } from '@/constants/drawer';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_BUTTON } from '@/constants/layout';
-import { STATUS_ICON_NEUTRAL_COLOR, STATUS_ICON_QUESTION_ITEM_SIZE } from '@/constants/statusIcons';
-import { STATUS_ICON_VISUALS, StatusIconGlyph } from '@/components/QuestionStatusIcons';
+import {
+  STATUS_ICON_NEUTRAL_COLOR,
+  STATUS_ICON_SIZE,
+  STATUS_ICON_VISUALS,
+  StatusIconVisual,
+} from '@/constants/statusIcons';
+import { StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import { useAuthStore } from '@/store/auth.store';
 import { useDrawerStore } from '@/store/drawer.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -24,24 +29,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  * the Home filter chips so the drawer and the feed always agree. "All
  * questions" uses a stack glyph that reads as "everything in one pile".
  */
-const allQuestionsIconVisual = {
-  family: 'Ionicons' as const,
+const allQuestionsIconVisual: StatusIconVisual = {
   name: 'layers-outline',
   color: STATUS_ICON_NEUTRAL_COLOR,
   bg: colors.TRANSPARENT,
 };
 
-const categoryIconVisual = (key: DrawerMenuCategoryKey) => {
+const closedIconVisual: StatusIconVisual = {
+  name: 'archive-outline',
+  color: STATUS_ICON_NEUTRAL_COLOR,
+  bg: colors.TRANSPARENT,
+};
+
+const categoryIconVisual = (key: DrawerMenuCategoryKey): StatusIconVisual => {
   if (key === 'incoming' || key === 'outgoing') {
     return STATUS_ICON_VISUALS[key];
   }
   if (key === 'closed') {
-    return {
-      family: 'Ionicons' as const,
-      name: 'archive-outline',
-      color: STATUS_ICON_NEUTRAL_COLOR,
-      bg: colors.TRANSPARENT,
-    };
+    return closedIconVisual;
   }
   return allQuestionsIconVisual;
 };
@@ -103,7 +108,7 @@ const HomeSideMenu = () => {
               >
                 <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
                   <View style={styles.categoryTitleRow}>
-                    <StatusIconGlyph visual={iconVisual} size={STATUS_ICON_QUESTION_ITEM_SIZE} />
+                    <StatusIconGlyph visual={iconVisual} size={STATUS_ICON_SIZE} />
                     <Text style={[styles.categoryTitle, isSelected && styles.categoryTitleSelected]} numberOfLines={2}>
                       {category.title} ({category.count})
                     </Text>

@@ -1,129 +1,46 @@
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { STATUS_ICON_NEUTRAL_COLOR } from '@/constants/statusIcons';
 import {
   STATUS_ICON_LABELS,
   StatusIcon,
   StatusIconKey,
 } from '@/utils/questionStatus';
+import {
+  STATUS_ICON_SIZE,
+  STATUS_ICON_VISUALS,
+  StatusIconVisual,
+} from '@/constants/statusIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-type IconFamily = 'Ionicons' | 'MaterialCommunityIcons';
+export { STATUS_ICON_VISUALS } from '@/constants/statusIcons';
+export type { StatusIconVisual } from '@/constants/statusIcons';
 
-type IconVisual = {
-  family: IconFamily;
-  name: string;
-  /** Foreground glyph/text color. */
-  color: string;
-  /** Badge/pill background. Use `'transparent'` for icon-only (no tinted badge). */
-  bg: string;
-};
-
-const isBadgedVisual = (visual: IconVisual) => visual.bg !== colors.TRANSPARENT;
-
-/**
- * Visual language for each status icon. Exported so other surfaces (e.g. the
- * Home filter-tag bar) can reuse the exact same glyph + color pairing.
- *
- * Direction and request-status icons are gray-black circle-outline glyphs (or
- * circle-contained icons where the source glyph is already circular).
- *
- * Where the requested glyph is not circular, the circle-outline equivalent from
- * @expo/vector-icons is used — see comments on each entry.
- */
-export const STATUS_ICON_VISUALS: Record<StatusIconKey, IconVisual> = {
-  // Octicons `arrow-up-right` → circle-outline diagonal equivalent
-  outgoing: {
-    family: 'MaterialCommunityIcons',
-    name: 'arrow-top-right-thin-circle-outline',
-    color: STATUS_ICON_NEUTRAL_COLOR,
-    bg: colors.TRANSPARENT,
-  },
-  // Octicons `arrow-down-left` → circle-outline diagonal equivalent
-  incoming: {
-    family: 'MaterialCommunityIcons',
-    name: 'arrow-bottom-left-thin-circle-outline',
-    color: STATUS_ICON_NEUTRAL_COLOR,
-    bg: colors.TRANSPARENT,
-  },
-  // FontAwesome6 `clock` → circle-outline clock equivalent
-  request_pending: {
-    family: 'Ionicons',
-    name: 'time-outline',
-    color: colors.AMBER,
-    bg: colors.TRANSPARENT,
-  },
-  request_approved: {
-    family: 'Ionicons',
-    name: 'checkmark-circle-sharp',
-    color: colors.PRIMARY,
-    bg: colors.TRANSPARENT,
-  },
-  request_denied: {
-    family: 'Ionicons',
-    name: 'close-circle-outline',
-    color: STATUS_ICON_NEUTRAL_COLOR,
-    bg: colors.TRANSPARENT,
-  },
-  near_me: {
-    family: 'Ionicons',
-    name: 'navigate-circle-outline',
-    color: STATUS_ICON_NEUTRAL_COLOR,
-    bg: colors.TRANSPARENT,
-  },
-};
+const isBadgedVisual = (visual: StatusIconVisual) => visual.bg !== colors.TRANSPARENT;
 
 type StatusIconGlyphProps = {
-  visual: IconVisual;
-  size: number;
+  visual: StatusIconVisual;
+  size?: number;
   color?: string;
   accessibilityLabel?: string;
 };
 
-/** Renders a status glyph from the configured icon family. */
+/** Renders a status glyph from the shared Ionicons outline set. */
 export const StatusIconGlyph = ({
   visual,
-  size,
+  size = STATUS_ICON_SIZE,
   color = visual.color,
   accessibilityLabel,
-}: StatusIconGlyphProps) => {
-  let glyph: React.ReactNode;
-
-  switch (visual.family) {
-    case 'MaterialCommunityIcons':
-      glyph = (
-        <MaterialCommunityIcons
-          name={visual.name as React.ComponentProps<typeof MaterialCommunityIcons>['name']}
-          size={size}
-          color={color}
-        />
-      );
-      break;
-    case 'Ionicons':
-    default:
-      glyph = (
-        <Ionicons
-          name={visual.name as React.ComponentProps<typeof Ionicons>['name']}
-          size={size}
-          color={color}
-        />
-      );
-      break;
-  }
-
-  return (
-    <View
-      style={[styles.glyphBox, { width: size, height: size }]}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="image"
-    >
-      {glyph}
-    </View>
-  );
-};
+}: StatusIconGlyphProps) => (
+  <View
+    style={[styles.glyphBox, { width: size, height: size }]}
+    accessibilityLabel={accessibilityLabel}
+    accessibilityRole="image"
+  >
+    <Ionicons name={visual.name} size={size} color={color} />
+  </View>
+);
 
 type QuestionStatusIconsProps = {
   icons: StatusIcon[];
@@ -136,7 +53,7 @@ type QuestionStatusIconsProps = {
  */
 const QuestionStatusIcons = ({
   icons,
-  size = 14,
+  size = STATUS_ICON_SIZE,
   withLabels = false,
 }: QuestionStatusIconsProps) => {
   if (icons.length === 0) return null;
@@ -205,7 +122,7 @@ export default QuestionStatusIcons;
  */
 export const SingleStatusIcon = ({
   iconKey,
-  size = 13,
+  size = STATUS_ICON_SIZE,
   badged = true,
 }: {
   iconKey: StatusIconKey;

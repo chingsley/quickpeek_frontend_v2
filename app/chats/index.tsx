@@ -1,25 +1,48 @@
+import Searchbar from '@/components/Searchbar';
 import BackButton from '@/components/shared/BackButton';
+import { FilterTablet, FilterTabletBar } from '@/components/FilterTablet';
 import UserAvatar from '@/components/UserAvatar';
+import { CHATS_COLLAPSED_HEADER_HEIGHT } from '@/constants/chatsChrome';
 import { colors } from '@/constants/colors';
+import { getChatFilterIconColor } from '@/constants/filterTablets';
 import { fonts } from '@/constants/fonts';
+import { images } from '@/constants/images';
+import { STATUS_ICON_IONICON_NAMES } from '@/constants/statusIcons';
+import { useChatsScrollChrome } from '@/hooks/useChatsScrollChrome';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
 import { AnswerRequestStatus, TConversation } from '@/types/answerRequest.types';
 import { formatListTime } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { KeyboardController } from 'react-native-keyboard-controller';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CHAT_LIST_AVATAR_SIZE = 48;
+/** Shared horizontal inset for Chats header, search, and list rows. */
+const CHATS_PAGE_GUTTER = 20;
+
+/** Logo asset is 240×240; display as a square so the graphic aligns flush right. */
+const LOGO_SIZE = 40;
+
+const CHAT_FILTER_DEFS = [
+  { key: 'unread', label: 'Unread', icon: 'mail-unread-outline' as const },
+  { key: 'requests', label: 'Requests', icon: STATUS_ICON_IONICON_NAMES.request_pending },
+  { key: 'approved', label: 'Approved', icon: STATUS_ICON_IONICON_NAMES.request_approved },
+] as const;
+
+type ChatFilterKey = (typeof CHAT_FILTER_DEFS)[number]['key'];
 
 const previewText = (conv: TConversation): string => {
   if (conv.lastMessage?.text) {
@@ -33,10 +56,50 @@ const previewText = (conv: TConversation): string => {
   return 'No messages yet';
 };
 
+const matchesSearch = (item: TConversation, query: string): boolean => {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return true;
+
+  const haystack = [
+    item.counterparty.name,
+    item.counterparty.username,
+    item.question.title,
+    item.lastMessage?.text ?? '',
+    previewText(item),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(trimmed);
+};
+
+const matchesFilters = (item: TConversation, activeFilters: Set<ChatFilterKey>): boolean => {
+  if (activeFilters.size === 0) return true;
+
+  for (const key of activeFilters) {
+    if (key === 'unread' && !item.hasUnread && item.unreadCount <= 0) return false;
+    if (key === 'requests' && item.status !== AnswerRequestStatus.Pending) return false;
+    if (key === 'approved' && item.status !== AnswerRequestStatus.Accepted) return false;
+  }
+
+  return true;
+};
+
 const ChatsScreen = () => {
   const router = useRouter();
+  const listRef = useRef<Animated.FlatList<TConversation>>(null);
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<TConversation[]>([]);
+  const [search, setSearch] = useState('');
+  const [activeFilters, setActiveFilters] = useState<Set<ChatFilterKey>>(new Set());
+  const {
+    scrollHandler,
+    headerShellStyle,
+    headerChromeSlideStyle,
+    toolbarStripStyle,
+    onHeaderLayout,
+    resetChrome,
+  } = useChatsScrollChrome();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +139,30 @@ const ChatsScreen = () => {
     }, [load]),
   );
 
+  const toggleFilter = useCallback((key: ChatFilterKey) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    resetChrome();
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [activeFilters, resetChrome]);
+
+  const displayedConversations = useMemo(
+    () =>
+      conversations.filter(
+        (item) => matchesSearch(item, search) && matchesFilters(item, activeFilters),
+      ),
+    [activeFilters, conversations, search],
+  );
+
+  const hasActiveQuery = search.trim().length > 0 || activeFilters.size > 0;
+
   const renderItem = ({ item }: { item: TConversation; }) => {
     const isBold = item.hasUnread;
     const titleStyle = isBold ? styles.titleBold : styles.titleNormal;
@@ -112,35 +199,113 @@ const ChatsScreen = () => {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <BackButton />
-        <Text style={styles.pageTitle}>Chats</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {loading ? (
+  const renderEmpty = () => {
+    if (loading) {
+      return (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.PRIMARY} />
         </View>
-      ) : (
-        <FlatList
-          data={conversations}
-          keyExtractor={(item) => item.requestId}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.centered}>
-              <Ionicons name="chatbubbles-outline" size={48} color={colors.LIGHT_GRAY} />
-              <Text style={styles.emptyText}>No chats yet.</Text>
-              <Text style={styles.emptyHint}>
-                Request to answer a question or wait for incoming requests.
-              </Text>
+      );
+    }
+
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="chatbubbles-outline" size={48} color={colors.LIGHT_GRAY} />
+        <Text style={styles.emptyText}>
+          {hasActiveQuery ? 'No chats match your search or filters.' : 'No chats yet.'}
+        </Text>
+        <Text style={styles.emptyHint}>
+          {hasActiveQuery
+            ? 'Try a different search or clear the filters above.'
+            : 'Request to answer a question or wait for incoming requests.'}
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <TouchableWithoutFeedback accessible={false} onPress={() => KeyboardController.dismiss()}>
+        <View style={styles.screenBody}>
+          {/*
+            Header shell is in normal flow ABOVE the list: as it collapses,
+            the list viewport grows and the content slides up glued to the
+            shell's bottom edge — no gap can open at any progress, and a
+            release settle can complete in either direction from any scroll
+            position. The pinned toolbar (back button + logo) is a separate
+            overlay strip so it stays visible and tappable once the shell has
+            collapsed away beneath it.
+          */}
+          <Animated.View style={[styles.headerShell, headerShellStyle]}>
+            <View
+              style={styles.headerMeasureWrap}
+              onLayout={(event) => onHeaderLayout(event.nativeEvent.layout.height)}
+            >
+              <Animated.View style={headerChromeSlideStyle}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.pageTitle}>Chats</Text>
+                </View>
+
+                <Searchbar
+                  placeholder="Search chats"
+                  inputValue={search}
+                  setValue={setSearch}
+                  style={styles.searchBarPlacement}
+                />
+
+                <FilterTabletBar style={styles.filterBarPlacement}>
+                  {CHAT_FILTER_DEFS.map((def) => {
+                    const active = activeFilters.has(def.key);
+                    return (
+                      <FilterTablet
+                        key={def.key}
+                        label={def.label}
+                        icon={def.icon}
+                        iconColor={getChatFilterIconColor(def.key)}
+                        active={active}
+                        onPress={() => toggleFilter(def.key)}
+                      />
+                    );
+                  })}
+                </FilterTabletBar>
+              </Animated.View>
             </View>
-          }
-        />
-      )}
+          </Animated.View>
+
+          <Animated.FlatList
+            ref={listRef}
+            style={styles.list}
+            data={loading ? [] : displayedConversations}
+            keyExtractor={(item) => item.requestId}
+            renderItem={renderItem}
+            contentContainerStyle={[
+              styles.listContent,
+              (loading || displayedConversations.length === 0) && styles.listContentEmpty,
+            ]}
+            ListEmptyComponent={renderEmpty}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            onScroll={scrollHandler}
+            scrollEventThrottle={16}
+          />
+
+          <Animated.View
+            style={[styles.pinnedToolbar, toolbarStripStyle]}
+            pointerEvents="box-none"
+          >
+            <View style={styles.toolbarRow}>
+              <BackButton />
+              <View style={styles.logoSlot}>
+                <Image
+                  source={images.logo}
+                  style={styles.logo}
+                  accessibilityLabel="QuickPeek"
+                />
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
@@ -149,26 +314,68 @@ export default ChatsScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
-  header: {
+  screenBody: { flex: 1 },
+  headerShell: {
+    overflow: 'hidden',
+    backgroundColor: colors.BG_WHITE,
+    zIndex: 2,
+    position: 'relative',
+  },
+  headerMeasureWrap: {
+    position: 'absolute',
+    top: CHATS_COLLAPSED_HEADER_HEIGHT,
+    left: 0,
+    right: 0,
+  },
+  pinnedToolbar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: CHATS_COLLAPSED_HEADER_HEIGHT,
+    zIndex: 3,
+    justifyContent: 'center',
+  },
+  toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: CHATS_PAGE_GUTTER,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  headerSpacer: { width: 40 },
-  pageTitle: {
+  logoSlot: {
     flex: 1,
-    textAlign: 'center',
+    alignItems: 'flex-end',
+  },
+  logo: {
+    height: LOGO_SIZE,
+    width: LOGO_SIZE,
+  },
+  titleRow: {
+    paddingHorizontal: CHATS_PAGE_GUTTER,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  pageTitle: {
     fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
+    fontSize: 28,
     color: colors.TEXT_DARK,
   },
+  searchBarPlacement: {
+    marginHorizontal: CHATS_PAGE_GUTTER,
+    marginBottom: 12,
+  },
+  filterBarPlacement: {
+    paddingHorizontal: CHATS_PAGE_GUTTER - 16,
+  },
+  list: { flex: 1 },
   listContent: { paddingBottom: 24 },
+  listContentEmpty: { flexGrow: 1 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingLeft: CHATS_PAGE_GUTTER,
+    paddingRight: CHATS_PAGE_GUTTER,
     paddingTop: 10,
     gap: 12,
   },
@@ -224,12 +431,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   unreadBadgeText: { color: colors.BG_WHITE, fontSize: 10, fontWeight: 'bold' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 32 },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 32,
+  },
   emptyText: {
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.DARK_GRAY,
     marginTop: 12,
+    textAlign: 'center',
   },
   emptyHint: {
     fontFamily: 'roboto-light',
