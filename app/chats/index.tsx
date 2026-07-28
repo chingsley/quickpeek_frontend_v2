@@ -19,15 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const statusLabel = (conv: TConversation): string => {
-  if (conv.status === AnswerRequestStatus.Pending) {
-    return conv.role === 'incoming' ? 'Request to answer' : 'Requested';
-  }
-  if (conv.status === AnswerRequestStatus.Accepted) return 'Active chat';
-  if (conv.status === AnswerRequestStatus.Rejected) return 'Rejected';
-  if (conv.status === AnswerRequestStatus.ClosedAnswered) return 'Closed';
-  return conv.status;
-};
+const CHAT_LIST_AVATAR_SIZE = 48;
 
 const previewText = (conv: TConversation): string => {
   if (conv.lastMessage?.text) {
@@ -94,32 +86,28 @@ const ChatsScreen = () => {
         style={styles.row}
         onPress={() => router.push({ pathname: '/chat', params: { requestId: item.requestId } })}
       >
-        <UserAvatar imageUrl={item.counterparty.profileImageUrl} size={48} />
-        <View style={styles.content}>
-          <View style={styles.titleRow}>
+        <UserAvatar imageUrl={item.counterparty.profileImageUrl} size={CHAT_LIST_AVATAR_SIZE} />
+        <View style={styles.rowBody}>
+          <View style={styles.content}>
             <Text style={[styles.title, titleStyle]} numberOfLines={1}>
               {item.counterparty.name}
             </Text>
-            <Text style={styles.time}>{formatListTime(item.sortAt)}</Text>
+            <Text style={[styles.questionTitle, subtitleStyle]} numberOfLines={1}>
+              {item.question.title}
+            </Text>
+            <Text style={[styles.preview, subtitleStyle]} numberOfLines={1}>
+              {previewText(item)}
+            </Text>
           </View>
-          <Text style={[styles.questionTitle, subtitleStyle]} numberOfLines={1}>
-            {item.question.title}
-          </Text>
-          <Text style={[styles.preview, subtitleStyle]} numberOfLines={2}>
-            {previewText(item)}
-          </Text>
-          <View style={styles.footer}>
-            <View style={[styles.statusChip, item.status === AnswerRequestStatus.Pending && styles.statusPending]}>
-              <Text style={styles.statusText}>{statusLabel(item)}</Text>
-            </View>
-            {item.unreadCount > 0 && (
+          <View style={styles.trailing}>
+            <Text style={styles.time}>{formatListTime(item.sortAt)}</Text>
+            {item.unreadCount > 0 ? (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={colors.LIGHT_GRAY} />
       </Pressable>
     );
   };
@@ -178,32 +166,54 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: 24 },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.CARD_BORDER,
+    alignItems: 'flex-start',
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingTop: 10,
     gap: 12,
   },
-  content: { flex: 1, minWidth: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { flex: 1, fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
+  rowBody: {
+    flex: 1,
+    flexDirection: 'row',
+    minWidth: 0,
+    minHeight: CHAT_LIST_AVATAR_SIZE,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.CARD_BORDER,
+  },
+  content: {
+    flex: 1,
+    minWidth: 0,
+    height: CHAT_LIST_AVATAR_SIZE,
+    justifyContent: 'space-between',
+  },
+  title: {
+    fontSize: fonts.FONT_SIZE_SMALL,
+    lineHeight: 17,
+    color: colors.PRIMARY,
+  },
   titleBold: { fontFamily: 'roboto-bold' },
   titleNormal: { fontFamily: 'roboto' },
-  questionTitle: { fontSize: fonts.FONT_SIZE_XS, color: colors.DARK_GRAY, marginTop: 2 },
+  questionTitle: {
+    fontSize: fonts.FONT_SIZE_XS,
+    lineHeight: 15,
+    color: colors.DARK_GRAY,
+  },
   subtitleBold: { fontFamily: 'roboto-medium' },
   subtitleNormal: { fontFamily: 'roboto-light' },
-  preview: { fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4, lineHeight: 18 },
-  time: { fontFamily: 'roboto-light', fontSize: 11, color: colors.MEDIUM_GRAY },
-  footer: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
-  statusChip: {
-    backgroundColor: colors.SECONDARY,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+  preview: {
+    fontSize: fonts.FONT_SIZE_XS,
+    lineHeight: 15,
+    color: colors.MEDIUM_GRAY,
   },
-  statusPending: { backgroundColor: colors.LIGHT_BLUE },
-  statusText: { fontFamily: 'roboto', fontSize: 10, color: colors.PRIMARY },
+  trailing: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: CHAT_LIST_AVATAR_SIZE,
+    gap: 8,
+    minWidth: 40,
+  },
+  time: { fontFamily: 'roboto-light', fontSize: 11, color: colors.MEDIUM_GRAY },
   unreadBadge: {
     minWidth: 18,
     height: 18,
