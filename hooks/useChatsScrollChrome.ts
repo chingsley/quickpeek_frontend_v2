@@ -29,6 +29,11 @@ const CHATS_PROGRESS_SMOOTHING_TAU_MS = 50;
 /** When the smoothed progress is within this of its target, snap exactly. */
 const PROGRESS_SNAP_EPSILON = 0.001;
 
+const chromeContentOpacity = (progress: number) => {
+  'worklet';
+  return interpolate(progress, [0, CHATS_CHROME_FADE_OUT_END], [1, 0], Extrapolation.CLAMP);
+};
+
 /**
  * Extra scrollable slack required (beyond the layout the collapse itself
  * frees up) before we allow the chrome to collapse. Prevents the short-list
@@ -280,12 +285,7 @@ export const useChatsScrollChrome = () => {
     const slideUp = expandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
     const progress = chatsChromeProgress.value;
     return {
-      opacity: interpolate(
-        progress,
-        [0, CHATS_CHROME_FADE_OUT_END],
-        [1, 0],
-        Extrapolation.CLAMP,
-      ),
+      opacity: chromeContentOpacity(progress),
       transform: [
         {
           translateY: interpolate(
@@ -298,6 +298,10 @@ export const useChatsScrollChrome = () => {
       ],
     };
   });
+
+  const toolbarChromeFadeStyle = useAnimatedStyle(() => ({
+    opacity: chromeContentOpacity(chatsChromeProgress.value),
+  }));
 
   const toolbarStripStyle = useAnimatedStyle(() => {
     // Transparent while the solid shell is behind it; eases to the
@@ -320,6 +324,7 @@ export const useChatsScrollChrome = () => {
     scrollHandler,
     headerShellStyle,
     headerChromeSlideStyle,
+    toolbarChromeFadeStyle,
     toolbarStripStyle,
     onHeaderLayout,
     resetChrome,

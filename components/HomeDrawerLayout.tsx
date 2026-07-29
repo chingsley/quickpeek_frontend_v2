@@ -81,7 +81,7 @@ export default HomeDrawerLayout;
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.DARK_WHITE,
+    backgroundColor: colors.BG_WHITE,
   },
   menuLayer: {
     ...StyleSheet.absoluteFillObject,

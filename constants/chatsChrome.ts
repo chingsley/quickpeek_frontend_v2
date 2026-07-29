@@ -12,7 +12,7 @@ export const CHATS_COLLAPSED_HEADER_HEIGHT = CHAT_AVATAR_SIZE + CHATS_TOOLBAR_VE
  * Progress (0–1) at which header content opacity reaches zero.
  * Lower = fade completes earlier while slide/layout still finish gracefully.
  */
-export const CHATS_CHROME_FADE_OUT_END = 0.4;
+export const CHATS_CHROME_FADE_OUT_END = 0.6;
 
 /**
  * Progress (0–1) at which header content slide is ~98% complete.

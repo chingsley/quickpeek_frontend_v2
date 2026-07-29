@@ -1,13 +1,18 @@
 import Searchbar from '@/components/Searchbar';
 import BackButton from '@/components/shared/BackButton';
-import { FilterTablet, FilterTabletBar } from '@/components/FilterTablet';
+import { FilterTabletGroup } from '@/components/FilterTablet';
 import UserAvatar from '@/components/UserAvatar';
 import { CHATS_COLLAPSED_HEADER_HEIGHT } from '@/constants/chatsChrome';
 import { colors } from '@/constants/colors';
-import { getChatFilterIconColor } from '@/constants/filterTablets';
+import {
+  CHAT_FILTER_TABLET_ITEMS,
+  ChatFilterKey,
+  filterTabletBarStyles,
+  SEARCH_FILTER_HEADER_GAP,
+} from '@/constants/filterTablets';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
-import { STATUS_ICON_IONICON_NAMES } from '@/constants/statusIcons';
+import { CHAT_AVATAR_SIZE } from '@/constants/layout';
 import { useChatsScrollChrome } from '@/hooks/useChatsScrollChrome';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
@@ -32,17 +37,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const CHAT_LIST_AVATAR_SIZE = 48;
 /** Shared horizontal inset for Chats header, search, and list rows. */
 const CHATS_PAGE_GUTTER = 20;
-
-/** Logo asset is 240×240; display as a square so the graphic aligns flush right. */
+/** Centered toolbar logo — height matches Home `logoStrip`; width preserves wordmark aspect. */
 const LOGO_SIZE = 40;
-
-const CHAT_FILTER_DEFS = [
-  { key: 'unread', label: 'Unread', icon: 'mail-unread-outline' as const },
-  { key: 'requests', label: 'Requests', icon: STATUS_ICON_IONICON_NAMES.request_pending },
-  { key: 'approved', label: 'Approved', icon: STATUS_ICON_IONICON_NAMES.request_approved },
-] as const;
-
-type ChatFilterKey = (typeof CHAT_FILTER_DEFS)[number]['key'];
+const CHATS_TOOLBAR_LOGO_WIDTH = 184;
 
 const previewText = (conv: TConversation): string => {
   if (conv.lastMessage?.text) {
@@ -80,6 +77,7 @@ const matchesFilters = (item: TConversation, activeFilters: Set<ChatFilterKey>):
     if (key === 'unread' && !item.hasUnread && item.unreadCount <= 0) return false;
     if (key === 'requests' && item.status !== AnswerRequestStatus.Pending) return false;
     if (key === 'approved' && item.status !== AnswerRequestStatus.Accepted) return false;
+    if (key === 'declined' && item.status !== AnswerRequestStatus.Rejected) return false;
   }
 
   return true;
@@ -96,6 +94,7 @@ const ChatsScreen = () => {
     scrollHandler,
     headerShellStyle,
     headerChromeSlideStyle,
+    toolbarChromeFadeStyle,
     toolbarStripStyle,
     onHeaderLayout,
     resetChrome,
@@ -147,6 +146,10 @@ const ChatsScreen = () => {
       return next;
     });
   }, []);
+
+  const handleToolbarMenuPress = () => {
+    console.log('menu item in progress');
+  };
 
   useEffect(() => {
     resetChrome();
@@ -232,7 +235,7 @@ const ChatsScreen = () => {
             the list viewport grows and the content slides up glued to the
             shell's bottom edge — no gap can open at any progress, and a
             release settle can complete in either direction from any scroll
-            position. The pinned toolbar (back button + logo) is a separate
+            position. The pinned toolbar (back button, centered logo, menu) is a separate
             overlay strip so it stays visible and tappable once the shell has
             collapsed away beneath it.
           */}
@@ -253,21 +256,12 @@ const ChatsScreen = () => {
                   style={styles.searchBarPlacement}
                 />
 
-                <FilterTabletBar style={styles.filterBarPlacement}>
-                  {CHAT_FILTER_DEFS.map((def) => {
-                    const active = activeFilters.has(def.key);
-                    return (
-                      <FilterTablet
-                        key={def.key}
-                        label={def.label}
-                        icon={def.icon}
-                        iconColor={getChatFilterIconColor(def.key)}
-                        active={active}
-                        onPress={() => toggleFilter(def.key)}
-                      />
-                    );
-                  })}
-                </FilterTabletBar>
+                <FilterTabletGroup
+                  items={CHAT_FILTER_TABLET_ITEMS}
+                  activeKeys={activeFilters}
+                  onToggle={toggleFilter}
+                  barStyle={filterTabletBarStyles.chatsPlacement}
+                />
               </Animated.View>
             </View>
           </Animated.View>
@@ -293,16 +287,30 @@ const ChatsScreen = () => {
             style={[styles.pinnedToolbar, toolbarStripStyle]}
             pointerEvents="box-none"
           >
-            <View style={styles.toolbarRow}>
-              <BackButton />
-              <View style={styles.logoSlot}>
-                <Image
-                  source={images.logo}
-                  style={styles.logo}
-                  accessibilityLabel="QuickPeek"
-                />
-              </View>
+            <View style={styles.logoOverlay} pointerEvents="none">
+              <Image
+                source={images.logo}
+                style={styles.logo}
+                resizeMode="contain"
+                accessibilityLabel="QuickPeek"
+              />
             </View>
+            <Animated.View style={[styles.toolbarRow, toolbarChromeFadeStyle]}>
+              <View style={styles.toolbarSide}>
+                <BackButton />
+              </View>
+              <View style={styles.toolbarCenter} />
+              <View style={[styles.toolbarSide, styles.toolbarSideRight]}>
+                <Pressable
+                  style={styles.toolbarMenuButton}
+                  onPress={handleToolbarMenuPress}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open menu"
+                >
+                  <Ionicons name="ellipsis-horizontal" size={22} color={colors.PRIMARY} />
+                </Pressable>
+              </View>
+            </Animated.View>
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
@@ -336,20 +344,40 @@ const styles = StyleSheet.create({
     zIndex: 3,
     justifyContent: 'center',
   },
+  logoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: CHATS_PAGE_GUTTER,
+    paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
   },
-  logoSlot: {
-    flex: 1,
+  toolbarSide: {
+    width: 72,
+    zIndex: 1,
+  },
+  toolbarSideRight: {
     alignItems: 'flex-end',
+  },
+  toolbarCenter: {
+    flex: 1,
   },
   logo: {
     height: LOGO_SIZE,
-    width: LOGO_SIZE,
+    width: CHATS_TOOLBAR_LOGO_WIDTH,
+  },
+  toolbarMenuButton: {
+    height: CHAT_AVATAR_SIZE,
+    width: CHAT_AVATAR_SIZE,
+    borderWidth: 1,
+    borderColor: colors.PRIMARY,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: CHAT_AVATAR_SIZE / 2,
   },
   titleRow: {
     paddingHorizontal: CHATS_PAGE_GUTTER,
@@ -363,10 +391,7 @@ const styles = StyleSheet.create({
   },
   searchBarPlacement: {
     marginHorizontal: CHATS_PAGE_GUTTER,
-    marginBottom: 12,
-  },
-  filterBarPlacement: {
-    paddingHorizontal: CHATS_PAGE_GUTTER - 16,
+    marginBottom: SEARCH_FILTER_HEADER_GAP,
   },
   list: { flex: 1 },
   listContent: { paddingBottom: 24 },
@@ -397,7 +422,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fonts.FONT_SIZE_SMALL,
     lineHeight: 17,
-    color: colors.PRIMARY,
   },
   titleBold: { fontFamily: 'roboto-bold' },
   titleNormal: { fontFamily: 'roboto' },
@@ -407,7 +431,7 @@ const styles = StyleSheet.create({
     color: colors.DARK_GRAY,
   },
   subtitleBold: { fontFamily: 'roboto-medium' },
-  subtitleNormal: { fontFamily: 'roboto-light' },
+  subtitleNormal: { fontFamily: 'roboto' },
   preview: {
     fontSize: fonts.FONT_SIZE_XS,
     lineHeight: 15,
@@ -420,7 +444,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minWidth: 40,
   },
-  time: { fontFamily: 'roboto-light', fontSize: 11, color: colors.MEDIUM_GRAY },
+  time: { fontFamily: 'roboto', fontSize: 11, color: colors.PRIMARY },
   unreadBadge: {
     minWidth: 18,
     height: 18,
@@ -446,7 +470,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyHint: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     textAlign: 'center',

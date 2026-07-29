@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
   },
   rowSubtitle: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 2,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
   },
   profileUsername: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 2,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   ratingMeta: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: 11,
     color: colors.DARK_GRAY,
   },

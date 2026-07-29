@@ -193,6 +193,6 @@ const styles = StyleSheet.create({
   },
   pillLabel: {
     fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_XS,
+    fontSize: fonts.FONT_SIZE_SMALL,
   },
 });

@@ -147,23 +147,33 @@ const BottomSheet = ({
       statusBarTranslucent={Platform.OS === 'android'}
       onRequestClose={onClose}
     >
-      <View style={styles.host} pointerEvents="box-none">
-        <Animated.View
-          pointerEvents="auto"
-          style={[styles.backdrop, { backgroundColor: backdropColor }, backdropAnimatedStyle]}
-        >
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-        </Animated.View>
+      {/*
+        The KeyboardAvoidingView must wrap the host as the Modal's direct
+        child: react-native-keyboard-controller computes the padding from the
+        view's onLayout frame, which is measured relative to its PARENT. As
+        the Modal's direct child its frame spans the full screen, so the
+        padding matches the keyboard height and the sheet is lifted above the
+        keyboard. Placing it inside the bottom-anchored sheet instead measures
+        a frame relative to the sheet (y≈0), which yields zero padding and
+        leaves the sheet hidden behind the keyboard.
+      */}
+      <KeyboardAvoidingView behavior="padding" style={styles.hostAvoider}>
+        <View style={styles.host} pointerEvents="box-none">
+          <Animated.View
+            pointerEvents="auto"
+            style={[styles.backdrop, { backgroundColor: backdropColor }, backdropAnimatedStyle]}
+          >
+            <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
+          </Animated.View>
 
-        <Animated.View
-          collapsable={false}
-          style={[styles.sheet, sheetAnimatedStyle, sheetStyle]}
-        >
-          <KeyboardAvoidingView behavior="padding" style={styles.sheetKeyboard}>
+          <Animated.View
+            collapsable={false}
+            style={[styles.sheet, sheetAnimatedStyle, sheetStyle]}
+          >
             {children}
-          </KeyboardAvoidingView>
-        </Animated.View>
-      </View>
+          </Animated.View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -171,6 +181,7 @@ const BottomSheet = ({
 export default BottomSheet;
 
 const styles = StyleSheet.create({
+  hostAvoider: { flex: 1 },
   host: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -180,8 +191,5 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-  },
-  sheetKeyboard: {
-    flexGrow: 1,
   },
 });

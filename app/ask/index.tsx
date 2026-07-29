@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 8 },
-  subtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
+  subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
   label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
   input: {
     borderWidth: 1,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   locationToggleText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
-  locationAddress: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  locationAddress: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   toggleTextWrap: { flex: 1 },
   helperText: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 4,

@@ -7,12 +7,12 @@
  * fixed TTF — use `FONT_FAMILY_*` to pick the weight you want.
  */
 export const fonts = {
-  FONT_SIZE_XL: 22,
-  FONT_SIZE_MEDIUM: 18,
-  FONT_SIZE_SMALL: 16,
   FONT_SIZE_XS: 14,
-  /** Home filter tablet labels — between body small and section medium. */
+  FONT_SIZE_SMALL: 16,
   FONT_SIZE_TABLET: 17,
+  FONT_SIZE_MEDIUM: 18,
+  FONT_SIZE_XL: 22,
+  /** Home filter tablet labels — between body small and section medium. */
 
   /** Loaded custom font families — use these to set text weight in the app. */
   FONT_FAMILY_LIGHT: 'roboto-light',

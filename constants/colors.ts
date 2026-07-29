@@ -4,6 +4,7 @@
  */
 export const colors = {
   // Brand
+  // PRIMARY: '#156779',
   PRIMARY: '#0c538f',
   SECONDARY: '#dcedf3',
   // SECONDARY: '#b5d9f4',
@@ -16,6 +17,8 @@ export const colors = {
   CARD_BG: '#F8F9FA',
   // INPUT_BG: '#F5F5F5',
   INPUT_BG: '#eff3f6',
+  /** Muted chat surfaces (status banner, incoming bubbles). Same value as INPUT_BG today; separate token so chat styling can diverge. */
+  CHAT_MUTED_BG: '#eff3f6',
   MAP_PLACEHOLDER_BG: '#E8EDF2',
 
   // Neutrals — borders & dividers

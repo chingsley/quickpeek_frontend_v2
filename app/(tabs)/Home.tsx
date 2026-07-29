@@ -1,11 +1,8 @@
 import Searchbar from '@/components/Searchbar';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
-import { FilterTablet, FilterTabletBar } from '@/components/FilterTablet';
+import { FilterTabletGroup } from '@/components/FilterTablet';
 import { ALL_QUESTIONS_CATEGORY_KEY, CLOSED_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
-import {
-  FILTER_TABLET_IONICON_NAMES,
-  getFilterTabletIconColor,
-} from '@/constants/filterTablets';
+import { HOME_FILTER_TABLET_ITEMS, SEARCH_FILTER_HEADER_GAP } from '@/constants/filterTablets';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { HOME_COLLAPSED_HEADER_HEIGHT } from '@/constants/homeChrome';
@@ -25,7 +22,6 @@ import { QuestionStatus, TFeedCounts, TFeedQuestion } from '@/types/question.typ
 import { formatRelativeTime } from '@/utils/date';
 import { drawBorder } from '@/utils';
 import {
-  STATUS_TAG_DEFS,
   getMainStatusIcons,
   questionMatchesTag,
   StatusTagKey,
@@ -579,21 +575,11 @@ const HomeScreen = () => {
                 ) : null}
 
                 {!isClosedCategory ? (
-                  <FilterTabletBar>
-                    {STATUS_TAG_DEFS.map((def) => {
-                      const active = activeTags.has(def.key);
-                      return (
-                        <FilterTablet
-                          key={def.key}
-                          label={def.label}
-                          icon={FILTER_TABLET_IONICON_NAMES[def.key]}
-                          iconColor={getFilterTabletIconColor(def.key, active)}
-                          active={active}
-                          onPress={() => toggleTag(def.key)}
-                        />
-                      );
-                    })}
-                  </FilterTabletBar>
+                  <FilterTabletGroup
+                    items={HOME_FILTER_TABLET_ITEMS}
+                    activeKeys={activeTags}
+                    onToggle={toggleTag}
+                  />
                 ) : null}
 
                 {!isClosedCategory ? (
@@ -748,7 +734,7 @@ const styles = StyleSheet.create({
   },
   searchBarPlacement: {
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: SEARCH_FILTER_HEADER_GAP,
   },
   searchLoadingRow: {
     flexDirection: 'row',
@@ -757,7 +743,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   searchLoadingText: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
   },
@@ -770,7 +756,7 @@ const styles = StyleSheet.create({
   menuBtn: { paddingTop: 4, paddingBottom: 4, paddingRight: 4 },
   pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
   categorySubtitle: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 2,
@@ -847,17 +833,17 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
   },
   distance: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginLeft: 'auto',
   },
-  postedAt: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
+  postedAt: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 },
   emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center' },
   emptyHelper: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     textAlign: 'center',

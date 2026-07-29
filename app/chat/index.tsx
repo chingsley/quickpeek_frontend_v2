@@ -1,4 +1,5 @@
 import ReviewModal from '@/components/ReviewModal';
+import { StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
 import BackButton from '@/components/shared/BackButton';
@@ -7,6 +8,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT, CHAT_AVATAR_SIZE } from '@/constants/layout';
+import { STATUS_ICON_SIZE, STATUS_ICON_VISUALS } from '@/constants/statusIcons';
 import {
   getMessages,
   getRequestThread,
@@ -26,6 +28,7 @@ import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TMessage, TRequestThread } from '@/types/message.types';
 import { TReviewEligibility } from '@/types/review.types';
 import { formatDaySeparator, formatMessageTime, getDayKey } from '@/utils/date';
+import { StatusIconKey } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -33,6 +36,8 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -46,6 +51,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 type ChatListItem =
   | { kind: 'day'; id: string; label: string; }
   | { kind: 'message'; message: TMessage; };
+
+type SystemMessageFlagTone = 'pending' | 'approved' | 'declined';
+
+const SYSTEM_MESSAGE_FLAG_ICON_KEYS: Record<SystemMessageFlagTone, StatusIconKey> = {
+  pending: 'request_pending',
+  approved: 'request_approved',
+  declined: 'request_denied',
+};
+
+/** Within this distance from the bottom, new messages auto-scroll into view. */
+const CHAT_SCROLL_NEAR_BOTTOM_THRESHOLD = 80;
+
+/** Maps request lifecycle system copy to the shared status icon set. */
+const getSystemMessageFlagTone = (text: string): SystemMessageFlagTone | null => {
+  if (text.startsWith('Your request was declined:') || text.startsWith("You declined @")) {
+    return 'declined';
+  }
+  if (
+    text.startsWith('Your request to answer the question has been sent') ||
+    text.startsWith('You have a request by ')
+  ) {
+    return 'pending';
+  }
+  if (text.startsWith('You approved @') || text.startsWith('Request accepted.')) {
+    return 'approved';
+  }
+  return null;
+};
 
 const ChatScreen = () => {
   const router = useRouter();
@@ -70,7 +103,53 @@ const ChatScreen = () => {
   const [rejecting, setRejecting] = useState(false);
 
   const listRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
   const openRejectAfterProfileCloseRef = useRef(false);
+  const initialScrollDoneRef = useRef(false);
+  const isNearBottomRef = useRef(true);
+  const userSentMessageRef = useRef(false);
+  const awaitingSendScrollRef = useRef(false);
+
+  const scrollToBottom = useCallback((animated: boolean) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated });
+      });
+    });
+  }, []);
+
+  const handleListScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    isNearBottomRef.current = distanceFromBottom <= CHAT_SCROLL_NEAR_BOTTOM_THRESHOLD;
+  }, []);
+
+  useEffect(() => {
+    initialScrollDoneRef.current = false;
+    isNearBottomRef.current = true;
+    userSentMessageRef.current = false;
+    awaitingSendScrollRef.current = false;
+  }, [requestId]);
+
+  useEffect(() => {
+    if (loading || messages.length === 0) return;
+
+    if (!initialScrollDoneRef.current) {
+      scrollToBottom(false);
+      initialScrollDoneRef.current = true;
+      return;
+    }
+
+    if (userSentMessageRef.current) {
+      userSentMessageRef.current = false;
+      return;
+    }
+
+    if (isNearBottomRef.current) {
+      scrollToBottom(true);
+    }
+  }, [loading, messages, scrollToBottom]);
 
   const loadThread = useCallback(async () => {
     if (!requestId) return;
@@ -231,8 +310,13 @@ const ChatScreen = () => {
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending || !canType) return;
+
+    userSentMessageRef.current = true;
+    awaitingSendScrollRef.current = true;
     setSending(true);
     setInputText('');
+    inputRef.current?.focus();
+
     try {
       const message = await sendMessage(requestId, text);
       setMessages((prev) => {
@@ -242,8 +326,11 @@ const ChatScreen = () => {
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Could not send message.');
       setInputText(text);
+      userSentMessageRef.current = false;
+      awaitingSendScrollRef.current = false;
     } finally {
       setSending(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -259,9 +346,23 @@ const ChatScreen = () => {
         thread?.counterparty &&
         message.text.includes('View their profile');
 
+      const flagTone = getSystemMessageFlagTone(message.text);
+
       return (
         <View style={styles.systemBubble}>
-          <Text style={styles.systemText}>{message.text}</Text>
+          <View style={[styles.systemContentRow, !flagTone && styles.systemContentRowCentered]}>
+            {flagTone ? (
+              <StatusIconGlyph
+                visual={STATUS_ICON_VISUALS[SYSTEM_MESSAGE_FLAG_ICON_KEYS[flagTone]]}
+                size={STATUS_ICON_SIZE}
+              />
+            ) : null}
+            <View style={flagTone ? styles.systemTextWrap : undefined}>
+              <Text style={[styles.systemText, flagTone && styles.systemTextWithFlag]}>
+                {message.text}
+              </Text>
+            </View>
+          </View>
           {isPendingQuestionerPrompt && (
             <Pressable
               style={styles.viewProfileBtn}
@@ -332,8 +433,9 @@ const ChatScreen = () => {
         </View>
 
         {isClosed && (
-          <View style={styles.closedBanner}>
-            <Text style={styles.closedText}>
+          <View style={styles.statusBanner}>
+            <Ionicons name="lock-closed" size={14} color={colors.PRIMARY} />
+            <Text style={styles.statusBannerText}>
               {thread?.status === AnswerRequestStatus.Rejected
                 ? 'This request was declined.'
                 : 'This question has been answered.'}
@@ -342,9 +444,9 @@ const ChatScreen = () => {
         )}
 
         {isPending && !isClosed && (
-          <View style={styles.pendingBanner}>
+          <View style={styles.statusBanner}>
             <Ionicons name="lock-closed" size={14} color={colors.PRIMARY} />
-            <Text style={styles.pendingText}>
+            <Text style={styles.statusBannerText}>
               {isQuestioner
                 ? 'Review the request — chat unlocks once you accept.'
                 : 'Waiting for the questioner to accept your request.'}
@@ -360,7 +462,13 @@ const ChatScreen = () => {
           contentContainerStyle={styles.listContent}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => {
+            if (!awaitingSendScrollRef.current) return;
+            awaitingSendScrollRef.current = false;
+            scrollToBottom(true);
+          }}
           renderItem={({ item }) =>
             item.kind === 'day' ? (
               <Text style={styles.daySeparator}>{item.label}</Text>
@@ -380,19 +488,27 @@ const ChatScreen = () => {
           )}
 
           <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              placeholder={canType ? 'Type a message…' : isClosed ? 'Chat closed' : 'Chat locked'}
-              placeholderTextColor={colors.LIGHT_GRAY}
-              value={inputText}
-              onChangeText={setInputText}
-              editable={canType && !sending}
-              multiline
-            />
+            <View style={[styles.inputShell, canType && styles.inputShellActive]}>
+              {!canType ? (
+                <Ionicons name="lock-closed" size={14} color={colors.PRIMARY} />
+              ) : null}
+              <TextInput
+                ref={inputRef}
+                style={[styles.input, !canType && styles.inputLocked]}
+                placeholder={canType ? 'Type a message…' : isClosed ? 'Chat closed' : 'Chat locked'}
+                placeholderTextColor={canType ? colors.PLACEHOLDER : colors.LIGHT_GRAY}
+                value={inputText}
+                onChangeText={setInputText}
+                editable={canType}
+                multiline={canType}
+                blurOnSubmit={false}
+              />
+            </View>
             <Pressable
               style={[styles.sendBtn, (!canType || !inputText.trim()) && styles.sendBtnDisabled]}
               onPress={handleSend}
               disabled={!canType || !inputText.trim() || sending}
+              onPressOut={() => inputRef.current?.focus()}
             >
               <Ionicons name="send" size={20} color={colors.BG_WHITE} />
             </Pressable>
@@ -519,23 +635,21 @@ const styles = StyleSheet.create({
     color: colors.PRIMARY,
   },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
-  headerSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
-  closedBanner: { backgroundColor: colors.LIGHT_RED, padding: 10, alignItems: 'center' },
-  closedText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
-  pendingBanner: {
+  headerSubtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
+  statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.AMBER,
+    backgroundColor: colors.CHAT_MUTED_BG,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
   },
-  pendingText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
+  statusBannerText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
   listContent: { padding: 16, paddingBottom: 8 },
   daySeparator: {
     textAlign: 'center',
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginVertical: 12,
@@ -549,30 +663,42 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   bubbleOther: {
-    backgroundColor: colors.CARD_BG,
+    backgroundColor: colors.CHAT_MUTED_BG,
     borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.BORDER_GRAY,
   },
   messageText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
-  messageTime: { fontFamily: 'roboto-light', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
+  messageTime: { fontFamily: 'roboto', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
   systemBubble: {
     alignSelf: 'center',
-    // backgroundColor: colors.SECONDARY,
+    width: '90%',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginVertical: 8,
-    maxWidth: '90%',
     borderWidth: 1,
     borderColor: colors.CARD_BG,
   },
+  systemContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  systemContentRowCentered: {
+    justifyContent: 'center',
+  },
+  systemTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   systemText: {
-    fontFamily: 'roboto-MEDIUM',
+    fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_XS,
-    // color: colors.PRIMARY,
+    color: colors.TEXT_DARK,
     textAlign: 'center',
-    lineHeight: 18
+    lineHeight: 18,
+  },
+  systemTextWithFlag: {
+    textAlign: 'left',
   },
   viewProfileBtn: {
     flexDirection: 'row',
@@ -608,17 +734,31 @@ const styles = StyleSheet.create({
     borderTopColor: colors.CARD_BORDER,
     gap: 8,
   },
-  input: {
+  inputShell: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
     borderRadius: BORDER_RADIUS_INPUT,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    minHeight: 42,
+  },
+  inputShellActive: {
+    borderColor: colors.BORDER_GRAY,
+  },
+  input: {
+    flex: 1,
     paddingVertical: 10,
     maxHeight: 100,
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
+  },
+  inputLocked: {
+    paddingVertical: 0,
+    textAlignVertical: 'center',
   },
   sendBtn: {
     width: 40,
@@ -631,7 +771,7 @@ const styles = StyleSheet.create({
   sendBtnDisabled: { opacity: 0.4 },
   modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
-  modalSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
+  modalSubtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
   presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   presetChip: {
     borderWidth: 1,

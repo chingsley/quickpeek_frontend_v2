@@ -1,7 +1,9 @@
 import {
   FILTER_TABLET_ICON_SIZE,
+  FilterTabletItem,
   filterTabletBarStyles,
   filterTabletStyles,
+  resolveFilterTabletIconColor,
 } from '@/constants/filterTablets';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { ComponentProps } from 'react';
@@ -18,11 +20,10 @@ export type FilterTabletProps = {
 };
 
 /**
- * Single filter pill (icon + label). Used on Home and Chats.
+ * Single filter pill (icon + label).
  *
- * Tune appearance in `constants/filterTablets.ts`:
- * - `filterTabletStyles` — pill container, active state, label text
- * - `FILTER_TABLET_ICON_SIZE` — icon size (from `statusIcons.ts`)
+ * All visual styling lives in `constants/filterTablets.ts` — do not pass custom
+ * styles here; update `filterTabletStyles` in `constants/filterTablets.ts` instead.
  */
 export const FilterTablet = ({
   label,
@@ -37,7 +38,7 @@ export const FilterTablet = ({
     accessibilityState={{ selected: active }}
     style={[filterTabletStyles.container, active && filterTabletStyles.containerActive]}
   >
-    <Ionicons name={icon} size={FILTER_TABLET_ICON_SIZE} color={iconColor} />
+    {/* <Ionicons name={icon} size={FILTER_TABLET_ICON_SIZE} color={iconColor} /> */}
     <Text style={[filterTabletStyles.text, active && filterTabletStyles.textActive]}>{label}</Text>
   </Pressable>
 );
@@ -47,11 +48,7 @@ type FilterTabletBarProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-/**
- * Horizontal scroll row for filter pills. Canonical layout from Chats screen.
- *
- * Tune row spacing in `constants/filterTablets.ts` → `filterTabletBarStyles`.
- */
+/** Horizontal scroll row for filter pills. Layout tokens: `filterTabletBarStyles`. */
 export const FilterTabletBar = ({ children, style }: FilterTabletBarProps) => (
   <View style={[filterTabletBarStyles.wrap, style]}>
     <ScrollView
@@ -64,4 +61,40 @@ export const FilterTabletBar = ({ children, style }: FilterTabletBarProps) => (
   </View>
 );
 
-export { filterTabletBarStyles, filterTabletStyles, FILTER_TABLET_ICON_SIZE } from '@/constants/filterTablets';
+export type FilterTabletGroupProps<Key extends string> = {
+  items: readonly FilterTabletItem<Key>[];
+  activeKeys: ReadonlySet<Key>;
+  onToggle: (key: Key) => void;
+  getIconColor?: (key: Key, active: boolean) => string;
+  barStyle?: StyleProp<ViewStyle>;
+};
+
+/**
+ * Renders a full filter bar from item definitions.
+ * Styling is centralized in `constants/filterTablets.ts`.
+ */
+export function FilterTabletGroup<Key extends string>({
+  items,
+  activeKeys,
+  onToggle,
+  getIconColor = resolveFilterTabletIconColor as (key: Key, active: boolean) => string,
+  barStyle,
+}: FilterTabletGroupProps<Key>) {
+  return (
+    <FilterTabletBar style={barStyle}>
+      {items.map((item) => {
+        const active = activeKeys.has(item.key);
+        return (
+          <FilterTablet
+            key={item.key}
+            label={item.label}
+            icon={item.icon}
+            iconColor={getIconColor(item.key, active)}
+            active={active}
+            onPress={() => onToggle(item.key)}
+          />
+        );
+      })}
+    </FilterTabletBar>
+  );
+}

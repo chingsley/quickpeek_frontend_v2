@@ -1,5 +1,17 @@
-import { StatusTagKey } from '@/utils/questionStatus';
+/**
+ * Filter tablet styling — single source of truth.
+ *
+ * Change pill appearance here (`filterTabletStyles`, `FILTER_TABLET_ICON_SIZE`) or bar
+ * layout (`filterTabletBarStyles`) and it applies everywhere `FilterTablet` /
+ * `FilterTabletGroup` is used (Home, Chats, …).
+ *
+ * Screens only own filter *definitions* (which pills exist) and filter *logic*
+ * (what each pill matches). Do not add per-screen pill styles.
+ */
+import { STATUS_TAG_DEFS, StatusTagKey } from '@/utils/questionStatus';
+import { ComponentProps } from 'react';
 import { Platform, TextStyle, ViewStyle } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from './colors';
 import { fonts } from './fonts';
 import { BORDER_RADIUS_PILL } from './layout';
@@ -9,6 +21,14 @@ import {
   STATUS_ICON_NEUTRAL_COLOR,
   STATUS_ICON_SIZE,
 } from './statusIcons';
+
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
+
+/** Vertical space between the search field and the filter tablet row (Home + Chats). */
+export const SEARCH_FILTER_HEADER_GAP = 20;
+
+/** Vertical space between the filter tablet row and the list below (Home + Chats). */
+export const CHAT_SCREEN_FILTER_LIST_GAP = 40;
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
 const tabletTextFix: TextStyle =
@@ -30,27 +50,34 @@ export const FILTER_TABLET_IONICON_NAMES = {
   request_approved: STATUS_ICON_IONICON_NAMES.request_approved,
   request_denied: STATUS_ICON_IONICON_NAMES.request_denied,
   near_me: STATUS_ICON_IONICON_NAMES.near_me,
-} satisfies Record<StatusTagKey, (typeof STATUS_ICON_IONICON_NAMES)[StatusTagKey]>;
+} satisfies Record<StatusTagKey, IoniconName>;
 
-export const getFilterTabletIconColor = (key: StatusTagKey, active: boolean): string => {
-  const base = STATUS_ICON_COLORS[key];
-  if (base !== STATUS_ICON_NEUTRAL_COLOR) return base;
-  return active ? filterTabletColors.iconActive : filterTabletColors.icon;
+export type FilterTabletItem<Key extends string = string> = {
+  key: Key;
+  label: string;
+  icon: IoniconName;
 };
 
-/** Chats filter chips that reuse status glyphs (Requests → pending, Approved). */
-export type ChatFilterIconKey = 'unread' | 'requests' | 'approved';
+/** Home question-feed filter pills. */
+export const HOME_FILTER_TABLET_ITEMS: FilterTabletItem<StatusTagKey>[] = STATUS_TAG_DEFS.map(
+  (def) => ({
+    key: def.key,
+    label: def.label,
+    icon: FILTER_TABLET_IONICON_NAMES[def.key],
+  }),
+);
 
-export const getChatFilterIconColor = (key: ChatFilterIconKey): string => {
-  if (key === 'requests') return STATUS_ICON_COLORS.request_pending;
-  if (key === 'approved') return STATUS_ICON_COLORS.request_approved;
-  return filterTabletColors.icon;
-};
+/** Chats inbox filter pills. */
+export const CHAT_FILTER_TABLET_ITEMS = [
+  { key: 'unread', label: 'Unread', icon: 'mail-unread-outline' as const },
+  { key: 'requests', label: 'Requests', icon: STATUS_ICON_IONICON_NAMES.request_pending },
+  { key: 'approved', label: 'Approved', icon: STATUS_ICON_IONICON_NAMES.request_approved },
+  { key: 'declined', label: 'Declined', icon: STATUS_ICON_IONICON_NAMES.request_denied },
+] as const satisfies readonly FilterTabletItem[];
 
-export const filterTabletColors = {
-  icon: colors.PRIMARY,
-  iconActive: colors.PRIMARY,
-} as const;
+export type ChatFilterKey = (typeof CHAT_FILTER_TABLET_ITEMS)[number]['key'];
+
+export type FilterTabletIconKey = StatusTagKey | ChatFilterKey;
 
 export const filterTabletStyles = {
   container: {
@@ -58,38 +85,38 @@ export const filterTabletStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: BORDER_RADIUS_PILL,
     borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    backgroundColor: colors.BG_WHITE,
+    borderColor: colors.DARK_GRAY,
+    backgroundColor: colors.INPUT_BG,
   } satisfies ViewStyle,
 
   containerActive: {
-    backgroundColor: colors.SECONDARY,
+    backgroundColor: colors.PRIMARY,
+    borderColor: colors.PRIMARY,
   } satisfies ViewStyle,
 
   text: {
+    // fontFamily: fonts.FONT_FAMILY_REGULAR,
+    // fontSize: fonts.FONT_SIZE_TABLET,  
     fontFamily: fonts.FONT_FAMILY_MEDIUM,
-    fontSize: fonts.FONT_SIZE_TABLET,
-    color: colors.PRIMARY,
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.DARK_GRAY,
     ...tabletTextFix,
   } satisfies TextStyle,
 
   textActive: {
-    fontFamily: fonts.FONT_FAMILY_MEDIUM,
-    fontSize: fonts.FONT_SIZE_TABLET,
-    color: colors.PRIMARY,
+    color: colors.BG_WHITE,
     ...tabletTextFix,
   } satisfies TextStyle,
 };
 
-/** Horizontal filter row wrapper — canonical layout from Chats screen. */
+/** Horizontal filter row wrapper — shared by Home, Chats, and future screens. */
 export const filterTabletBarStyles = {
   wrap: {
-    marginBottom: 10,
+    marginBottom: CHAT_SCREEN_FILTER_LIST_GAP,
   } satisfies ViewStyle,
 
   content: {
@@ -97,4 +124,44 @@ export const filterTabletBarStyles = {
     paddingHorizontal: 16,
     paddingVertical: 2,
   } satisfies ViewStyle,
+
+  /**
+   * Chats page: align the scroll row with the 20px page gutter
+   * (`filterTabletBarStyles.content` already pads 16px horizontally).
+   */
+  chatsPlacement: {
+    paddingHorizontal: 4,
+  } satisfies ViewStyle,
 };
+
+const CHAT_FILTER_STATUS_ICON_KEYS: Partial<
+  Record<ChatFilterKey, keyof typeof STATUS_ICON_COLORS>
+> = {
+  requests: 'request_pending',
+  approved: 'request_approved',
+  declined: 'request_denied',
+};
+
+/** Resolve icon color for any filter pill (Home tags or Chats filters). */
+export const resolveFilterTabletIconColor = (
+  key: FilterTabletIconKey,
+  active: boolean,
+): string => {
+  const chatStatusKey = CHAT_FILTER_STATUS_ICON_KEYS[key as ChatFilterKey];
+  if (chatStatusKey) {
+    return STATUS_ICON_COLORS[chatStatusKey];
+  }
+
+  if (key === 'unread') {
+    return colors.PRIMARY;
+  }
+
+  const statusKey = key as StatusTagKey;
+  const base = STATUS_ICON_COLORS[statusKey];
+  if (base !== STATUS_ICON_NEUTRAL_COLOR) {
+    return base;
+  }
+
+  return colors.PRIMARY;
+};
+
