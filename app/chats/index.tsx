@@ -397,7 +397,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: fonts.FONT_SIZE_SMALL,
     lineHeight: 17,
-    color: colors.PRIMARY,
   },
   titleBold: { fontFamily: 'roboto-bold' },
   titleNormal: { fontFamily: 'roboto' },
@@ -407,7 +406,7 @@ const styles = StyleSheet.create({
     color: colors.DARK_GRAY,
   },
   subtitleBold: { fontFamily: 'roboto-medium' },
-  subtitleNormal: { fontFamily: 'roboto-light' },
+  subtitleNormal: { fontFamily: 'roboto' },
   preview: {
     fontSize: fonts.FONT_SIZE_XS,
     lineHeight: 15,
@@ -420,7 +419,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minWidth: 40,
   },
-  time: { fontFamily: 'roboto-light', fontSize: 11, color: colors.MEDIUM_GRAY },
+  time: { fontFamily: 'roboto', fontSize: 11, color: colors.MEDIUM_GRAY },
   unreadBadge: {
     minWidth: 18,
     height: 18,
@@ -446,7 +445,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyHint: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     textAlign: 'center',

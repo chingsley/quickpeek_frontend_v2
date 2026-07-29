@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     width: 250,
   },
   emptyCategories: {
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
     paddingLeft: DRAWER_CATEGORY_ITEM_INSET,

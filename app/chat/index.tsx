@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     color: colors.PRIMARY,
   },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
-  headerSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
+  headerSubtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
   closedBanner: { backgroundColor: colors.LIGHT_RED, padding: 10, alignItems: 'center' },
   closedText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.TEXT_DARK },
   pendingBanner: {
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 16, paddingBottom: 8 },
   daySeparator: {
     textAlign: 'center',
-    fontFamily: 'roboto-light',
+    fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginVertical: 12,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     borderColor: colors.BORDER_GRAY,
   },
   messageText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
-  messageTime: { fontFamily: 'roboto-light', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
+  messageTime: { fontFamily: 'roboto', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
   systemBubble: {
     alignSelf: 'center',
     // backgroundColor: colors.SECONDARY,
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   sendBtnDisabled: { opacity: 0.4 },
   modalSheet: { backgroundColor: colors.BG_WHITE, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginBottom: 4 },
-  modalSubtitle: { fontFamily: 'roboto-light', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
+  modalSubtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 16 },
   presetWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   presetChip: {
     borderWidth: 1,
