@@ -82,8 +82,7 @@ const BottomSheet = ({
       backdropOpacity.value = 0;
       sheetTranslateY.value = distance;
 
-      openFrameRef.current = requestAnimationFrame(() => {
-        openFrameRef.current = null;
+      const startOpenAnimation = () => {
         if (token !== animationTokenRef.current) return;
 
         backdropOpacity.value = withTiming(1, {
@@ -93,6 +92,15 @@ const BottomSheet = ({
         sheetTranslateY.value = withTiming(0, {
           duration: BOTTOM_SHEET_OPEN_DURATION_MS,
           easing: SHEET_OPEN_EASING,
+        });
+      };
+
+      // Two frames so layout is committed before the slide starts — especially
+      // after another Modal (e.g. overflow menu) has just dismissed.
+      openFrameRef.current = requestAnimationFrame(() => {
+        openFrameRef.current = requestAnimationFrame(() => {
+          openFrameRef.current = null;
+          startOpenAnimation();
         });
       });
 

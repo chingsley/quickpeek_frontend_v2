@@ -1,6 +1,12 @@
 import { TCategory } from './category.types';
 import { AnswerRequestStatus } from './answerRequest.types';
 
+export type TMessageReplyBrief = {
+  id: string;
+  senderId: string;
+  text: string;
+};
+
 export type TMessage = {
   id: string;
   questionId: string;
@@ -11,6 +17,7 @@ export type TMessage = {
   visibleToUserId: string | null;
   createdAt: string;
   readAt: string | null;
+  replyTo?: TMessageReplyBrief | null;
 };
 
 export type TRequestThread = {

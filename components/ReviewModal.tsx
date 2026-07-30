@@ -18,22 +18,26 @@ import {
 type Props = {
   visible: boolean;
   requestId: string;
+  /** Preselected star count when opening (e.g. from the timeline rating card). */
+  initialStars?: number;
   onClose: () => void;
   onSubmitted: () => void;
 };
 
-const ReviewModal = ({ visible, requestId, onClose, onSubmitted }: Props) => {
+const ReviewModal = ({ visible, requestId, initialStars, onClose, onSubmitted }: Props) => {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!visible) {
-      setStars(0);
-      setComment('');
-      setSubmitting(false);
+    if (visible) {
+      setStars(initialStars ?? 0);
+      return;
     }
-  }, [visible]);
+    setStars(0);
+    setComment('');
+    setSubmitting(false);
+  }, [visible, initialStars]);
 
   const handleSubmit = async () => {
     if (stars === 0 || submitting) return;

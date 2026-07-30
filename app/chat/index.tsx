@@ -1,9 +1,12 @@
 import ReviewModal from '@/components/ReviewModal';
+import MessageBubble, { MessageGroupPosition } from '@/components/chat/MessageBubble';
+import RatingCard from '@/components/chat/RatingCard';
 import { StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
+import OverflowMenu, { OverflowMenuItem } from '@/components/shared/OverflowMenu';
 import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
@@ -27,7 +30,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TMessage, TRequestThread } from '@/types/message.types';
 import { TReviewEligibility } from '@/types/review.types';
-import { formatDaySeparator, formatMessageTime, getDayKey } from '@/utils/date';
+import { formatDaySeparator, getDayKey } from '@/utils/date';
 import { StatusIconKey } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -50,7 +53,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ChatListItem =
   | { kind: 'day'; id: string; label: string; }
-  | { kind: 'message'; message: TMessage; };
+  | { kind: 'message'; message: TMessage; groupPosition: MessageGroupPosition; }
+  | { kind: 'rating'; id: string; };
 
 type SystemMessageFlagTone = 'pending' | 'approved' | 'declined';
 
@@ -92,6 +96,8 @@ const ChatScreen = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
+  /** Star count the review sheet opens with (set by the timeline rating card). */
+  const [reviewInitialStars, setReviewInitialStars] = useState(0);
   const [eligibility, setEligibility] = useState<TReviewEligibility | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
   const [profileOpenKey, setProfileOpenKey] = useState(0);
@@ -101,6 +107,8 @@ const ChatScreen = () => {
   const [presetReasons, setPresetReasons] = useState<string[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  /** Message currently being replied to (shown above the composer). */
+  const [replyTarget, setReplyTarget] = useState<TMessage | null>(null);
 
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -130,6 +138,7 @@ const ChatScreen = () => {
     isNearBottomRef.current = true;
     userSentMessageRef.current = false;
     awaitingSendScrollRef.current = false;
+    setReplyTarget(null);
   }, [requestId]);
 
   useEffect(() => {
@@ -226,16 +235,44 @@ const ChatScreen = () => {
   const chatItems = useMemo(() => {
     const items: ChatListItem[] = [];
     let lastDayKey = '';
-    for (const message of messages) {
+
+    // Consecutive USER messages from the same sender on the same day form a
+    // bubble group — the tail and the wider gap only land on the last one.
+    const sameGroup = (a: TMessage | undefined, b: TMessage | undefined) =>
+      !!a &&
+      !!b &&
+      a.type === 'USER' &&
+      b.type === 'USER' &&
+      a.senderId === b.senderId &&
+      getDayKey(a.createdAt) === getDayKey(b.createdAt);
+
+    for (let i = 0; i < messages.length; i++) {
+      const message = messages[i];
       const dayKey = getDayKey(message.createdAt);
       if (dayKey !== lastDayKey) {
         items.push({ kind: 'day', id: `day-${dayKey}`, label: formatDaySeparator(message.createdAt) });
         lastDayKey = dayKey;
       }
-      items.push({ kind: 'message', message });
+      const prevInGroup = sameGroup(messages[i - 1], message);
+      const nextInGroup = sameGroup(message, messages[i + 1]);
+      const groupPosition: MessageGroupPosition = prevInGroup
+        ? nextInGroup
+          ? 'middle'
+          : 'last'
+        : nextInGroup
+          ? 'first'
+          : 'single';
+      items.push({ kind: 'message', message, groupPosition });
+    }
+
+    // When the counterparty becomes reviewable, surface the rating prompt as
+    // a native event at the end of the conversation. Derived from state — it
+    // disappears by itself once the review is in.
+    if (eligibility?.canReview) {
+      items.push({ kind: 'rating', id: 'rating-card' });
     }
     return items;
-  }, [messages]);
+  }, [eligibility?.canReview, messages]);
 
   const openRejectModal = () => {
     setRejectionReason('');
@@ -307,6 +344,50 @@ const ChatScreen = () => {
     setProfileVisible(true);
   }, []);
 
+  const resolveSenderName = useCallback(
+    (senderId: string) =>
+      senderId === authUserId ? 'You' : thread?.counterparty?.name ?? 'User',
+    [authUserId, thread],
+  );
+
+  const handleSwipeReply = useCallback((message: TMessage) => {
+    setReplyTarget(message);
+    inputRef.current?.focus();
+  }, []);
+
+  /** Opens the review sheet, preselecting stars when tapped on the rating card. */
+  const handleRateStars = useCallback((value: number) => {
+    setReviewInitialStars(value);
+    setReviewVisible(true);
+  }, []);
+
+  const headerMenuItems = useMemo((): OverflowMenuItem[] => {
+    const items: OverflowMenuItem[] = [];
+
+    if (thread?.question) {
+      items.push({
+        key: 'go-to-question',
+        label: 'Go to Question',
+        icon: 'document-text-outline',
+        onPress: () =>
+          router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } }),
+      });
+    }
+
+    if (eligibility?.canReview) {
+      const counterpartyName = thread?.counterparty?.name ?? 'this user';
+      items.push({
+        key: 'rate',
+        label: `Rate ${counterpartyName}`,
+        icon: 'star-outline',
+        iconColor: colors.STAR_GOLD,
+        onPress: () => handleRateStars(0),
+      });
+    }
+
+    return items;
+  }, [eligibility?.canReview, handleRateStars, router, thread?.counterparty?.name, thread?.question]);
+
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending || !canType) return;
@@ -318,7 +399,8 @@ const ChatScreen = () => {
     inputRef.current?.focus();
 
     try {
-      const message = await sendMessage(requestId, text);
+      const message = await sendMessage(requestId, text, replyTarget?.id);
+      setReplyTarget(null);
       setMessages((prev) => {
         if (prev.some((item) => item.id === message.id)) return prev;
         return [...prev, message];
@@ -334,7 +416,7 @@ const ChatScreen = () => {
     }
   };
 
-  const renderMessage = (message: TMessage) => {
+  const renderMessage = (message: TMessage, groupPosition: MessageGroupPosition) => {
     const isSystem = message.type === 'SYSTEM';
     const isMine = message.senderId === authUserId;
 
@@ -368,7 +450,7 @@ const ChatScreen = () => {
               style={styles.viewProfileBtn}
               onPress={openProfileModal}
             >
-              <Text style={styles.viewProfileBtnText}>View {thread?.counterparty?.name}'s profile</Text>
+              <Text style={styles.viewProfileBtnText}>{`View ${thread?.counterparty?.name}'s profile`}</Text>
               <Ionicons name="chevron-forward" size={12} color={colors.PRIMARY} />
             </Pressable>
           )}
@@ -377,12 +459,13 @@ const ChatScreen = () => {
     }
 
     return (
-      <View style={[styles.messageRow, isMine ? styles.messageRowMine : styles.messageRowOther]}>
-        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleOther]}>
-          <Text style={styles.messageText}>{message.text}</Text>
-          <Text style={styles.messageTime}>{formatMessageTime(message.createdAt)}</Text>
-        </View>
-      </View>
+      <MessageBubble
+        message={message}
+        isMine={isMine}
+        groupPosition={groupPosition}
+        resolveSenderName={resolveSenderName}
+        onSwipeReply={handleSwipeReply}
+      />
     );
   };
 
@@ -419,16 +502,8 @@ const ChatScreen = () => {
               </View>
             </Pressable>
           )}
-          {thread?.question && (
-            <Pressable
-              style={styles.goToQuestionLink}
-              onPress={() =>
-                router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } })
-              }
-            >
-              <Text style={styles.goToQuestionLinkText}>Go to Question</Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.PRIMARY} />
-            </Pressable>
+          {headerMenuItems.length > 0 && (
+            <OverflowMenu items={headerMenuItems} style={styles.headerMenu} />
           )}
         </View>
 
@@ -458,7 +533,7 @@ const ChatScreen = () => {
           ref={listRef}
           style={styles.messageList}
           data={chatItems}
-          keyExtractor={(item) => (item.kind === 'day' ? item.id : item.message.id)}
+          keyExtractor={(item) => (item.kind === 'message' ? item.message.id : item.id)}
           contentContainerStyle={styles.listContent}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
@@ -469,22 +544,43 @@ const ChatScreen = () => {
             awaitingSendScrollRef.current = false;
             scrollToBottom(true);
           }}
-          renderItem={({ item }) =>
-            item.kind === 'day' ? (
-              <Text style={styles.daySeparator}>{item.label}</Text>
-            ) : (
-              renderMessage(item.message)
-            )
-          }
+          renderItem={({ item }) => {
+            if (item.kind === 'day') {
+              return <Text style={styles.daySeparator}>{item.label}</Text>;
+            }
+            if (item.kind === 'rating') {
+              return (
+                <RatingCard
+                  name={thread?.counterparty?.name ?? 'this user'}
+                  profileImageUrl={thread?.counterparty?.profileImageUrl ?? null}
+                  onRate={handleRateStars}
+                />
+              );
+            }
+            return renderMessage(item.message, item.groupPosition);
+          }}
         />
 
         <View style={styles.composerWrap}>
-          {eligibility?.canReview && (
-            <CustomButton
-              text="Rate this user"
-              onPress={() => setReviewVisible(true)}
-              style={styles.reviewBtn}
-            />
+          {replyTarget && (
+            <View style={styles.replyPreview}>
+              <View style={styles.replyPreviewBody}>
+                <Text style={styles.replyPreviewName} numberOfLines={1}>
+                  {resolveSenderName(replyTarget.senderId)}
+                </Text>
+                <Text style={styles.replyPreviewText} numberOfLines={1}>
+                  {replyTarget.text}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => setReplyTarget(null)}
+                hitSlop={8}
+                accessibilityLabel="Cancel reply"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close" size={18} color={colors.MEDIUM_GRAY} />
+              </Pressable>
+            </View>
           )}
 
           <View style={styles.inputRow}>
@@ -519,6 +615,7 @@ const ChatScreen = () => {
       <ReviewModal
         visible={reviewVisible}
         requestId={requestId}
+        initialStars={reviewInitialStars}
         onClose={() => setReviewVisible(false)}
         onSubmitted={() => {
           setReviewVisible(false);
@@ -622,17 +719,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
-  goToQuestionLink: {
+  headerMenu: {
     marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  goToQuestionLinkText: {
-    fontFamily: 'roboto-medium',
-    fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.PRIMARY,
   },
   headerName: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
   headerSubtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, maxWidth: 220 },
@@ -654,20 +745,29 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
     marginVertical: 12,
   },
-  messageRow: { marginBottom: 8 },
-  messageRowMine: { alignItems: 'flex-end' },
-  messageRowOther: { alignItems: 'flex-start' },
-  bubble: { maxWidth: '80%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleMine: {
-    backgroundColor: colors.LIGHT_BLUE,
-    borderBottomRightRadius: 4,
+  replyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.CARD_BG,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.PRIMARY,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginBottom: 8,
   },
-  bubbleOther: {
-    backgroundColor: colors.CHAT_MUTED_BG,
-    borderBottomLeftRadius: 4,
+  replyPreviewBody: { flex: 1, marginRight: 8 },
+  replyPreviewName: {
+    fontFamily: 'roboto-medium',
+    fontSize: 11,
+    color: colors.PRIMARY,
+    marginBottom: 2,
   },
-  messageText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
-  messageTime: { fontFamily: 'roboto', fontSize: 10, color: colors.MEDIUM_GRAY, marginTop: 4, alignSelf: 'flex-end' },
+  replyPreviewText: {
+    fontFamily: 'roboto',
+    fontSize: 12,
+    color: colors.MEDIUM_GRAY,
+  },
   systemBubble: {
     alignSelf: 'center',
     width: '90%',
@@ -714,10 +814,6 @@ const styles = StyleSheet.create({
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.PRIMARY
-  },
-  reviewBtn: {
-    marginHorizontal: 16,
-    marginBottom: 8
   },
 
   composerWrap: {

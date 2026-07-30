@@ -1,5 +1,6 @@
 import Searchbar from '@/components/Searchbar';
 import BackButton from '@/components/shared/BackButton';
+import OverflowMenuButton from '@/components/shared/OverflowMenuButton';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import ChatsListBottomSpacer from '@/components/ChatsListBottomSpacer';
 import { FilterTabletGroup } from '@/components/FilterTablet';
@@ -15,8 +16,6 @@ import {
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
 import {
-  CIRCULAR_CLICK_HEIGHT,
-  CIRCULAR_CLICK_WIDTH,
   SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
   SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
   SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
@@ -329,14 +328,7 @@ const ChatsScreen = () => {
               </View>
               <View style={styles.toolbarCenter} />
               <View style={[styles.toolbarSide, styles.toolbarSideRight]}>
-                <Pressable
-                  style={styles.toolbarMenuButton}
-                  onPress={handleToolbarMenuPress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open menu"
-                >
-                  <Ionicons name="ellipsis-horizontal" size={22} color={colors.PRIMARY} />
-                </Pressable>
+                <OverflowMenuButton onPress={handleToolbarMenuPress} />
               </View>
             </Animated.View>
           </Animated.View>
@@ -397,15 +389,6 @@ const styles = StyleSheet.create({
   logo: {
     height: LOGO_SIZE,
     width: CHATS_TOOLBAR_LOGO_WIDTH,
-  },
-  toolbarMenuButton: {
-    height: CIRCULAR_CLICK_HEIGHT,
-    width: CIRCULAR_CLICK_WIDTH,
-    borderWidth: 1,
-    borderColor: colors.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: CIRCULAR_CLICK_WIDTH / 2,
   },
   titleRow: {
     paddingHorizontal: CHATS_PAGE_GUTTER,

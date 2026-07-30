@@ -11,8 +11,15 @@ export const getMessages = async (requestId: string): Promise<TMessage[]> => {
   return response.data.data as TMessage[];
 };
 
-export const sendMessage = async (requestId: string, text: string): Promise<TMessage> => {
-  const response = await Axios.post(`/requests/${requestId}/messages`, { text });
+export const sendMessage = async (
+  requestId: string,
+  text: string,
+  replyToId?: string,
+): Promise<TMessage> => {
+  const response = await Axios.post(`/requests/${requestId}/messages`, {
+    text,
+    ...(replyToId ? { replyToId } : {}),
+  });
   return response.data.data as TMessage;
 };
 
