@@ -34,6 +34,7 @@ import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
+import { normalizeRouteParam } from '@/utils/routeParams';
 import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -206,7 +207,7 @@ const ResponderIdentity = ({
 const QuestionDetail = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ questionId: string; section?: string; }>();
-  const questionId = params.questionId as string;
+  const questionId = normalizeRouteParam(params.questionId);
   const focusSection = params.section;
   const authUserId = useAuthStore((state) => state.user?.id);
 
@@ -238,17 +239,30 @@ const QuestionDetail = () => {
   const pendingRejectRequestIdRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!questionId) return;
+    if (!questionId) {
+      setLoading(false);
+      return;
+    }
+    const id = questionId;
     setLoading(true);
     try {
-      // Pass live GPS so the backend can compute distance + canRequestReason.
-      const liveCoords = await useLiveLocationStore.getState().ensureCoords();
-      const detail = await getQuestionDetail(questionId, liveCoords ?? undefined);
+      const detail = await getQuestionDetail(id);
       setQuestion(detail);
+
+      const liveCoords = await useLiveLocationStore.getState().ensureCoords();
+      if (liveCoords) {
+        try {
+          const enriched = await getQuestionDetail(id, liveCoords);
+          setQuestion(enriched);
+        } catch {
+          /* keep detail without distance enrichment */
+        }
+      }
+
       if (detail.userId === authUserId) {
         const [incoming, rejected] = await Promise.all([
-          getIncomingRequests({ questionId }),
-          getRejectedResponders(questionId),
+          getIncomingRequests({ questionId: id }),
+          getRejectedResponders(id),
         ]);
         setIncomingRequests(incoming.items);
         setRejectedResponders(rejected);
@@ -412,6 +426,8 @@ const QuestionDetail = () => {
   };
 
   const handleUnblockResponder = (responderId: string, name: string) => {
+    if (!questionId) return;
+    const id = questionId;
     Alert.alert(
       'Allow to request again?',
       `${name} will be able to send a new request for this question.`,
@@ -421,7 +437,7 @@ const QuestionDetail = () => {
           text: 'Allow',
           onPress: async () => {
             try {
-              await unblockResponder(questionId, responderId);
+              await unblockResponder(id, responderId);
               load();
             } catch (error: any) {
               Alert.alert('Error', error?.response?.data?.error || 'Could not unblock responder.');
@@ -444,6 +460,19 @@ const QuestionDetail = () => {
     (question?.viewerRequest?.status === AnswerRequestStatus.Pending ||
       question?.viewerRequest?.status === AnswerRequestStatus.Accepted ||
       question?.viewerRequest?.status === AnswerRequestStatus.Rejected);
+
+  if (!questionId) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={screenChromeStyles.actionRow}>
+          <BackButton />
+        </View>
+        <View style={styles.centered}>
+          <Text style={styles.emptyText}>Invalid question link.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
@@ -514,23 +543,33 @@ const QuestionDetail = () => {
 
         {question.questioner && !isOwner && (
           <Pressable
-            style={[styles.card, styles.questionerCard]}
+            style={styles.card}
             onPress={() => openProfile(question.questioner!.id)}
           >
             <Text style={styles.cardLabel}>Questioner</Text>
             <View style={styles.questionerRow}>
-              <Text style={styles.bodyText}>{question.questioner.name}</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.MEDIUM_GRAY} />
-            </View>
-            {question.questioner.asQuestioner.reviewsCount > 0 && (
-              <View style={styles.ratingRow}>
-                <StarRating rating={question.questioner.asQuestioner.averageRating} size={14} />
-                <Text style={styles.ratingText}>
-                  {question.questioner.asQuestioner.averageRating.toFixed(1)} ({question.questioner.asQuestioner.reviewsCount})
-                </Text>
+              <UserAvatar imageUrl={question.questioner.profileImageUrl} size={40} />
+              <View style={styles.questionerBody}>
+                <View style={styles.questionerTitleRow}>
+                  <Text style={styles.questionerName} numberOfLines={1}>
+                    {question.questioner.name}
+                  </Text>
+                  <View style={styles.viewProfileLink}>
+                    <Text style={styles.viewProfileHint}>Tap to view profile</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.MEDIUM_GRAY} />
+                  </View>
+                </View>
+                <View style={styles.questionerRatingRow}>
+                  <StarRating rating={question.questioner.asQuestioner.averageRating} size={14} />
+                  {question.questioner.asQuestioner.reviewsCount > 0 && (
+                    <Text style={styles.ratingText}>
+                      {question.questioner.asQuestioner.averageRating.toFixed(1)} (
+                      {question.questioner.asQuestioner.reviewsCount})
+                    </Text>
+                  )}
+                </View>
               </View>
-            )}
-            <Text style={styles.viewProfileHint}>Tap to view profile</Text>
+            </View>
           </Pressable>
         )}
 
@@ -816,8 +855,19 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 16,
+  },
+  price: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.PRIMARY,
+    flexShrink: 0,
+  },
   chip: { backgroundColor: colors.SECONDARY },
   locationCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
@@ -829,13 +879,41 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  cardLabel: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginBottom: 8, textTransform: 'uppercase' },
+  cardLabel: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.DARK_GRAY,
+    marginBottom: 8,
+    textTransform: 'capitalize'
+  },
   bodyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 22 },
-  questionerCard: {},
-  questionerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  questionerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  questionerBody: { flex: 1, minWidth: 0 },
+  questionerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  questionerName: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.TEXT_DARK,
+  },
+  viewProfileLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+  },
+  questionerRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   ratingText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY },
-  viewProfileHint: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.PRIMARY, marginTop: 4 },
+  viewProfileHint: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.PRIMARY,
+  },
   timestamp: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 20 },
   actionArea: { marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
   infoBox: {

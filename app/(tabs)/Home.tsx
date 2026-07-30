@@ -81,7 +81,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(false);
   const [closedLoading, setClosedLoading] = useState(false);
   const coords = useLiveLocationStore((s) => s.coords);
-  const ensureLiveCoords = useLiveLocationStore((s) => s.ensureCoords);
+  const ensureLiveCoords = useLiveLocationStore((s) => s.promptForCoords);
   const refreshCoords = useLiveLocationStore((s) => s.refreshCoords);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [search, setSearch] = useState('');

@@ -8,36 +8,68 @@ interface LiveLocationState {
   permissionGranted: boolean;
   /**
    * Ensure we have live GPS coordinates. Returns the cached coords if we
-   * already have a recent reading; otherwise requests foreground permission
-   * (if needed) and reads the current position once.
+   * already have a recent reading; otherwise reads the current position when
+   * permission is already granted.
    *
-   * Returns null when the user denied permission or the read failed — callers
-   * are expected to handle this by disabling location-dependent UI.
+   * On web this never opens the browser permission prompt — use `promptForCoords`
+   * for user-initiated flows (e.g. near-me filter).
+   *
+   * Returns null when permission is missing or the read failed.
    */
   ensureCoords: () => Promise<LiveCoords | null>;
-  /** Force a fresh GPS reading (e.g. user pulled to refresh). */
+  /** Request permission (native / user gesture on web) and read GPS once. */
+  promptForCoords: () => Promise<LiveCoords | null>;
+  /** Force a fresh GPS reading when permission is already granted. */
   refreshCoords: () => Promise<LiveCoords | null>;
   clear: () => void;
 }
 
+const POSITION_TIMEOUT_MS = 8_000;
+
 let inFlight: Promise<LiveCoords | null> | null = null;
 
-async function readOnce(requirePermission: boolean): Promise<LiveCoords | null> {
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error('Location read timed out')), ms);
+    }),
+  ]);
+
+async function readOnce(requestPermission: boolean): Promise<LiveCoords | null> {
   try {
-    if (requirePermission) {
+    const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+    let finalStatus = currentStatus;
+
+    if (currentStatus !== 'granted' && requestPermission) {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-    } else {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
+      finalStatus = status;
     }
-    const loc = await Location.getCurrentPositionAsync({});
+
+    if (finalStatus !== 'granted') return null;
+
+    const loc = await withTimeout(
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      }),
+      POSITION_TIMEOUT_MS,
+    );
     return { lat: loc.coords.latitude, lng: loc.coords.longitude };
   } catch (error) {
     console.warn('Live location read failed', error);
     return null;
   }
 }
+
+const runInFlight = (requestPermission: boolean): Promise<LiveCoords | null> => {
+  if (inFlight) return inFlight;
+
+  inFlight = readOnce(requestPermission).then((next) => {
+    inFlight = null;
+    return next;
+  });
+  return inFlight;
+};
 
 export const useLiveLocationStore = create<LiveLocationState>((set, get) => ({
   coords: null,
@@ -46,16 +78,16 @@ export const useLiveLocationStore = create<LiveLocationState>((set, get) => ({
   ensureCoords: async () => {
     const cached = get().coords;
     if (cached) return cached;
-    if (inFlight) return inFlight;
 
-    inFlight = readOnce(true).then((next) => {
-      if (next) {
-        set({ coords: next, permissionGranted: true });
-      }
-      inFlight = null;
-      return next;
-    });
-    return inFlight;
+    const next = await runInFlight(false);
+    if (next) set({ coords: next, permissionGranted: true });
+    return next;
+  },
+
+  promptForCoords: async () => {
+    const next = await runInFlight(true);
+    if (next) set({ coords: next, permissionGranted: true });
+    return next;
   },
 
   refreshCoords: async () => {
