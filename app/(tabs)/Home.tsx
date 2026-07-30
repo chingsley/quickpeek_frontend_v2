@@ -11,6 +11,7 @@ import {
   STATUS_ICON_SIZE,
 } from '@/constants/statusIcons';
 import HomeListBottomSpacer from '@/components/HomeListBottomSpacer';
+import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { useHomeFloatingAskStyle, useHomeScrollChrome } from '@/hooks/useHomeScrollChrome';
 import { getMyClosedQuestions, getQuestionFeed, searchQuestions } from '@/services/questions.services';
 import { getConversations } from '@/services/requests.services';
@@ -50,6 +51,14 @@ import {
 import { KeyboardAvoidingView, KeyboardController } from 'react-native-keyboard-controller';
 import Animated, { runOnJS, useAnimatedScrollHandler, useComposedEventHandler } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  CIRCULAR_CLICK_HEIGHT,
+  CIRCULAR_CLICK_WIDTH,
+  SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
+  SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
+  SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
+  SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
+} from '@/constants/layout';
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -558,7 +567,7 @@ const HomeScreen = () => {
                 </View>
 
                 <View style={styles.titleRow}>
-                  <Text style={styles.pageTitle}>{activeCategory.title}</Text>
+                  <ScreenTitle title={activeCategory.title} />
                   {categorySubtitle ? (
                     <Text style={styles.categorySubtitle}>{categorySubtitle}</Text>
                   ) : null}
@@ -706,9 +715,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    // ...drawBorder('red', true),
-    marginBottom: 12,
+    marginTop: SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
+    marginBottom: SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
   },
   headerSide: {
     width: 72,
@@ -728,9 +736,8 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    // ...drawBorder('red', true),
-    marginBottom: 12,
+    marginTop: SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
+    marginBottom: SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
   },
   searchBarPlacement: {
     marginHorizontal: 16,
@@ -754,7 +761,6 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
   },
   menuBtn: { paddingTop: 4, paddingBottom: 4, paddingRight: 4 },
-  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK },
   categorySubtitle: {
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,
@@ -774,16 +780,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatBadgeText: { color: colors.BG_WHITE, fontSize: 10, fontWeight: 'bold' },
-  viewModeBtn: {
-    padding: 4,
-    marginLeft: 'auto',
+  chatBadgeText: {
+    color: colors.BG_WHITE,
+    fontSize: 10,
+    fontWeight: 'bold'
   },
   filterWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginBottom: 12,
+    paddingVertical: 0,
+    marginBottom: 16,
+  },
+  viewModeBtn: {
+    paddingHorizontal: 4,
+    marginLeft: 'auto',
+    backgroundColor: colors.INPUT_BG,
+    width: CIRCULAR_CLICK_WIDTH,
+    height: CIRCULAR_CLICK_HEIGHT,
+    display: 'flex',
+    borderRadius: CIRCULAR_CLICK_WIDTH / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },

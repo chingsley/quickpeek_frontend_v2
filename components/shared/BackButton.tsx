@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '@/constants/colors';
-import { CHAT_AVATAR_SIZE } from '@/constants/layout';
+import { CIRCULAR_CLICK_HEIGHT, CIRCULAR_CLICK_WIDTH } from '@/constants/layout';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, ViewStyle } from 'react-native';
@@ -32,11 +32,11 @@ export default BackButton;
 
 const styles = StyleSheet.create({
   button: {
-    height: CHAT_AVATAR_SIZE,
-    width: CHAT_AVATAR_SIZE,
+    height: CIRCULAR_CLICK_HEIGHT,
+    width: CIRCULAR_CLICK_WIDTH,
     borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: CHAT_AVATAR_SIZE / 2,
+    borderRadius: CIRCULAR_CLICK_WIDTH / 2,
   },
 });

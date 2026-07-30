@@ -5,7 +5,12 @@ import {
   CHATS_SCROLL_BOTTOM_LOCK_THRESHOLD,
 } from '@/constants/chatsChrome';
 import { colors } from '@/constants/colors';
-import { chatsChromeProgress, chatsChromeTargetProgress } from '@/store/chatsChrome.store';
+import {
+  chatsBaseMaxScrollY,
+  chatsChromeProgress,
+  chatsChromeTargetProgress,
+  chatsExpandedHeaderHeight,
+} from '@/store/chatsChrome.store';
 import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
 import {
@@ -25,6 +30,13 @@ import {
  * duration (it takes ≈ 4.6·τ to reach within 1%). Mirrors the Home chrome.
  */
 const CHATS_PROGRESS_SMOOTHING_TAU_MS = 50;
+
+/**
+ * Time constant used while completing a RELEASE SETTLE (the snap to fully
+ * visible / fully hidden). Deliberately larger than the drag constant so the
+ * settle glides over ~460ms (≈ 4.6·τ) instead of lurching.
+ */
+const CHATS_SETTLE_SMOOTHING_TAU_MS = 100;
 
 /** When the smoothed progress is within this of its target, snap exactly. */
 const PROGRESS_SNAP_EPSILON = 0.001;
@@ -46,11 +58,13 @@ const resetChromeValues = (
   chromeScrollOffset: { value: number; },
   prevScrollY: { value: number; },
   chromeDirection: { value: number; },
+  chromeSettleMode: { value: number; },
 ) => {
   'worklet';
   chromeScrollOffset.value = 0;
   prevScrollY.value = 0;
   chromeDirection.value = 0;
+  chromeSettleMode.value = 0;
   // Snap both target and displayed progress so reset is instant — the smoother
   // is told there is nothing to ease toward.
   chatsChromeTargetProgress.value = 0;
@@ -118,9 +132,9 @@ const updateChromeFromScroll = (
  * the collapse from ANY scroll position just slides the content up with the
  * header, and no gap can ever open between them.
  *
- * Only the raw target is written here; the per-frame smoother eases
- * `chatsChromeProgress` to it so the completion reads as the transition
- * gracefully finishing — not an abrupt cut.
+ * Only the raw target is written here (and settle mode flagged); the
+ * per-frame smoother eases `chatsChromeProgress` to the endpoint with the
+ * gentler settle time constant so the completion glides instead of lurching.
  */
 const settleChromeAtScrollEnd = (
   y: number,
@@ -128,6 +142,7 @@ const settleChromeAtScrollEnd = (
   canCollapse: boolean,
   direction: number,
   chromeScrollOffset: { value: number; },
+  chromeSettleMode: { value: number; },
   collapseDistance: number,
 ) => {
   'worklet';
@@ -137,29 +152,51 @@ const settleChromeAtScrollEnd = (
   const target = shouldCollapse ? collapseDistance : 0;
 
   chromeScrollOffset.value = target;
+  chromeSettleMode.value = 1;
   chatsChromeTargetProgress.value = target / collapseDistance;
 };
 
 /**
- * Reconstructs the scrollable distance the list would have while fully
- * expanded. The header shell is in normal flow, so as it collapses the list
- * viewport GROWS by the expanded header height — live `maxY` drops by that
- * much over a full collapse, and `expandedMaxY = maxY + progress *
- * expandedHeight` stays constant across the animation, giving a stable basis
- * for deciding collapsibility.
+ * The collapse is safe on ANY list length: the footer spacer (see
+ * `useChatsListBottomSpacerStyle`) grows by the deficit between the expanded
+ * header height and the list's base scrollable distance as the chrome
+ * collapses, compensating the viewport growth so `maxY` can never shrink to
+ * zero mid-collapse — the short-list flicker loop is structurally impossible.
+ * The only requirement left is that the list scrolls at all.
  */
-const canCollapseChrome = (maxY: number, expandedHeight: number) => {
+const canCollapseChrome = (maxY: number) => {
   'worklet';
-  const expandedMaxY = maxY + chatsChromeProgress.value * expandedHeight;
-  return expandedMaxY > expandedHeight + CHATS_COLLAPSE_SAFETY_MARGIN;
+  return maxY > 0;
 };
+
+/**
+ * Footer spacer that compensates the viewport growth during a collapse. As
+ * the in-flow shell shrinks, the list viewport grows by the expanded header
+ * height; without compensation a short list would stop being scrollable
+ * mid-collapse and snap back. Growing the spacer by the deficit keeps `maxY`
+ * stable (or slightly positive) for any list length, so the chrome effect
+ * works on short chat lists too — at the price of a blank tail below the last
+ * chat that is only ever as large as the geometry strictly requires (zero for
+ * lists that already overflow by more than the header height).
+ */
+export const useChatsListBottomSpacerStyle = () =>
+  useAnimatedStyle(() => ({
+    height:
+      chatsChromeProgress.value *
+      Math.max(
+        0,
+        chatsExpandedHeaderHeight.value +
+          CHATS_COLLAPSE_SAFETY_MARGIN -
+          chatsBaseMaxScrollY.value,
+      ),
+  }));
 
 /**
  * Per-frame exponential smoother that eases the displayed
  * `chatsChromeProgress` toward the raw scroll-driven
  * `chatsChromeTargetProgress`. Mirrors `useChromeProgressSmoother` on Home.
  */
-const useChatsProgressSmoother = () => {
+const useChatsProgressSmoother = (chromeSettleMode: { value: number; }) => {
   useFrameCallback((frameInfo) => {
     'worklet';
     const target = chatsChromeTargetProgress.value;
@@ -173,26 +210,33 @@ const useChatsProgressSmoother = () => {
       return;
     }
 
+    // While a release settle is completing, use the gentler settle constant so
+    // the snap glides; live drags keep the tight tracking constant.
     const dt = frameInfo.timeSincePreviousFrame ?? 16.6667;
-    const alpha = 1 - Math.exp(-dt / CHATS_PROGRESS_SMOOTHING_TAU_MS);
+    const tau =
+      chromeSettleMode.value === 1
+        ? CHATS_SETTLE_SMOOTHING_TAU_MS
+        : CHATS_PROGRESS_SMOOTHING_TAU_MS;
+    const alpha = 1 - Math.exp(-dt / tau);
     chatsChromeProgress.value = current + error * alpha;
   });
 };
 
 export const useChatsScrollChrome = () => {
-  // Eases the displayed chrome progress toward the raw scroll target every
-  // frame. Mounted for the Chats screen's lifetime.
-  useChatsProgressSmoother();
-
   const prevScrollY = useSharedValue(0);
   const chromeScrollOffset = useSharedValue(0);
-  const expandedHeaderHeight = useSharedValue(220);
   /** Sign of the most recent non-zero scroll delta: 1 = down, -1 = up. */
   const chromeDirection = useSharedValue(0);
+  /** 1 while a release settle is completing (smoother uses the gentler τ). */
+  const chromeSettleMode = useSharedValue(0);
+
+  // Eases the displayed chrome progress toward the raw scroll target every
+  // frame. Mounted for the Chats screen's lifetime.
+  useChatsProgressSmoother(chromeSettleMode);
 
   const resetChrome = useCallback(() => {
-    resetChromeValues(chromeScrollOffset, prevScrollY, chromeDirection);
-  }, [chromeScrollOffset, prevScrollY, chromeDirection]);
+    resetChromeValues(chromeScrollOffset, prevScrollY, chromeDirection, chromeSettleMode);
+  }, [chromeScrollOffset, prevScrollY, chromeDirection, chromeSettleMode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -205,12 +249,15 @@ export const useChatsScrollChrome = () => {
 
   const onHeaderLayout = useCallback(
     (slideHeight: number) => {
+      // The measured wrap holds only the sliding content (title/search/
+      // filters); the shell's expanded height additionally spans the toolbar
+      // band at the top that the pinned strip overlays.
       const total = slideHeight + CHATS_COLLAPSED_HEADER_HEIGHT;
       if (total > CHATS_COLLAPSED_HEADER_HEIGHT) {
-        expandedHeaderHeight.value = total;
+        chatsExpandedHeaderHeight.value = total;
       }
     },
-    [expandedHeaderHeight],
+    [],
   );
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -220,16 +267,26 @@ export const useChatsScrollChrome = () => {
       const diff = y - prevScrollY.value;
       // Collapsing the chrome takes exactly one header swing of scroll, so the
       // header content slides up 1:1 with the list items while dragging.
-      const collapseDistance = expandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
+      const collapseDistance = chatsExpandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
 
       if (diff !== 0) {
         chromeDirection.value = diff > 0 ? 1 : -1;
+        // A real drag frame — cancel settle mode so the smoother returns to
+        // tight finger tracking immediately (grabbing mid-settle stays
+        // responsive).
+        chromeSettleMode.value = 0;
       }
 
-      if (canCollapseChrome(maxY, expandedHeaderHeight.value)) {
+      if (chromeScrollOffset.value === 0) {
+        // Chrome fully expanded — this is the list's base scrollable distance,
+        // the reference the footer spacer's growth is computed from.
+        chatsBaseMaxScrollY.value = maxY;
+      }
+
+      if (canCollapseChrome(maxY)) {
         updateChromeFromScroll(y, diff, maxY, chromeScrollOffset, collapseDistance);
       } else {
-        // List too short to sustain a collapse — keep chrome fully visible.
+        // List doesn't scroll at all — keep chrome fully visible.
         chromeScrollOffset.value = 0;
       }
       syncChromeProgress(chromeScrollOffset, collapseDistance);
@@ -238,14 +295,15 @@ export const useChatsScrollChrome = () => {
     onEndDrag: (event) => {
       const y = event.contentOffset.y;
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
-      const collapseDistance = expandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
+      const collapseDistance = chatsExpandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
 
       settleChromeAtScrollEnd(
         y,
         maxY,
-        canCollapseChrome(maxY, expandedHeaderHeight.value),
+        canCollapseChrome(maxY),
         chromeDirection.value,
         chromeScrollOffset,
+        chromeSettleMode,
         collapseDistance,
       );
       prevScrollY.value = y;
@@ -253,14 +311,15 @@ export const useChatsScrollChrome = () => {
     onMomentumEnd: (event) => {
       const y = event.contentOffset.y;
       const maxY = getMaxScrollY(event.contentSize.height, event.layoutMeasurement.height);
-      const collapseDistance = expandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
+      const collapseDistance = chatsExpandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
 
       settleChromeAtScrollEnd(
         y,
         maxY,
-        canCollapseChrome(maxY, expandedHeaderHeight.value),
+        canCollapseChrome(maxY),
         chromeDirection.value,
         chromeScrollOffset,
+        chromeSettleMode,
         collapseDistance,
       );
       prevScrollY.value = y;
@@ -276,13 +335,13 @@ export const useChatsScrollChrome = () => {
     height: interpolate(
       chatsChromeProgress.value,
       [0, 1],
-      [expandedHeaderHeight.value, 0],
+      [chatsExpandedHeaderHeight.value, 0],
       Extrapolation.CLAMP,
     ),
   }));
 
   const headerChromeSlideStyle = useAnimatedStyle(() => {
-    const slideUp = expandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
+    const slideUp = chatsExpandedHeaderHeight.value - CHATS_COLLAPSED_HEADER_HEIGHT;
     const progress = chatsChromeProgress.value;
     return {
       opacity: chromeContentOpacity(progress),
@@ -309,7 +368,7 @@ export const useChatsScrollChrome = () => {
     // rows scroll visibly underneath the pinned toolbar.
     const tintStart = Math.max(
       0,
-      1 - CHATS_COLLAPSED_HEADER_HEIGHT / expandedHeaderHeight.value,
+      1 - CHATS_COLLAPSED_HEADER_HEIGHT / chatsExpandedHeaderHeight.value,
     );
     return {
       backgroundColor: interpolateColor(

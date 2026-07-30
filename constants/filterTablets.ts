@@ -24,11 +24,11 @@ import {
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-/** Vertical space between the search field and the filter tablet row (Home + Chats). */
+/** Vertical gap between search and filter tablets (Home + Chats). */
 export const SEARCH_FILTER_HEADER_GAP = 20;
 
-/** Vertical space between the filter tablet row and the list below (Home + Chats). */
-export const CHAT_SCREEN_FILTER_LIST_GAP = 40;
+/** Vertical gap between filter tablets and content below — kept in sync with search gap. */
+export const FILTER_LIST_GAP = SEARCH_FILTER_HEADER_GAP;
 
 /** Android adds extra font padding that clips custom fonts inside small pills. */
 const tabletTextFix: TextStyle =
@@ -116,7 +116,7 @@ export const filterTabletStyles = {
 /** Horizontal filter row wrapper — shared by Home, Chats, and future screens. */
 export const filterTabletBarStyles = {
   wrap: {
-    marginBottom: CHAT_SCREEN_FILTER_LIST_GAP,
+    marginBottom: FILTER_LIST_GAP,
   } satisfies ViewStyle,
 
   content: {
@@ -131,6 +131,7 @@ export const filterTabletBarStyles = {
    */
   chatsPlacement: {
     paddingHorizontal: 4,
+    marginBottom: 45,
   } satisfies ViewStyle,
 };
 

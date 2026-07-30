@@ -31,6 +31,15 @@ import {
  */
 const CHROME_PROGRESS_SMOOTHING_TAU_MS = 50;
 
+/**
+ * Time constant used while completing a RELEASE SETTLE (the snap to fully
+ * visible / fully hidden). Deliberately larger than the drag constant: the
+ * settle is a pure animation with no finger to track, and a slower time
+ * constant spreads the remaining distance — and the layout reflow it drives —
+ * over ~460ms (≈ 4.6·τ) so it reads as a graceful glide instead of a lurch.
+ */
+const CHROME_SETTLE_SMOOTHING_TAU_MS = 120;
+
 /** When the smoothed progress is within this of its target, snap exactly. */
 const PROGRESS_SNAP_EPSILON = 0.001;
 
@@ -54,11 +63,13 @@ const resetChromeValues = (
   chromeScrollOffset: { value: number; },
   prevScrollY: { value: number; },
   chromeDirection: { value: number; },
+  chromeSettleMode: { value: number; },
 ) => {
   'worklet';
   chromeScrollOffset.value = 0;
   prevScrollY.value = 0;
   chromeDirection.value = 0;
+  chromeSettleMode.value = 0;
   // Snap both target and displayed progress so reset is instant — the smoother
   // is told there is nothing to ease toward.
   chromeTargetProgress.value = 0;
@@ -130,10 +141,10 @@ const updateChromeFromScroll = (
  * no white gap can ever open and no "spring back to expanded" special case is
  * needed near the top.
  *
- * The settle runs the raw target straight to its endpoint; the per-frame
- * smoother (see `useChromeProgressSmoother`) eases `homeChromeProgress` toward
- * that target with the same easing feel as the live drag, so the completion
- * reads as the transition gracefully finishing — not an abrupt cut.
+ * The settle runs the raw target straight to its endpoint and flags settle
+ * mode; the per-frame smoother (see `useChromeProgressSmoother`) eases
+ * `homeChromeProgress` toward that endpoint with the gentler settle time
+ * constant, so the completion glides instead of lurching.
  */
 const settleChromeAtScrollEnd = (
   y: number,
@@ -141,6 +152,7 @@ const settleChromeAtScrollEnd = (
   canCollapse: boolean,
   direction: number,
   chromeScrollOffset: { value: number; },
+  chromeSettleMode: { value: number; },
   collapseDistance: number,
 ) => {
   'worklet';
@@ -150,6 +162,7 @@ const settleChromeAtScrollEnd = (
   const target = shouldCollapse ? collapseDistance : 0;
 
   chromeScrollOffset.value = target;
+  chromeSettleMode.value = 1;
   chromeTargetProgress.value = target / collapseDistance;
 };
 
@@ -185,7 +198,7 @@ const canCollapseChrome = (maxY: number, expandedHeight: number) => {
  *   smoothing the displayed value cannot reintroduce the short-list feedback
  *   loop — it only changes how the chrome *feels*, not what it decides.
  */
-const useChromeProgressSmoother = () => {
+const useChromeProgressSmoother = (chromeSettleMode: { value: number; }) => {
   useFrameCallback((frameInfo) => {
     'worklet';
     const target = chromeTargetProgress.value;
@@ -206,26 +219,34 @@ const useChromeProgressSmoother = () => {
     // `timeSincePreviousFrame` is the actual frame delta in ms, so the feel is
     // identical on 60Hz, 90Hz, 120Hz, and under dropped frames. Falls back to a
     // 16.67ms assumption on the first frame (when it is null).
+    // While a release settle is completing, use the gentler settle constant so
+    // the snap glides; live drags keep the tight tracking constant.
     const dt = frameInfo.timeSincePreviousFrame ?? 16.6667;
-    const alpha = 1 - Math.exp(-dt / CHROME_PROGRESS_SMOOTHING_TAU_MS);
+    const tau =
+      chromeSettleMode.value === 1
+        ? CHROME_SETTLE_SMOOTHING_TAU_MS
+        : CHROME_PROGRESS_SMOOTHING_TAU_MS;
+    const alpha = 1 - Math.exp(-dt / tau);
     homeChromeProgress.value = current + error * alpha;
   });
 };
 
 export const useHomeScrollChrome = () => {
-  // Eases the displayed chrome progress toward the raw scroll target every
-  // frame. Mounted for the Home screen's lifetime.
-  useChromeProgressSmoother();
-
   const prevScrollY = useSharedValue(0);
   const chromeScrollOffset = useSharedValue(0);
   const expandedHeaderHeight = useSharedValue(220);
   /** Sign of the most recent non-zero scroll delta: 1 = down, -1 = up. */
   const chromeDirection = useSharedValue(0);
+  /** 1 while a release settle is completing (smoother uses the gentler τ). */
+  const chromeSettleMode = useSharedValue(0);
+
+  // Eases the displayed chrome progress toward the raw scroll target every
+  // frame. Mounted for the Home screen's lifetime.
+  useChromeProgressSmoother(chromeSettleMode);
 
   const resetChrome = useCallback(() => {
-    resetChromeValues(chromeScrollOffset, prevScrollY, chromeDirection);
-  }, [chromeScrollOffset, prevScrollY, chromeDirection]);
+    resetChromeValues(chromeScrollOffset, prevScrollY, chromeDirection, chromeSettleMode);
+  }, [chromeScrollOffset, prevScrollY, chromeDirection, chromeSettleMode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -257,6 +278,10 @@ export const useHomeScrollChrome = () => {
 
       if (diff !== 0) {
         chromeDirection.value = diff > 0 ? 1 : -1;
+        // A real drag frame — cancel settle mode so the smoother returns to
+        // tight finger tracking immediately (grabbing mid-settle stays
+        // responsive).
+        chromeSettleMode.value = 0;
       }
 
       if (canCollapseChrome(maxY, expandedHeaderHeight.value)) {
@@ -279,6 +304,7 @@ export const useHomeScrollChrome = () => {
         canCollapseChrome(maxY, expandedHeaderHeight.value),
         chromeDirection.value,
         chromeScrollOffset,
+        chromeSettleMode,
         collapseDistance,
       );
       prevScrollY.value = y;
@@ -294,6 +320,7 @@ export const useHomeScrollChrome = () => {
         canCollapseChrome(maxY, expandedHeaderHeight.value),
         chromeDirection.value,
         chromeScrollOffset,
+        chromeSettleMode,
         collapseDistance,
       );
       prevScrollY.value = y;

@@ -2,6 +2,7 @@ import BackButton from '@/components/shared/BackButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
+import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
 import { STATUS_ICON_SIZE } from '@/constants/statusIcons';
 import StarRating from '@/components/StarRating';
@@ -476,7 +477,7 @@ const QuestionDetail = () => {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <BackButton />
-        <Text style={styles.pageTitle}>{question.title}</Text>
+        <ScreenTitle title={question.title} style={styles.pageTitleSpacing} />
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
@@ -804,7 +805,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContent: { padding: 24, paddingBottom: 40 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 12 },
+  pageTitleSpacing: { marginTop: 12, marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   chip: { backgroundColor: colors.SECONDARY },

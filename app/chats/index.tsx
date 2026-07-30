@@ -1,8 +1,10 @@
 import Searchbar from '@/components/Searchbar';
 import BackButton from '@/components/shared/BackButton';
+import { ScreenTitle } from '@/components/shared/ScreenTitle';
+import ChatsListBottomSpacer from '@/components/ChatsListBottomSpacer';
 import { FilterTabletGroup } from '@/components/FilterTablet';
 import UserAvatar from '@/components/UserAvatar';
-import { CHATS_COLLAPSED_HEADER_HEIGHT } from '@/constants/chatsChrome';
+import { CHATS_CHROME_FADE_OUT_END, CHATS_COLLAPSED_HEADER_HEIGHT } from '@/constants/chatsChrome';
 import { colors } from '@/constants/colors';
 import {
   CHAT_FILTER_TABLET_ITEMS,
@@ -12,10 +14,18 @@ import {
 } from '@/constants/filterTablets';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
-import { CHAT_AVATAR_SIZE } from '@/constants/layout';
+import {
+  CIRCULAR_CLICK_HEIGHT,
+  CIRCULAR_CLICK_WIDTH,
+  SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
+  SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
+  SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
+  SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
+} from '@/constants/layout';
 import { useChatsScrollChrome } from '@/hooks/useChatsScrollChrome';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
+import { chatsChromeProgress } from '@/store/chatsChrome.store';
 import { AnswerRequestStatus, TConversation } from '@/types/answerRequest.types';
 import { formatListTime } from '@/utils/date';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -31,7 +41,7 @@ import {
   View,
 } from 'react-native';
 import { KeyboardController } from 'react-native-keyboard-controller';
-import Animated from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CHAT_LIST_AVATAR_SIZE = 48;
@@ -99,6 +109,17 @@ const ChatsScreen = () => {
     onHeaderLayout,
     resetChrome,
   } = useChatsScrollChrome();
+
+  // The toolbar row fades out with the chrome — once faded it must stop
+  // receiving touches so the invisible back/menu buttons don't swallow taps
+  // meant for the chat rows underneath.
+  const [toolbarTouchEnabled, setToolbarTouchEnabled] = useState(true);
+  useAnimatedReaction(
+    () => chatsChromeProgress.value,
+    (progress) => {
+      runOnJS(setToolbarTouchEnabled)(progress < CHATS_CHROME_FADE_OUT_END + 0.15);
+    },
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -235,9 +256,12 @@ const ChatsScreen = () => {
             the list viewport grows and the content slides up glued to the
             shell's bottom edge — no gap can open at any progress, and a
             release settle can complete in either direction from any scroll
-            position. The pinned toolbar (back button, centered logo, menu) is a separate
-            overlay strip so it stays visible and tappable once the shell has
-            collapsed away beneath it.
+            position. The footer spacer (ChatsListBottomSpacer) grows by the
+            deficit between the header height and the list's scrollable
+            distance, so the collapse works on short chat lists too without a
+            flicker loop. The overlay strip keeps only the centered logo
+            pinned; the back and menu buttons fade out with the chrome (and
+            stop receiving touches once invisible).
           */}
           <Animated.View style={[styles.headerShell, headerShellStyle]}>
             <View
@@ -246,7 +270,7 @@ const ChatsScreen = () => {
             >
               <Animated.View style={headerChromeSlideStyle}>
                 <View style={styles.titleRow}>
-                  <Text style={styles.pageTitle}>Chats</Text>
+                  <ScreenTitle title="Chats" />
                 </View>
 
                 <Searchbar
@@ -277,6 +301,7 @@ const ChatsScreen = () => {
               (loading || displayedConversations.length === 0) && styles.listContentEmpty,
             ]}
             ListEmptyComponent={renderEmpty}
+            ListFooterComponent={ChatsListBottomSpacer}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             onScroll={scrollHandler}
@@ -295,7 +320,10 @@ const ChatsScreen = () => {
                 accessibilityLabel="QuickPeek"
               />
             </View>
-            <Animated.View style={[styles.toolbarRow, toolbarChromeFadeStyle]}>
+            <Animated.View
+              style={[styles.toolbarRow, toolbarChromeFadeStyle]}
+              pointerEvents={toolbarTouchEnabled ? 'auto' : 'none'}
+            >
               <View style={styles.toolbarSide}>
                 <BackButton />
               </View>
@@ -331,7 +359,7 @@ const styles = StyleSheet.create({
   },
   headerMeasureWrap: {
     position: 'absolute',
-    top: CHATS_COLLAPSED_HEADER_HEIGHT,
+    top: CHATS_COLLAPSED_HEADER_HEIGHT + SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
     left: 0,
     right: 0,
   },
@@ -353,8 +381,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    marginTop: SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
+    marginBottom: 0,
   },
   toolbarSide: {
     width: 72,
@@ -371,23 +399,18 @@ const styles = StyleSheet.create({
     width: CHATS_TOOLBAR_LOGO_WIDTH,
   },
   toolbarMenuButton: {
-    height: CHAT_AVATAR_SIZE,
-    width: CHAT_AVATAR_SIZE,
+    height: CIRCULAR_CLICK_HEIGHT,
+    width: CIRCULAR_CLICK_WIDTH,
     borderWidth: 1,
     borderColor: colors.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: CHAT_AVATAR_SIZE / 2,
+    borderRadius: CIRCULAR_CLICK_WIDTH / 2,
   },
   titleRow: {
     paddingHorizontal: CHATS_PAGE_GUTTER,
-    paddingVertical: 8,
-    marginBottom: 12,
-  },
-  pageTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 28,
-    color: colors.TEXT_DARK,
+    marginTop: SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
+    marginBottom: SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
   },
   searchBarPlacement: {
     marginHorizontal: CHATS_PAGE_GUTTER,

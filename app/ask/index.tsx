@@ -1,6 +1,7 @@
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
+import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
@@ -97,7 +98,7 @@ const AskScreen = () => {
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
         <BackButton />
-        <Text style={styles.pageTitle}>Ask a question</Text>
+        <ScreenTitle title="Ask a question" style={styles.pageTitleSpacing} />
         <Text style={styles.subtitle}>Post a question to responders.</Text>
 
         <Text style={styles.label}>Title</Text>
@@ -195,7 +196,7 @@ export default AskScreen;
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
-  pageTitle: { fontFamily: 'roboto-bold', fontSize: 28, color: colors.TEXT_DARK, marginTop: 12, marginBottom: 8 },
+  pageTitleSpacing: { marginTop: 12, marginBottom: 8 },
   subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
   label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
   input: {

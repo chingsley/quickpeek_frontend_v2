@@ -1,4 +1,5 @@
 import CustomButton from '@/components/shared/CustomButton';
+import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
@@ -142,7 +143,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
       keyboardShouldPersistTaps="handled"
       bottomOffset={24}
     >
-      {showTitle && <Text style={styles.pageTitle}>Settings</Text>}
+      {showTitle && <ScreenTitle title="Settings" style={styles.pageTitleSpacing} />}
 
       <Text style={styles.groupLabel}>Profile</Text>
       <View style={styles.groupCard}>
@@ -263,10 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pageTitle: {
-    fontFamily: 'roboto-bold',
-    fontSize: 28,
-    color: colors.TEXT_DARK,
+  pageTitleSpacing: {
     marginBottom: 20,
     textAlign: 'center',
   },

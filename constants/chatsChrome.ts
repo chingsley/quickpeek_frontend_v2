@@ -1,12 +1,15 @@
-import { CHAT_AVATAR_SIZE } from './layout';
+import { CIRCULAR_CLICK_HEIGHT, SCREEN_CHROME_ACTION_ROW_MARGIN_TOP } from './layout';
 
 export { HOME_SCROLL_BOTTOM_LOCK_THRESHOLD as CHATS_SCROLL_BOTTOM_LOCK_THRESHOLD } from './homeChrome';
 
-/** Vertical padding on the chats toolbar row (paddingTop + paddingBottom). */
-export const CHATS_TOOLBAR_VERTICAL_PADDING = 12;
+/** Bottom inset inside the pinned chats toolbar (below the circular buttons). */
+export const CHATS_PINNED_TOOLBAR_PADDING_BOTTOM = 4;
 
 /** Pinned toolbar height when the header is collapsed (back button + logo). */
-export const CHATS_COLLAPSED_HEADER_HEIGHT = CHAT_AVATAR_SIZE + CHATS_TOOLBAR_VERTICAL_PADDING;
+export const CHATS_COLLAPSED_HEADER_HEIGHT =
+  SCREEN_CHROME_ACTION_ROW_MARGIN_TOP +
+  CIRCULAR_CLICK_HEIGHT +
+  CHATS_PINNED_TOOLBAR_PADDING_BOTTOM;
 
 /**
  * Progress (0–1) at which header content opacity reaches zero.

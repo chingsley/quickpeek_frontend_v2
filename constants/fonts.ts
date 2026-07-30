@@ -12,6 +12,8 @@ export const fonts = {
   FONT_SIZE_TABLET: 17,
   FONT_SIZE_MEDIUM: 18,
   FONT_SIZE_XL: 22,
+  /** Primary screen heading (Home, Chats, Ask, etc.). */
+  FONT_SIZE_SCREEN_TITLE: 32,
   /** Home filter tablet labels — between body small and section medium. */
 
   /** Loaded custom font families — use these to set text weight in the app. */
