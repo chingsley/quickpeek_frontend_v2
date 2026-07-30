@@ -4,6 +4,7 @@ import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import { submitReview } from '@/services/reviews.services';
+import { useReviewWindowCountdown } from '@/utils/reviewWindow';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -20,14 +21,34 @@ type Props = {
   requestId: string;
   /** Preselected star count when opening (e.g. from the timeline rating card). */
   initialStars?: number;
+  reviewWindowEndsAt: string | null;
+  reviewWindowOpen: boolean;
+  reviewWindowDays: number;
   onClose: () => void;
   onSubmitted: () => void;
+  onWindowExpired?: () => void;
 };
 
-const ReviewModal = ({ visible, requestId, initialStars, onClose, onSubmitted }: Props) => {
+const ReviewModal = ({
+  visible,
+  requestId,
+  initialStars,
+  reviewWindowEndsAt,
+  reviewWindowOpen,
+  reviewWindowDays,
+  onClose,
+  onSubmitted,
+  onWindowExpired,
+}: Props) => {
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { remaining, ended } = useReviewWindowCountdown({
+    endsAt: reviewWindowEndsAt,
+    windowOpen: reviewWindowOpen,
+    onWindowExpired,
+  });
+  const windowClosed = ended || !reviewWindowOpen;
 
   useEffect(() => {
     if (visible) {
@@ -40,7 +61,7 @@ const ReviewModal = ({ visible, requestId, initialStars, onClose, onSubmitted }:
   }, [visible, initialStars]);
 
   const handleSubmit = async () => {
-    if (stars === 0 || submitting) return;
+    if (stars === 0 || submitting || windowClosed) return;
     setSubmitting(true);
     try {
       const result = await submitReview(requestId, stars, comment.trim() || undefined);
@@ -61,37 +82,58 @@ const ReviewModal = ({ visible, requestId, initialStars, onClose, onSubmitted }:
   return (
     <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
       <Text style={styles.title}>Rate this user</Text>
-      <Text style={styles.subtitle}>
-        Your review stays hidden until both of you submit, or the review window closes.
-      </Text>
+      {windowClosed ? (
+        <Text style={styles.endedText}>Review window ended — you can no longer submit a review.</Text>
+      ) : (
+        <>
+          <Text style={styles.subtitle}>
+            Your review stays hidden until both of you submit, or the review window closes. You have{' '}
+            {reviewWindowDays} days from when reviews opened.
+          </Text>
+          {remaining && <Text style={styles.countdown}>{remaining}</Text>}
+        </>
+      )}
 
       <View style={styles.starRow}>
         {[1, 2, 3, 4, 5].map((value) => (
-          <Pressable key={value} onPress={() => setStars(value)} hitSlop={8}>
+          <Pressable
+            key={value}
+            onPress={() => !windowClosed && setStars(value)}
+            hitSlop={8}
+            disabled={windowClosed}
+            accessibilityState={{ disabled: windowClosed }}
+          >
             <Ionicons
               name={value <= stars ? 'star' : 'star-outline'}
               size={34}
-              color={value <= stars ? colors.STAR_GOLD : colors.LIGHT_GRAY}
+              color={
+                windowClosed
+                  ? colors.LIGHT_GRAY
+                  : value <= stars
+                    ? colors.STAR_GOLD
+                    : colors.LIGHT_GRAY
+              }
             />
           </Pressable>
         ))}
       </View>
 
       <TextInput
-        style={styles.commentInput}
+        style={[styles.commentInput, windowClosed && styles.commentInputDisabled]}
         placeholder="Leave a comment (optional)"
         placeholderTextColor={colors.MEDIUM_GRAY}
         value={comment}
         onChangeText={setComment}
         multiline
         maxLength={1000}
+        editable={!windowClosed}
       />
 
       <CustomButton
-        text={submitting ? 'Submitting…' : 'Submit review'}
+        text={windowClosed ? 'Review window ended' : submitting ? 'Submitting…' : 'Submit review'}
         onPress={handleSubmit}
         loading={submitting}
-        disabled={stars === 0 || submitting}
+        disabled={windowClosed || stars === 0 || submitting}
       />
     </BottomSheet>
   );
@@ -119,6 +161,19 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  countdown: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
+    marginBottom: 16,
+  },
+  endedText: {
+    fontFamily: 'roboto-medium',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 20,
     marginBottom: 20,
   },
   starRow: {
@@ -139,5 +194,9 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     marginBottom: 8,
     textAlignVertical: 'top',
+  },
+  commentInputDisabled: {
+    backgroundColor: colors.CARD_BG,
+    color: colors.MEDIUM_GRAY,
   },
 });

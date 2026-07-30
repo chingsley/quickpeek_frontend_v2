@@ -5,6 +5,10 @@ export type TReviewEligibility = {
   reviewRevealed: boolean;
   unlockedReason: 'marked_answered' | 'activity_threshold' | null;
   unlocked: boolean;
+  reviewWindowOpen: boolean;
+  reviewWindowEnded: boolean;
+  reviewWindowEndsAt: string | null;
+  reviewWindowDays: number;
 };
 
 export type TReview = {

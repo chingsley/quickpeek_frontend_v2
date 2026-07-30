@@ -54,11 +54,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   CIRCULAR_CLICK_HEIGHT,
   CIRCULAR_CLICK_WIDTH,
-  SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
-  SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
-  SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
-  SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
 } from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
 
 const HomeScreen = () => {
   const router = useRouter();
@@ -541,7 +538,7 @@ const HomeScreen = () => {
               onLayout={(event) => onHeaderLayout(event.nativeEvent.layout.height)}
             >
               <Animated.View style={headerChromeSlideStyle}>
-                <View style={styles.header}>
+                <View style={screenChromeStyles.actionRow}>
                   <View style={styles.headerSide}>
                     <Pressable onPress={toggleDrawer} style={styles.menuBtn} accessibilityLabel="Open menu">
                       <Ionicons name="menu" size={30} color={colors.PRIMARY} />
@@ -566,7 +563,7 @@ const HomeScreen = () => {
                   </View>
                 </View>
 
-                <View style={styles.titleRow}>
+                <View style={screenChromeStyles.titleRow}>
                   <ScreenTitle title={activeCategory.title} />
                   {categorySubtitle ? (
                     <Text style={styles.categorySubtitle}>{categorySubtitle}</Text>
@@ -711,13 +708,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 3,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
-    marginBottom: SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
-  },
   headerSide: {
     width: 72,
     zIndex: 1,
@@ -733,11 +723,6 @@ const styles = StyleSheet.create({
   logo: {
     height: 40,
     width: 184,
-  },
-  titleRow: {
-    paddingHorizontal: 16,
-    marginTop: SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
-    marginBottom: SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
   },
   searchBarPlacement: {
     marginHorizontal: 16,

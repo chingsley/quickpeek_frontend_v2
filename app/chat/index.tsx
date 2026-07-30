@@ -11,6 +11,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT, CHAT_AVATAR_SIZE } from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
 import { STATUS_ICON_SIZE, STATUS_ICON_VISUALS } from '@/constants/statusIcons';
 import {
   getMessages,
@@ -173,6 +174,15 @@ const ChatScreen = () => {
     await markMessagesRead(requestId).catch(() => undefined);
   }, [requestId]);
 
+  const refreshEligibility = useCallback(() => {
+    if (!requestId) return;
+    getReviewEligibility(requestId).then(setEligibility).catch(() => undefined);
+  }, [requestId]);
+
+  const handleReviewWindowExpired = useCallback(() => {
+    refreshEligibility();
+  }, [refreshEligibility]);
+
   useEffect(() => {
     if (!requestId) {
       setLoading(false);
@@ -265,14 +275,15 @@ const ChatScreen = () => {
       items.push({ kind: 'message', message, groupPosition });
     }
 
-    // When the counterparty becomes reviewable, surface the rating prompt as
-    // a native event at the end of the conversation. Derived from state — it
-    // disappears by itself once the review is in.
-    if (eligibility?.canReview) {
+    // When reviews are unlocked and the user hasn't submitted yet, surface the
+    // rating prompt at the end of the conversation — including when the window
+    // has ended so they see why they can no longer rate.
+    const showRatingCard = eligibility?.unlocked && !eligibility?.alreadyReviewed;
+    if (showRatingCard) {
       items.push({ kind: 'rating', id: 'rating-card' });
     }
     return items;
-  }, [eligibility?.canReview, messages]);
+  }, [eligibility?.alreadyReviewed, eligibility?.unlocked, messages]);
 
   const openRejectModal = () => {
     setRejectionReason('');
@@ -357,9 +368,10 @@ const ChatScreen = () => {
 
   /** Opens the review sheet, preselecting stars when tapped on the rating card. */
   const handleRateStars = useCallback((value: number) => {
+    if (!eligibility?.canReview) return;
     setReviewInitialStars(value);
     setReviewVisible(true);
-  }, []);
+  }, [eligibility?.canReview]);
 
   const headerMenuItems = useMemo((): OverflowMenuItem[] => {
     const items: OverflowMenuItem[] = [];
@@ -553,7 +565,10 @@ const ChatScreen = () => {
                 <RatingCard
                   name={thread?.counterparty?.name ?? 'this user'}
                   profileImageUrl={thread?.counterparty?.profileImageUrl ?? null}
+                  reviewWindowEndsAt={eligibility?.reviewWindowEndsAt ?? null}
+                  reviewWindowOpen={eligibility?.reviewWindowOpen ?? false}
                   onRate={handleRateStars}
+                  onWindowExpired={handleReviewWindowExpired}
                 />
               );
             }
@@ -616,11 +631,15 @@ const ChatScreen = () => {
         visible={reviewVisible}
         requestId={requestId}
         initialStars={reviewInitialStars}
+        reviewWindowEndsAt={eligibility?.reviewWindowEndsAt ?? null}
+        reviewWindowOpen={eligibility?.reviewWindowOpen ?? false}
+        reviewWindowDays={eligibility?.reviewWindowDays ?? 14}
         onClose={() => setReviewVisible(false)}
         onSubmitted={() => {
           setReviewVisible(false);
-          getReviewEligibility(requestId).then(setEligibility).catch(() => undefined);
+          refreshEligibility();
         }}
+        onWindowExpired={handleReviewWindowExpired}
       />
 
       <UserProfileModal
@@ -707,10 +726,10 @@ const styles = StyleSheet.create({
   messageList: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
+    ...screenChromeStyles.actionRowInset,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.CARD_BORDER,
     gap: 8,

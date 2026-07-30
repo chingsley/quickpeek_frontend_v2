@@ -15,12 +15,8 @@ import {
 } from '@/constants/filterTablets';
 import { fonts } from '@/constants/fonts';
 import { images } from '@/constants/images';
-import {
-  SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM,
-  SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
-  SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
-  SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
-} from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
+import { SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM } from '@/constants/layout';
 import { useChatsScrollChrome } from '@/hooks/useChatsScrollChrome';
 import { getConversations } from '@/services/requests.services';
 import SocketService from '@/services/socket.services';
@@ -268,7 +264,7 @@ const ChatsScreen = () => {
               onLayout={(event) => onHeaderLayout(event.nativeEvent.layout.height)}
             >
               <Animated.View style={headerChromeSlideStyle}>
-                <View style={styles.titleRow}>
+                <View style={screenChromeStyles.titleRow}>
                   <ScreenTitle title="Chats" />
                 </View>
 
@@ -320,7 +316,7 @@ const ChatsScreen = () => {
               />
             </View>
             <Animated.View
-              style={[styles.toolbarRow, toolbarChromeFadeStyle]}
+              style={[screenChromeStyles.actionRowInset, styles.toolbarRow, toolbarChromeFadeStyle]}
               pointerEvents={toolbarTouchEnabled ? 'auto' : 'none'}
             >
               <View style={styles.toolbarSide}>
@@ -372,8 +368,6 @@ const styles = StyleSheet.create({
   toolbarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: SCREEN_CHROME_ACTION_ROW_MARGIN_TOP,
     marginBottom: 0,
   },
   toolbarSide: {
@@ -389,11 +383,6 @@ const styles = StyleSheet.create({
   logo: {
     height: LOGO_SIZE,
     width: CHATS_TOOLBAR_LOGO_WIDTH,
-  },
-  titleRow: {
-    paddingHorizontal: CHATS_PAGE_GUTTER,
-    marginTop: SCREEN_CHROME_TITLE_ROW_MARGIN_TOP,
-    marginBottom: SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM,
   },
   searchBarPlacement: {
     marginHorizontal: CHATS_PAGE_GUTTER,

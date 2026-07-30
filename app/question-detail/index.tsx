@@ -12,6 +12,7 @@ import { colors } from '@/constants/colors';
 import { chipStyles } from '@/constants/chips';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
 import {
   acceptRequest,
   createRequest,
@@ -446,7 +447,10 @@ const QuestionDetail = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={screenChromeStyles.actionRow}>
+          <BackButton />
+        </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.PRIMARY} />
         </View>
@@ -456,7 +460,10 @@ const QuestionDetail = () => {
 
   if (!question) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <View style={screenChromeStyles.actionRow}>
+          <BackButton />
+        </View>
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Question not found.</Text>
         </View>
@@ -474,10 +481,14 @@ const QuestionDetail = () => {
   });
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={screenChromeStyles.actionRow}>
         <BackButton />
-        <ScreenTitle title={question.title} style={styles.pageTitleSpacing} />
+      </View>
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={screenChromeStyles.titleRowInset}>
+          <ScreenTitle title={question.title} />
+        </View>
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
@@ -803,9 +814,8 @@ export default QuestionDetail;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
-  scrollContent: { padding: 24, paddingBottom: 40 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pageTitleSpacing: { marginTop: 12, marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   chip: { backgroundColor: colors.SECONDARY },
