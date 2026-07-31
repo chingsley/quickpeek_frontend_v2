@@ -420,20 +420,22 @@ const HomeScreen = () => {
         activeOpacity={0.85}
       >
         <View style={styles.cardMeta}>
-          {authorLabel && (
-            <Text style={styles.questioner} numberOfLines={1}>
-              {authorLabel}
-            </Text>
-          )}
-          {authorLabel && <Text style={styles.metaDivider}>|</Text>}
-          <Text style={styles.postedAt}>{postedAt}</Text>
-        </View>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-          <View style={styles.headerRight}>
+          <View style={styles.cardMetaLeft}>
+            {authorLabel && (
+              <Text style={styles.questioner} numberOfLines={1}>
+                {authorLabel}
+              </Text>
+            )}
+            {authorLabel && <Text style={styles.metaDivider}>|</Text>}
+            <Text style={styles.postedAt}>{postedAt}</Text>
+          </View>
+          <View style={styles.cardMetaRight}>
             {showAttentionDot && <View style={styles.unreadDot} />}
             <Text style={styles.price}>${item.price.toFixed(2)}</Text>
           </View>
+        </View>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
         </View>
         <Text style={styles.cardDetail} numberOfLines={viewMode === 'card' ? 3 : 2}>
           {item.detail}
@@ -814,13 +816,26 @@ const styles = StyleSheet.create({
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 6,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  cardMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+  },
+  cardHeader: { marginBottom: 6 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.RED },
-  cardTitle: { flex: 1, fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK, marginRight: 8 },
+  cardTitle: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK },
   price: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.PRIMARY },
   cardDetail: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, lineHeight: 20, marginBottom: 10 },
   cardFooter: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },

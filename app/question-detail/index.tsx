@@ -521,32 +521,43 @@ const QuestionDetail = () => {
 
         <View style={styles.metaRow}>
           <Text style={styles.price}>${question.price.toFixed(2)}</Text>
+          <Text style={styles.metaTimestamp} numberOfLines={1}>
+            Posted {formatDate(question.createdAt)}
+          </Text>
+        </View>
+        <View style={styles.statusRow}>
           <QuestionStatusIcons icons={mainStatusIcons} size={STATUS_ICON_SIZE} withLabels />
         </View>
 
         {question.address && (
           <View style={styles.locationCard}>
-            <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
+            <Ionicons name="location-outline" size={STATUS_ICON_SIZE} color={colors.PRIMARY} />
             <Text style={styles.locationText}>{question.address}</Text>
           </View>
         )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Details</Text>
+        <View style={styles.contentSection}>
+          <View style={styles.sectionLabelHeader}>
+            <Text style={styles.sectionLabel}>Details</Text>
+          </View>
           <Text style={styles.bodyText}>{question.detail}</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Acceptance criteria</Text>
+        <View style={styles.contentSection}>
+          <View style={styles.sectionLabelHeader}>
+            <Text style={styles.sectionLabel}>Acceptance criteria</Text>
+          </View>
           <Text style={styles.bodyText}>{question.acceptanceCriteria}</Text>
         </View>
 
         {question.questioner && !isOwner && (
           <Pressable
-            style={styles.card}
+            style={styles.contentSection}
             onPress={() => openProfile(question.questioner!.id)}
           >
-            <Text style={styles.cardLabel}>Questioner</Text>
+            <View style={styles.sectionLabelHeader}>
+              <Text style={styles.sectionLabel}>Questioner</Text>
+            </View>
             <View style={styles.questionerRow}>
               <UserAvatar imageUrl={question.questioner.profileImageUrl} size={40} />
               <View style={styles.questionerBody}>
@@ -572,8 +583,6 @@ const QuestionDetail = () => {
             </View>
           </Pressable>
         )}
-
-        <Text style={styles.timestamp}>Posted {formatDate(question.createdAt)}</Text>
 
         {!isOwner && question.status === QuestionStatus.Open && (
           <View style={styles.actionArea}>
@@ -868,23 +877,44 @@ const styles = StyleSheet.create({
     color: colors.PRIMARY,
     flexShrink: 0,
   },
+  metaTimestamp: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  statusRow: {
+    marginBottom: 16,
+  },
   chip: { backgroundColor: colors.SECONDARY },
-  locationCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    backgroundColor: colors.INPUT_BG,
+    borderRadius: BORDER_RADIUS_INPUT,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
   locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
-  card: {
-    backgroundColor: colors.CARD_BG,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    padding: 16,
+  contentSection: {
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  sectionLabelHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.CARD_BORDER,
+    paddingBottom: 8,
     marginBottom: 12,
   },
-  cardLabel: {
+  sectionLabel: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.DARK_GRAY,
-    marginBottom: 8,
-    textTransform: 'capitalize'
+    textTransform: 'capitalize',
   },
   bodyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 22 },
   questionerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
@@ -914,8 +944,12 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.PRIMARY,
   },
-  timestamp: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 20 },
-  actionArea: { marginTop: 32, paddingTop: 24, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
+  actionArea: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.CARD_BORDER
+  },
   infoBox: {
     backgroundColor: colors.CARD_BG,
     borderRadius: 12,
@@ -977,7 +1011,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   requestSectionContent: {},
-  sectionTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK },
+  sectionTitle: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_MEDIUM,
+    color: colors.PRIMARY,
+  },
   sectionDescription: {
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,

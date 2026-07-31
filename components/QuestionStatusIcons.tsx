@@ -6,6 +6,7 @@ import {
   StatusIconKey,
 } from '@/utils/questionStatus';
 import {
+  STATUS_ICON_NEUTRAL_COLOR,
   STATUS_ICON_SIZE,
   STATUS_ICON_VISUALS,
   StatusIconVisual,
@@ -70,7 +71,7 @@ const QuestionStatusIcons = ({
               style={badged ? [styles.pill, { backgroundColor: visual.bg }] : styles.labeledItem}
             >
               <StatusIconGlyph visual={visual} size={size} />
-              <Text style={[styles.pillLabel, { color: visual.color }]}>{icon.label}</Text>
+              <Text style={styles.pillLabel}>{icon.label}</Text>
             </View>
           );
         })}
@@ -194,5 +195,6 @@ const styles = StyleSheet.create({
   pillLabel: {
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_SMALL,
+    color: STATUS_ICON_NEUTRAL_COLOR,
   },
 });
