@@ -4,6 +4,7 @@ import RatingCard from '@/components/chat/RatingCard';
 import { StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
+import MakePaymentSheet from '@/components/payment/MakePaymentSheet';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import OverflowMenu, { OverflowMenuItem } from '@/components/shared/OverflowMenu';
@@ -32,6 +33,7 @@ import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TMessage, TRequestThread } from '@/types/message.types';
 import { TReviewEligibility } from '@/types/review.types';
 import { formatDaySeparator, getDayKey } from '@/utils/date';
+import { shouldShowMakePayment } from '@/utils/payment.utils';
 import { StatusIconKey } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -110,6 +112,8 @@ const ChatScreen = () => {
   const [rejecting, setRejecting] = useState(false);
   /** Message currently being replied to (shown above the composer). */
   const [replyTarget, setReplyTarget] = useState<TMessage | null>(null);
+  /** Controls the questioner's make-payment sheet. */
+  const [paymentVisible, setPaymentVisible] = useState(false);
 
   const listRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -221,10 +225,18 @@ const ChatScreen = () => {
     socket.on('message:new', handleNewMessage);
     socket.on('request:accepted', loadThread);
     socket.on('request:rejected', loadThread);
+    // Payment finalization posts a system message and flips thread.payment —
+    // reload so the make-payment action and banner stay accurate.
+    socket.on('payment:succeeded', loadThread);
+    socket.on('payment:failed', loadThread);
+    socket.on('payment:received', loadThread);
     return () => {
       socket.off('message:new', handleNewMessage);
       socket.off('request:accepted', loadThread);
       socket.off('request:rejected', loadThread);
+      socket.off('payment:succeeded', loadThread);
+      socket.off('payment:failed', loadThread);
+      socket.off('payment:received', loadThread);
     };
   }, [authUserId, loadThread, requestId]);
 
@@ -376,6 +388,22 @@ const ChatScreen = () => {
   const headerMenuItems = useMemo((): OverflowMenuItem[] => {
     const items: OverflowMenuItem[] = [];
 
+    if (
+      shouldShowMakePayment({
+        isQuestioner,
+        requestStatus: thread?.status,
+        paymentStatus: thread?.payment?.status,
+      })
+    ) {
+      items.push({
+        key: 'make-payment',
+        label: 'Make payment',
+        icon: 'card-outline',
+        iconColor: colors.PRIMARY,
+        onPress: () => setPaymentVisible(true),
+      });
+    }
+
     if (thread?.question) {
       items.push({
         key: 'go-to-question',
@@ -398,7 +426,16 @@ const ChatScreen = () => {
     }
 
     return items;
-  }, [eligibility?.canReview, handleRateStars, router, thread?.counterparty?.name, thread?.question]);
+  }, [
+    eligibility?.canReview,
+    handleRateStars,
+    isQuestioner,
+    router,
+    thread?.counterparty?.name,
+    thread?.payment?.status,
+    thread?.question,
+    thread?.status,
+  ]);
 
   const handleSend = async () => {
     const text = inputText.trim();
@@ -640,6 +677,19 @@ const ChatScreen = () => {
           refreshEligibility();
         }}
         onWindowExpired={handleReviewWindowExpired}
+      />
+
+      <MakePaymentSheet
+        visible={paymentVisible}
+        onClose={() => setPaymentVisible(false)}
+        answerRequestId={requestId}
+        amount={thread?.question.price ?? 0}
+        currency={thread?.payoutCurrency ?? 'USD'}
+        onPaid={() => {
+          // The system message arrives via socket; this also flips
+          // thread.payment so the menu action hides.
+          loadThread().catch(() => undefined);
+        }}
       />
 
       <UserProfileModal

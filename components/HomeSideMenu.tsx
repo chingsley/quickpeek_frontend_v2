@@ -137,6 +137,11 @@ const HomeSideMenu = () => {
     router.push('/ask');
   };
 
+  const handleOpenWallet = () => {
+    close();
+    router.push('/wallet');
+  };
+
   const handleCategoryPress = (key: DrawerMenuCategoryKey) => {
     selectCategory(key);
     router.push('/(tabs)/Home');
@@ -165,6 +170,11 @@ const HomeSideMenu = () => {
       <Pressable style={styles.askButton} onPress={handleAskQuestion}>
         <Ionicons name="add" size={18} color={colors.BG_WHITE} />
         <Text style={styles.askButtonText}>Ask a Question</Text>
+      </Pressable>
+
+      <Pressable style={styles.walletButton} onPress={handleOpenWallet}>
+        <Ionicons name="wallet-outline" size={18} color={colors.PRIMARY} />
+        <Text style={styles.walletButtonText}>Wallet</Text>
       </Pressable>
 
       <View style={styles.categoriesSectionContainer}>
@@ -223,6 +233,23 @@ const styles = StyleSheet.create({
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.BG_WHITE,
+  },
+  walletButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.SECONDARY,
+    borderRadius: BORDER_RADIUS_BUTTON,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    marginLeft: DRAWER_CATEGORY_ITEM_INSET,
+    marginBottom: DRAWER_ASK_BUTTON_BOTTOM_MARGIN,
+  },
+  walletButtonText: {
+    fontFamily: 'roboto-bold',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.PRIMARY,
   },
   categoriesSectionContainer: {
     flex: 1,

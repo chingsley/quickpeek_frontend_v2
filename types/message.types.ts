@@ -30,12 +30,16 @@ export type TRequestThread = {
     id: string;
     title: string;
     detail: string;
+    price: number;
     status: string;
     latitude: number | null;
     longitude: number | null;
     address: string | null;
     category: TCategory;
   };
+  payment: { status: 'PENDING' | 'SUCCEEDED' | 'FAILED' } | null;
+  /** Currency a payment to the responder would be charged in (null = unknown). */
+  payoutCurrency: string | null;
   counterparty: {
     id: string;
     name: string;

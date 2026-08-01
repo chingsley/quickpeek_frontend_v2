@@ -8,6 +8,7 @@ import SocketService from '@/services/socket.services';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useMarketConfigStore } from '@/store/marketConfig.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
@@ -52,7 +53,11 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <BottomSheetModalProvider>
-          <Stack screenOptions={{ headerShown: false }} />
+          <StripeProvider
+            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
+          >
+            <Stack screenOptions={{ headerShown: false }} />
+          </StripeProvider>
         </BottomSheetModalProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
