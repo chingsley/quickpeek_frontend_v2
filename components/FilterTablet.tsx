@@ -46,15 +46,20 @@ export const FilterTablet = ({
 type FilterTabletBarProps = {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
 /** Horizontal scroll row for filter pills. Layout tokens: `filterTabletBarStyles`. */
-export const FilterTabletBar = ({ children, style }: FilterTabletBarProps) => (
+export const FilterTabletBar = ({
+  children,
+  style,
+  contentContainerStyle,
+}: FilterTabletBarProps) => (
   <View style={[filterTabletBarStyles.wrap, style]}>
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={filterTabletBarStyles.content}
+      contentContainerStyle={[filterTabletBarStyles.content, contentContainerStyle]}
     >
       {children}
     </ScrollView>
@@ -67,6 +72,7 @@ export type FilterTabletGroupProps<Key extends string> = {
   onToggle: (key: Key) => void;
   getIconColor?: (key: Key, active: boolean) => string;
   barStyle?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -79,9 +85,10 @@ export function FilterTabletGroup<Key extends string>({
   onToggle,
   getIconColor = resolveFilterTabletIconColor as (key: Key, active: boolean) => string,
   barStyle,
+  contentContainerStyle,
 }: FilterTabletGroupProps<Key>) {
   return (
-    <FilterTabletBar style={barStyle}>
+    <FilterTabletBar style={barStyle} contentContainerStyle={contentContainerStyle}>
       {items.map((item) => {
         const active = activeKeys.has(item.key);
         return (

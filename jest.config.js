@@ -12,6 +12,7 @@ module.exports = {
     'store/wallet.store.ts',
     'types/payment.types.ts',
     'utils/payment.utils.ts',
+    'utils/review.utils.ts',
   ],
   coverageThreshold: {
     global: {

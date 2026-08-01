@@ -3,6 +3,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { REVIEW_COMMENT_MAX_LENGTH } from '@/constants/reviews';
 import { submitReview } from '@/services/reviews.services';
 import { useReviewWindowCountdown } from '@/utils/reviewWindow';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -125,7 +126,7 @@ const ReviewModal = ({
         value={comment}
         onChangeText={setComment}
         multiline
-        maxLength={1000}
+        maxLength={REVIEW_COMMENT_MAX_LENGTH}
         editable={!windowClosed}
       />
 

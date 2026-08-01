@@ -22,5 +22,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_SCREEN_TITLE,
     color: colors.TEXT_DARK,
+    // color: colors.PRIMARY,
   },
 });

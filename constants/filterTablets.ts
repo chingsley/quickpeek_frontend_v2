@@ -133,6 +133,13 @@ export const filterTabletBarStyles = {
     paddingHorizontal: 4,
     marginBottom: 45,
   } satisfies ViewStyle,
+
+  /** Profile sheet: parent already has 20px horizontal padding — no extra inset. */
+  profileSheetContent: {
+    gap: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 2,
+  } satisfies ViewStyle,
 };
 
 const CHAT_FILTER_STATUS_ICON_KEYS: Partial<

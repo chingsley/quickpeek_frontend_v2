@@ -40,8 +40,8 @@ export type TPublicUserProfile = {
   username: string;
   profileImageUrl: string | null;
   createdAt: string;
-  asResponder: { averageRating: number; reviewsCount: number };
-  asQuestioner: { averageRating: number; reviewsCount: number };
+  asResponder: { averageRating: number; reviewsCount: number; };
+  asQuestioner: { averageRating: number; reviewsCount: number; };
   questionsAnsweredCount: number;
   questionsAskedCount: number;
   reviews: TPublicReview[];

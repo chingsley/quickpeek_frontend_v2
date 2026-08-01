@@ -4,6 +4,7 @@ import RatingCard from '@/components/chat/RatingCard';
 import { StatusIconGlyph } from '@/components/QuestionStatusIcons';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileModal from '@/components/UserProfileModal';
+// eslint-disable-next-line import/no-unresolved -- Metro/tsc resolve the platform-suffixed module; eslint's resolver can't model RN platform suffixes
 import MakePaymentSheet from '@/components/payment/MakePaymentSheet';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';

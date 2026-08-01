@@ -1,14 +1,18 @@
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
+import { FilterTabletGroup } from '@/components/FilterTablet';
 import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { REVIEW_SORT_TABLET_ITEMS } from '@/constants/reviews';
+import { filterTabletBarStyles } from '@/constants/filterTablets';
 import { getPublicUserProfile } from '@/services/users.services';
 import { TPublicUserProfile } from '@/types/review.types';
 import { formatDate } from '@/utils/date';
+import { ReviewSortOrder, sortReviewsByStars } from '@/utils/review.utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -49,6 +53,25 @@ const UserProfileModal = ({
   const [profile, setProfile] = useState<TPublicUserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** null = server order (newest first). */
+  const [reviewSort, setReviewSort] = useState<ReviewSortOrder | null>(null);
+
+  const toggleReviewSort = useCallback((key: ReviewSortOrder) => {
+    setReviewSort((current) => (current === key ? null : key));
+  }, []);
+
+  const activeReviewSortKeys = useMemo(
+    () => (reviewSort ? new Set<ReviewSortOrder>([reviewSort]) : new Set<ReviewSortOrder>()),
+    [reviewSort],
+  );
+
+  const sortedReviews = useMemo(
+    () =>
+      profile && reviewSort
+        ? sortReviewsByStars(profile.reviews, reviewSort)
+        : (profile?.reviews ?? []),
+    [profile, reviewSort],
+  );
 
   const loadProfile = useCallback(async (targetUserId: string, cancelled: () => boolean) => {
     setLoading(true);
@@ -75,6 +98,7 @@ const UserProfileModal = ({
       setProfile(null);
       setLoading(false);
       setLoadError(null);
+      setReviewSort(null);
       return;
     }
 
@@ -155,11 +179,27 @@ const UserProfileModal = ({
           <Text style={styles.sectionTitle}>
             Reviews ({profile.reviewsPagination.total})
           </Text>
+          {profile.reviews.length > 1 && (
+            <FilterTabletGroup
+              items={REVIEW_SORT_TABLET_ITEMS}
+              activeKeys={activeReviewSortKeys}
+              onToggle={toggleReviewSort}
+              getIconColor={() => colors.PRIMARY}
+              barStyle={styles.reviewSortBar}
+              contentContainerStyle={filterTabletBarStyles.profileSheetContent}
+            />
+          )}
           {profile.reviews.length === 0 ? (
             <Text style={styles.emptyText}>No reviews yet.</Text>
           ) : (
-            profile.reviews.map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
+            sortedReviews.map((review, index) => (
+              <View
+                key={review.id}
+                style={[
+                  styles.reviewRow,
+                  index === sortedReviews.length - 1 && styles.reviewRowLast,
+                ]}
+              >
                 <View style={styles.reviewHeader}>
                   <StarRating rating={review.stars} size={12} />
                   <Text style={styles.reviewRaterRole}>{review.raterRole.toLowerCase()}</Text>
@@ -264,7 +304,7 @@ const styles = StyleSheet.create({
   name: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK },
   username: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY },
   joined: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 32 },
   statCard: {
     flex: 1,
     backgroundColor: colors.CARD_BG,
@@ -278,6 +318,9 @@ const styles = StyleSheet.create({
   statLabel: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4, textAlign: 'center' },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   sectionTitle: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 12 },
+  reviewSortBar: {
+    marginBottom: 12,
+  },
   emptyText: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, textAlign: 'center', marginVertical: 12 },
   retryBtn: {
     marginTop: 8,
@@ -292,17 +335,17 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.PRIMARY,
   },
-  reviewCard: {
-    backgroundColor: colors.CARD_BG,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
+  reviewRow: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.CARD_BORDER,
+  },
+  reviewRowLast: {
+    borderBottomWidth: 0,
   },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   reviewRaterRole: { fontFamily: 'roboto-medium', fontSize: 10, color: colors.MEDIUM_GRAY, textTransform: 'uppercase' },
-  reviewDate: { fontFamily: 'roboto', fontSize: 10, color: colors.MEDIUM_GRAY, marginLeft: 'auto' },
+  reviewDate: { fontFamily: 'roboto', fontSize: 10, color: colors.PRIMARY, marginLeft: 'auto' },
   reviewComment: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
   reviewNoComment: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, fontStyle: 'italic' },
   reviewRater: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 6 },

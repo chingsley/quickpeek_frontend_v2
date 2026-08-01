@@ -3,12 +3,13 @@
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
+// eslint-disable-next-line import/no-unresolved -- Metro/tsc resolve the platform-suffixed module; eslint's resolver can't model RN platform suffixes
+import StripeProviderWrapper from '@/components/payment/StripeProviderWrapper';
 import { ensureApiConfigReady } from '@/config';
 import SocketService from '@/services/socket.services';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useMarketConfigStore } from '@/store/marketConfig.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { StripeProvider } from '@stripe/stripe-react-native';
 import { useFonts } from "expo-font";
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
@@ -53,11 +54,9 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <BottomSheetModalProvider>
-          <StripeProvider
-            publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
-          >
+          <StripeProviderWrapper>
             <Stack screenOptions={{ headerShown: false }} />
-          </StripeProvider>
+          </StripeProviderWrapper>
         </BottomSheetModalProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
