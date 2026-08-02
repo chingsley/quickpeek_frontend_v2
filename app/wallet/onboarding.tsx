@@ -5,6 +5,8 @@ import PillChip from '@/components/shared/PillChip';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { SCREEN_CHROME_HORIZONTAL_PADDING } from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
 import {
   createPaymentAccount,
   getBanks,
@@ -12,6 +14,7 @@ import {
   startPayoutOnboarding,
 } from '@/services/payments.services';
 import { TBank, TPaymentAccount } from '@/types/payment.types';
+import { getAppDeepLink } from '@/utils/payment.utils';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -22,7 +25,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CURRENCIES = ['USD', 'NGN'] as const;
 type WalletCurrency = (typeof CURRENCIES)[number];
@@ -35,7 +38,6 @@ const MIN_ACCOUNT_NUMBER_LENGTH = 8;
  */
 export default function WalletOnboardingScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   // undefined = loading, null = none
   const [account, setAccount] = useState<TPaymentAccount | null | undefined>(undefined);
   const [currency, setCurrency] = useState<WalletCurrency>('USD');
@@ -77,9 +79,16 @@ export default function WalletOnboardingScreen() {
     setBusy(true);
     setError(null);
     try {
-      const { onboardingUrl } = await startPayoutOnboarding({});
+      // Deep link straight back into this screen when Stripe is done (or the
+      // link expires). openAuthSessionAsync intercepts that redirect and
+      // closes itself — no dead browser page, no manual close needed.
+      const returnUrl = getAppDeepLink('/wallet/onboarding');
+      const { onboardingUrl } = await startPayoutOnboarding({
+        returnUrl,
+        refreshUrl: returnUrl,
+      });
       if (onboardingUrl) {
-        await WebBrowser.openBrowserAsync(onboardingUrl);
+        await WebBrowser.openAuthSessionAsync(onboardingUrl, returnUrl);
       }
       // Refresh after the browser flow — completed onboarding flips payouts on.
       setAccount(await getPaymentAccountStatus());
@@ -132,6 +141,10 @@ export default function WalletOnboardingScreen() {
               ? `Payments you receive are settled to ${resolvedName}.`
               : 'Payments you receive are settled to your payout account.'}
           </Text>
+          <Text style={styles.nextSteps}>
+            You&apos;re all set. When a questioner pays you from a chat, the money appears in
+            your wallet and Stripe pays it out to your bank.
+          </Text>
           <CustomButton text="Done" onPress={() => router.back()} />
         </View>
       );
@@ -160,14 +173,18 @@ export default function WalletOnboardingScreen() {
     }
 
     if (account.provider === 'STRIPE') {
+      // A connected account without payouts means the user started but did
+      // not finish — say so plainly instead of looking like the initial state.
+      const started = account.connectedAccountId != null;
       return (
         <View>
           <Text style={styles.body}>
-            QuickPeek partners with Stripe for secure payouts. You will finish setting up
-            your payout account on Stripe&apos;s site — it takes a few minutes.
+            {started
+              ? 'Stripe needs a few more details before we can send your payouts. Tap below to pick up right where you left off — it only takes a minute.'
+              : 'QuickPeek partners with Stripe for secure payouts. You will finish setting up your payout account on Stripe&apos;s site — it takes a few minutes.'}
           </Text>
           <CustomButton
-            text="Continue with Stripe"
+            text={started ? 'Finish payout setup' : 'Continue with Stripe'}
             onPress={handleStripeOnboarding}
             loading={busy}
           />
@@ -204,38 +221,28 @@ export default function WalletOnboardingScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={screenChromeStyles.actionRow}>
         <BackButton />
-        <ScreenTitle title="Payout setup" style={styles.headerTitle} />
       </View>
-      <KeyboardAwareScreen>
-        <View style={styles.content}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {renderBody()}
-        </View>
+      <View style={screenChromeStyles.titleRow}>
+        <ScreenTitle title="Payout setup" />
+      </View>
+      <KeyboardAwareScreen contentContainerStyle={styles.scrollContent}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {renderBody()}
       </KeyboardAwareScreen>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.BG_WHITE,
-    paddingHorizontal: 16,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  headerTitle: {
-    flex: 1,
-  },
-  content: {
-    paddingBottom: 32,
+  scrollContent: {
+    paddingHorizontal: SCREEN_CHROME_HORIZONTAL_PADDING,
   },
   loading: {
     marginTop: 64,
@@ -251,6 +258,13 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.SUCCESS_GREEN,
     marginBottom: 8,
+  },
+  nextSteps: {
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 22,
+    marginTop: 12,
   },
   chipRow: {
     flexDirection: 'row',

@@ -22,6 +22,8 @@ export const startPayoutOnboarding = async (payload: {
   country?: string;
   bankCode?: string;
   accountNumber?: string;
+  returnUrl?: string;
+  refreshUrl?: string;
 }): Promise<TOnboardingResponse> => {
   const response = await Axios.post('/payments/accounts/onboarding', payload);
   return response.data.data as TOnboardingResponse;

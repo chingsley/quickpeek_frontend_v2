@@ -2,8 +2,25 @@ import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import {
   formatMoney,
   formatTransactionDate,
+  getAppDeepLink,
   shouldShowMakePayment,
 } from '@/utils/payment.utils';
+import Constants from 'expo-constants';
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { appOwnership: 'guest', expoConfig: {} },
+}));
+
+const mockConstants = Constants as unknown as {
+  appOwnership: string | null;
+  expoConfig: { scheme?: string; hostUri?: string };
+};
+
+beforeEach(() => {
+  mockConstants.appOwnership = 'guest';
+  mockConstants.expoConfig = {};
+});
 
 describe('formatMoney', () => {
   it('formats known currencies', () => {
@@ -81,5 +98,39 @@ describe('shouldShowMakePayment', () => {
         paymentStatus: undefined,
       }),
     ).toBe(false);
+  });
+});
+
+describe('getAppDeepLink', () => {
+  it('uses the app scheme outside Expo Go, always with a host', () => {
+    mockConstants.appOwnership = 'standalone';
+    mockConstants.expoConfig = { scheme: 'quickpeekfrontendv2' };
+    expect(getAppDeepLink('/wallet/onboarding')).toBe(
+      'quickpeekfrontendv2://wallet/onboarding',
+    );
+  });
+
+  it('falls back to the bundled scheme when none is configured', () => {
+    mockConstants.appOwnership = 'guest';
+    mockConstants.expoConfig = {};
+    expect(getAppDeepLink('wallet/onboarding')).toBe(
+      'quickpeekfrontendv2://wallet/onboarding',
+    );
+  });
+
+  it('builds an exp:// link with the Metro host in Expo Go', () => {
+    mockConstants.appOwnership = 'expo';
+    mockConstants.expoConfig = { hostUri: '192.168.1.10:8081' };
+    expect(getAppDeepLink('/wallet/onboarding')).toBe(
+      'exp://192.168.1.10:8081/--/wallet/onboarding',
+    );
+  });
+
+  it('falls back to localhost when the host is unknown', () => {
+    mockConstants.appOwnership = 'expo';
+    mockConstants.expoConfig = {};
+    expect(getAppDeepLink('/wallet/onboarding')).toBe(
+      'exp://localhost:8081/--/wallet/onboarding',
+    );
   });
 });

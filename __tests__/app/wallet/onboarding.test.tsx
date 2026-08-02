@@ -16,7 +16,12 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('expo-web-browser', () => ({
-  openBrowserAsync: jest.fn(),
+  openAuthSessionAsync: jest.fn(),
+}));
+
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { appOwnership: 'standalone', expoConfig: { scheme: 'testapp' } },
 }));
 
 jest.mock('@/services/payments.services', () => ({
@@ -40,7 +45,7 @@ const mockGetStatus = getPaymentAccountStatus as jest.Mock;
 const mockCreateAccount = createPaymentAccount as jest.Mock;
 const mockGetBanks = getBanks as jest.Mock;
 const mockStartOnboarding = startPayoutOnboarding as jest.Mock;
-const mockOpenBrowser = WebBrowser.openBrowserAsync as jest.Mock;
+const mockOpenAuthSession = WebBrowser.openAuthSessionAsync as jest.Mock;
 
 const account = (overrides: Partial<TPaymentAccount> = {}): TPaymentAccount => ({
   id: 'pa_1',
@@ -97,7 +102,7 @@ describe('WalletOnboardingScreen', () => {
     expect(await screen.findByText('USD')).toBeTruthy();
   });
 
-  it('runs Stripe onboarding in the browser and refreshes the status', async () => {
+  it('runs Stripe onboarding in the browser with app deep links and refreshes the status', async () => {
     mockGetStatus
       .mockResolvedValueOnce(account())
       .mockResolvedValueOnce(account({ payoutsEnabled: true, status: 'ACTIVE' }));
@@ -110,9 +115,34 @@ describe('WalletOnboardingScreen', () => {
     fireEvent.press(await screen.findByText('Continue with Stripe'));
 
     await waitFor(() =>
-      expect(mockOpenBrowser).toHaveBeenCalledWith('https://stripe.test/onboard'),
+      expect(mockOpenAuthSession).toHaveBeenCalledWith(
+        'https://stripe.test/onboard',
+        'testapp://wallet/onboarding',
+      ),
     );
+    expect(mockStartOnboarding).toHaveBeenCalledWith({
+      returnUrl: 'testapp://wallet/onboarding',
+      refreshUrl: 'testapp://wallet/onboarding',
+    });
     expect(await screen.findByText(/payouts are active/i)).toBeTruthy();
+  });
+
+  it('tells returning users to finish setup when onboarding is incomplete', async () => {
+    mockGetStatus.mockResolvedValue(
+      account({ status: 'ONBOARDING', connectedAccountId: 'acct_partial' }),
+    );
+    render(<WalletOnboardingScreen />);
+
+    expect(await screen.findByText(/pick up right where you left off/i)).toBeTruthy();
+    expect(screen.getByText('Finish payout setup')).toBeTruthy();
+  });
+
+  it('shows next steps on the active state', async () => {
+    mockGetStatus.mockResolvedValue(account({ payoutsEnabled: true, status: 'ACTIVE' }));
+    render(<WalletOnboardingScreen />);
+
+    expect(await screen.findByText(/you're all set/i)).toBeTruthy();
+    expect(screen.getByText(/when a questioner pays you from a chat/i)).toBeTruthy();
   });
 
   it('skips the browser when Stripe returns no onboarding URL', async () => {
@@ -125,7 +155,7 @@ describe('WalletOnboardingScreen', () => {
     fireEvent.press(await screen.findByText('Continue with Stripe'));
 
     await waitFor(() => expect(mockGetStatus).toHaveBeenCalledTimes(2));
-    expect(mockOpenBrowser).not.toHaveBeenCalled();
+    expect(mockOpenAuthSession).not.toHaveBeenCalled();
   });
 
   it('shows an error when Stripe onboarding fails', async () => {

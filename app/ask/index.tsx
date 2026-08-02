@@ -114,7 +114,7 @@ const AskScreen = () => {
         <Text style={styles.label}>Price ($)</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. 5.00"
+          placeholder="Amount you want to pay for the information ? e.g. 5.00"
           placeholderTextColor={colors.LIGHT_GRAY}
           value={price}
           onChangeText={setPrice}

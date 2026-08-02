@@ -1,5 +1,22 @@
 import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TTransactionStatus } from '@/types/payment.types';
+import Constants from 'expo-constants';
+
+/**
+ * Deep link back into the app for provider-hosted flows (Stripe onboarding
+ * return/refresh). The URL always carries a host — hostless forms like
+ * `scheme:///path` are rejected by Stripe's URL validation. In Expo Go the
+ * app scheme doesn't exist, so use the exp:// Metro link instead.
+ */
+export const getAppDeepLink = (path: string): string => {
+  const cleanPath = path.replace(/^\//, '');
+  if (Constants.appOwnership !== 'expo') {
+    const scheme = Constants.expoConfig?.scheme ?? 'quickpeekfrontendv2';
+    return `${scheme}://${cleanPath}`;
+  }
+  const hostUri = Constants.expoConfig?.hostUri ?? 'localhost:8081';
+  return `exp://${hostUri}/--/${cleanPath}`;
+};
 
 /**
  * Currency display. Falls back to a plain prefix when the runtime rejects

@@ -2,6 +2,7 @@ import BackButton from '@/components/shared/BackButton';
 import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
+import { ScreenInfoBanner } from '@/components/shared/ScreenInfoBanner';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
 import { STATUS_ICON_SIZE } from '@/constants/statusIcons';
@@ -529,12 +530,11 @@ const QuestionDetail = () => {
           <QuestionStatusIcons icons={mainStatusIcons} size={STATUS_ICON_SIZE} withLabels />
         </View>
 
-        {question.address && (
-          <View style={styles.locationCard}>
-            <Ionicons name="location-outline" size={STATUS_ICON_SIZE} color={colors.PRIMARY} />
-            <Text style={styles.locationText}>{question.address}</Text>
-          </View>
-        )}
+        <ScreenInfoBanner
+          iconName="location-outline"
+          label={question.address?.trim() || 'No Location'}
+          style={styles.locationBanner}
+        />
 
         <View style={styles.contentSection}>
           <View style={styles.sectionLabelHeader}>
@@ -888,18 +888,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chip: { backgroundColor: colors.SECONDARY },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    backgroundColor: colors.INPUT_BG,
-    borderRadius: BORDER_RADIUS_INPUT,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 4,
-  },
-  locationText: { flex: 1, fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
+  locationBanner: { marginBottom: 4 },
   contentSection: {
     paddingTop: 20,
     paddingBottom: 20,

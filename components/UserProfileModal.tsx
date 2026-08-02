@@ -202,7 +202,6 @@ const UserProfileModal = ({
               >
                 <View style={styles.reviewHeader}>
                   <StarRating rating={review.stars} size={12} />
-                  <Text style={styles.reviewRaterRole}>{review.raterRole.toLowerCase()}</Text>
                   <Text style={styles.reviewDate}>{formatDate(review.createdAt)}</Text>
                 </View>
                 {review.comment ? (
@@ -210,9 +209,15 @@ const UserProfileModal = ({
                 ) : (
                   <Text style={styles.reviewNoComment}>No comment</Text>
                 )}
-                <Text style={styles.reviewRater}>
-                  — {review.rater.name} (@{review.rater.username})
-                </Text>
+                <View style={styles.reviewAttribution}>
+                  <Text style={styles.reviewRaterDash}>—</Text>
+                  <View style={styles.reviewAttributionText}>
+                    <Text style={styles.reviewRater}>
+                      {review.rater.name} (@{review.rater.username})
+                    </Text>
+                    <Text style={styles.reviewRaterRole}>{review.raterRole.toLowerCase()}</Text>
+                  </View>
+                </View>
               </View>
             ))
           )}
@@ -307,7 +312,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 32 },
   statCard: {
     flex: 1,
-    backgroundColor: colors.CARD_BG,
+    backgroundColor: colors.INPUT_BG,
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
@@ -344,11 +349,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  reviewRaterRole: { fontFamily: 'roboto-medium', fontSize: 10, color: colors.MEDIUM_GRAY, textTransform: 'uppercase' },
+  reviewRaterRole: {
+    fontFamily: 'roboto-medium',
+    fontSize: 10,
+    color: colors.MEDIUM_GRAY,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
   reviewDate: { fontFamily: 'roboto', fontSize: 10, color: colors.PRIMARY, marginLeft: 'auto' },
   reviewComment: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, lineHeight: 20 },
   reviewNoComment: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, fontStyle: 'italic' },
-  reviewRater: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 6 },
+  reviewAttribution: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 6,
+  },
+  reviewRaterDash: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 17,
+  },
+  reviewAttributionText: {
+    flex: 1,
+  },
+  reviewRater: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, lineHeight: 17 },
   decisionArea: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
   decisionTitle: {
     fontFamily: 'roboto-bold',

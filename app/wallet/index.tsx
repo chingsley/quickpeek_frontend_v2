@@ -1,15 +1,17 @@
 import BackButton from '@/components/shared/BackButton';
-import PillChip from '@/components/shared/PillChip';
+import { ScreenInfoBanner } from '@/components/shared/ScreenInfoBanner';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { SCREEN_CHROME_HORIZONTAL_PADDING } from '@/constants/layout';
+import { screenChromeStyles } from '@/constants/screenChrome';
 import { getPaymentAccountStatus } from '@/services/payments.services';
 import SocketService from '@/services/socket.services';
 import { useWalletStore } from '@/store/wallet.store';
 import { TCurrencyTotal, TPaymentAccount, TWalletTransaction } from '@/types/payment.types';
 import { formatMoney, formatTransactionDate } from '@/utils/payment.utils';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,7 +19,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const STATUS_LABEL: Record<TWalletTransaction['status'], string> = {
   SUCCEEDED: 'Paid',
@@ -82,17 +84,20 @@ const TransactionRow = ({ item }: { item: TWalletTransaction }) => {
  */
 export default function WalletScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { wallet, loading, loadWallet, loadMore } = useWalletStore();
   // undefined = still loading, null = none/failed to load
   const [account, setAccount] = useState<TPaymentAccount | null | undefined>(undefined);
 
-  useEffect(() => {
-    loadWallet();
-    getPaymentAccountStatus()
-      .then(setAccount)
-      .catch(() => setAccount(null));
-  }, [loadWallet]);
+  // Reload on every focus — returning from payout onboarding (or any other
+  // screen) must never show a stale setup CTA or stale totals.
+  useFocusEffect(
+    useCallback(() => {
+      loadWallet();
+      getPaymentAccountStatus()
+        .then(setAccount)
+        .catch(() => setAccount(null));
+    }, [loadWallet]),
+  );
 
   useEffect(() => {
     const socket = SocketService.getSocket();
@@ -122,11 +127,26 @@ export default function WalletScreen() {
         : null;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <View style={screenChromeStyles.actionRow}>
         <BackButton />
-        <ScreenTitle title="Wallet" style={styles.headerTitle} />
       </View>
+      <View style={screenChromeStyles.titleRow}>
+        <ScreenTitle title="Wallet" />
+      </View>
+
+      {account !== undefined ? (
+        <View style={styles.payoutBannerShell}>
+          <ScreenInfoBanner
+            iconName="card-outline"
+            label={payoutCtaLabel ?? 'Payouts active'}
+            onPress={
+              payoutCtaLabel ? () => router.push('/wallet/onboarding') : undefined
+            }
+            labelStyle={payoutCtaLabel ? undefined : styles.payoutActiveLabel}
+          />
+        </View>
+      ) : null}
 
       {wallet === null && loading ? (
         <ActivityIndicator
@@ -137,6 +157,7 @@ export default function WalletScreen() {
         />
       ) : (
         <FlatList
+          style={styles.list}
           testID="wallet-transactions"
           data={wallet?.transactions.items ?? []}
           keyExtractor={(item) => item.id}
@@ -159,19 +180,6 @@ export default function WalletScreen() {
                 </TotalsCard>
               </View>
 
-              {account === undefined ? null : payoutCtaLabel ? (
-                <PillChip
-                  label={payoutCtaLabel}
-                  active
-                  onPress={() => router.push('/wallet/onboarding')}
-                  style={styles.payoutChip}
-                />
-              ) : (
-                <View style={[styles.payoutChip, styles.payoutActive]}>
-                  <Text style={styles.payoutActiveText}>Payouts active</Text>
-                </View>
-              )}
-
               <Text style={styles.sectionTitle}>Transactions</Text>
             </View>
           }
@@ -179,27 +187,28 @@ export default function WalletScreen() {
           contentContainerStyle={styles.listContent}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: colors.BG_WHITE,
-    paddingHorizontal: 16,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  headerTitle: {
+  list: {
     flex: 1,
   },
   loading: {
     marginTop: 64,
+  },
+  payoutBannerShell: {
+    paddingHorizontal: SCREEN_CHROME_HORIZONTAL_PADDING,
+    marginBottom: 16,
+  },
+  payoutActiveLabel: {
+    fontFamily: fonts.FONT_FAMILY_BOLD,
+    color: colors.SUCCESS_GREEN,
   },
   totalsRow: {
     flexDirection: 'row',
@@ -224,21 +233,6 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.TEXT_DARK,
   },
-  payoutChip: {
-    alignSelf: 'flex-start',
-    marginTop: 16,
-  },
-  payoutActive: {
-    backgroundColor: colors.LIGHT_GREEN,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  payoutActiveText: {
-    fontFamily: fonts.FONT_FAMILY_BOLD,
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.SUCCESS_GREEN,
-  },
   sectionTitle: {
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_MEDIUM,
@@ -247,6 +241,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   listContent: {
+    paddingHorizontal: SCREEN_CHROME_HORIZONTAL_PADDING,
     paddingBottom: 32,
   },
   empty: {

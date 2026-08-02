@@ -7,9 +7,20 @@ import { useWalletStore } from '@/store/wallet.store';
 import { TPaymentAccount, TWallet, TWalletTransaction } from '@/types/payment.types';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn() }),
-}));
+const mockFocusCallbacks: (() => void)[] = [];
+jest.mock('expo-router', () => {
+  const React = require('react');
+  return {
+    useRouter: () => ({ push: mockPush, back: jest.fn() }),
+    useFocusEffect: (cb: () => void) => {
+      React.useEffect(() => cb(), [cb]);
+      if (!mockFocusCallbacks.includes(cb)) mockFocusCallbacks.push(cb);
+    },
+  };
+});
+const triggerFocus = () => {
+  mockFocusCallbacks.forEach((cb) => cb());
+};
 
 jest.mock('@/services/payments.services', () => ({
   getWallet: jest.fn(),
@@ -73,6 +84,7 @@ const wallet = (
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocusCallbacks.length = 0;
   useWalletStore.getState().reset();
   mockGetSocket.mockReturnValue(null);
   mockGetStatus.mockResolvedValue(activeAccount);
@@ -180,6 +192,18 @@ describe('WalletScreen', () => {
     fireEvent(screen.getByTestId('wallet-transactions'), 'onEndReached');
     await waitFor(() => expect(mockGetWallet).toHaveBeenCalledTimes(2));
     expect(mockGetWallet).toHaveBeenLastCalledWith({ page: 2, limit: 20 });
+  });
+
+  it('refreshes wallet and account status when the screen regains focus', async () => {
+    mockGetWallet.mockResolvedValue(wallet([]));
+    render(<WalletScreen />);
+    await screen.findByText('No transactions yet.');
+    expect(mockGetStatus).toHaveBeenCalledTimes(1);
+    expect(mockGetWallet).toHaveBeenCalledTimes(1);
+
+    triggerFocus();
+    await waitFor(() => expect(mockGetStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockGetWallet).toHaveBeenCalledTimes(2));
   });
 
   it('refreshes when payment socket events arrive', async () => {
