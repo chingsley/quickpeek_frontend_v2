@@ -16,13 +16,26 @@ interface CustomButtonProps {
   disabled?: boolean;
   style?: Object;
   noTopMargin?: boolean;
+  fullWidth?: boolean;
 }
-const CustomButton = ({ onPress, text, loading, disabled, style, noTopMargin }: CustomButtonProps) => {
+const CustomButton = ({
+  onPress,
+  text,
+  loading,
+  disabled,
+  style,
+  noTopMargin,
+  fullWidth,
+}: CustomButtonProps) => {
   return (
-    <View style={style}>
+    <View style={[fullWidth && styles.wrapFullWidth, style]}>
       <TouchableOpacity
         onPress={onPress}
-        style={[styles.btn, noTopMargin && styles.btnNoTopMargin]}
+        style={[
+          styles.btn,
+          fullWidth && styles.btnFullWidth,
+          noTopMargin && styles.btnNoTopMargin,
+        ]}
         disabled={loading || disabled}
       >
         {
@@ -52,6 +65,13 @@ const styles = StyleSheet.create({
   },
   btnNoTopMargin: {
     marginTop: 0,
+  },
+  wrapFullWidth: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  btnFullWidth: {
+    width: '100%',
   },
   text: {
     fontFamily: 'roboto-bold',

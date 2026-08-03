@@ -1,46 +1,42 @@
 import BackButton from '@/components/shared/BackButton';
+import CustomButton from '@/components/shared/CustomButton';
 import { ScreenInfoBanner } from '@/components/shared/ScreenInfoBanner';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { SCREEN_CHROME_HORIZONTAL_PADDING } from '@/constants/layout';
+import { BORDER_RADIUS_INPUT, CIRCULAR_CLICK_HEIGHT, CIRCULAR_CLICK_WIDTH, SCREEN_CHROME_HORIZONTAL_PADDING } from '@/constants/layout';
 import { screenChromeStyles } from '@/constants/screenChrome';
 import { getPaymentAccountStatus } from '@/services/payments.services';
 import SocketService from '@/services/socket.services';
 import { useWalletStore } from '@/store/wallet.store';
 import { TCurrencyTotal, TPaymentAccount, TWalletTransaction } from '@/types/payment.types';
-import { formatMoney, formatTransactionDate } from '@/utils/payment.utils';
+import { formatMoney, groupTransactionsByDay } from '@/utils/payment.utils';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  SectionList,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const STATUS_LABEL: Record<TWalletTransaction['status'], string> = {
-  SUCCEEDED: 'Paid',
-  PENDING: 'Pending',
-  FAILED: 'Failed',
-};
-
-const STATUS_COLOR: Record<TWalletTransaction['status'], string> = {
-  SUCCEEDED: colors.SUCCESS_GREEN,
-  PENDING: colors.AMBER,
-  FAILED: colors.RED,
-};
-
-const TotalsCard = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <View style={styles.totalsCard}>
+const TotalsMetricCard = ({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <View style={styles.totalsMetricCard}>
     <Text style={styles.totalsLabel}>{label}</Text>
     {children}
   </View>
 );
 
-const CurrencyTotals = ({ totals, fallback }: { totals: TCurrencyTotal[]; fallback: string }) => {
+const CurrencyTotals = ({ totals, fallback }: { totals: TCurrencyTotal[]; fallback: string; }) => {
   if (totals.length === 0) {
     return <Text style={styles.totalsValue}>{fallback}</Text>;
   }
@@ -55,24 +51,40 @@ const CurrencyTotals = ({ totals, fallback }: { totals: TCurrencyTotal[]; fallba
   );
 };
 
-const TransactionRow = ({ item }: { item: TWalletTransaction }) => {
-  const signed = `${item.direction === 'earned' ? '+' : '-'}${formatMoney(
-    item.amount,
-    item.currency,
-  )}`;
+const TransactionRow = ({ item }: { item: TWalletTransaction; }) => {
+  const earned = item.direction === 'earned';
+  const signed = `${earned ? '+' : '-'}${formatMoney(item.amount, item.currency)}`;
+  const subtitle = item.question
+    ? `${item.counterparty.name} · ${item.question.title}`
+    : item.counterparty.name;
   return (
     <View style={styles.txRow}>
-      <View style={styles.txMain}>
-        <Text style={styles.txAmount}>{signed}</Text>
-        <Text style={styles.txCounterparty}>{item.counterparty.name}</Text>
-        <Text style={styles.txQuestion} numberOfLines={1}>
-          {item.question ? item.question.title : 'No linked question'}
-        </Text>
-        <Text style={styles.txDate}>{formatTransactionDate(item.createdAt)}</Text>
+      <View style={styles.txIconBox}>
+        <Ionicons
+          name={earned ? 'arrow-down-outline' : 'arrow-up-outline'}
+          size={22}
+          color={colors.PRIMARY}
+        />
       </View>
-      <Text style={[styles.txStatus, { color: STATUS_COLOR[item.status] }]}>
-        {STATUS_LABEL[item.status]}
-      </Text>
+      <View style={styles.txBody}>
+        <View style={styles.txLeft}>
+          <Text style={styles.txTitle} numberOfLines={1}>
+            {earned ? 'Payment received' : 'Payment sent'}
+          </Text>
+          <Text style={styles.txSubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        </View>
+        <View style={styles.txRight}>
+          <Text
+            style={[styles.txAmount, earned && styles.txAmountEarned]}
+            numberOfLines={1}
+          >
+            {signed}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.MEDIUM_GRAY} />
+        </View>
+      </View>
     </View>
   );
 };
@@ -119,36 +131,29 @@ export default function WalletScreen() {
   const spentTotals = wallet?.totals.spent ?? [];
   const zeroFallback = formatMoney(0, defaultCurrency);
 
-  const payoutCtaLabel =
-    account == null
-      ? 'Set up payouts'
-      : !account.payoutsEnabled
-        ? 'Finish payout setup'
-        : null;
+  const payoutsActive = account?.payoutsEnabled === true;
+  const accountLoading = account === undefined;
+  const walletInitialLoading = wallet === null && loading;
+  const showInitialLoading = accountLoading || walletInitialLoading;
+
+  const transactionSections = useMemo(
+    () => groupTransactionsByDay(wallet?.transactions.items ?? []),
+    [wallet?.transactions.items],
+  );
+  const hasMoreTransactions = wallet?.transactions.pagination.hasMore === true;
+  const showEndFooter = transactionSections.length > 0 && !hasMoreTransactions;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={screenChromeStyles.actionRow}>
         <BackButton />
       </View>
-      <View style={screenChromeStyles.titleRow}>
+      <View style={[screenChromeStyles.titleRow, { marginBottom: 40 }]}>
         <ScreenTitle title="Wallet" />
+        <Text style={screenChromeStyles.screenSubtitle}>Track earnings, spending, and payouts</Text>
       </View>
 
-      {account !== undefined ? (
-        <View style={styles.payoutBannerShell}>
-          <ScreenInfoBanner
-            iconName="card-outline"
-            label={payoutCtaLabel ?? 'Payouts active'}
-            onPress={
-              payoutCtaLabel ? () => router.push('/wallet/onboarding') : undefined
-            }
-            labelStyle={payoutCtaLabel ? undefined : styles.payoutActiveLabel}
-          />
-        </View>
-      ) : null}
-
-      {wallet === null && loading ? (
+      {showInitialLoading ? (
         <ActivityIndicator
           testID="wallet-loading"
           size="large"
@@ -156,36 +161,69 @@ export default function WalletScreen() {
           style={styles.loading}
         />
       ) : (
-        <FlatList
-          style={styles.list}
-          testID="wallet-transactions"
-          data={wallet?.transactions.items ?? []}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TransactionRow item={item} />}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          ListHeaderComponent={
-            <View>
-              <View style={styles.totalsRow}>
-                <TotalsCard label="Earned">
-                  <CurrencyTotals totals={earnedTotals} fallback={zeroFallback} />
-                </TotalsCard>
-                <TotalsCard label="Spent">
-                  <CurrencyTotals totals={spentTotals} fallback={zeroFallback} />
-                </TotalsCard>
-                <TotalsCard label="Answered">
-                  <Text style={styles.totalsValue}>
-                    {wallet?.totals.questionsAnswered ?? 0}
-                  </Text>
-                </TotalsCard>
-              </View>
+        <>
+          <View style={styles.payoutBannerShell}>
+            {payoutsActive ? (
+              <ScreenInfoBanner
+                iconName="card-outline"
+                label="Payouts active"
+                labelStyle={styles.payoutActiveLabel}
+              />
+            ) : (
+              <>
+                <Text style={styles.payoutSetupDescription}>
+                  We need a payout account so we know where to send it. Setup takes a few
+                  minutes, and you only do it once.
+                </Text>
+                <CustomButton
+                  text="Set up payout"
+                  onPress={() => router.push('/wallet/onboarding')}
+                  noTopMargin
+                />
+              </>
+            )}
+          </View>
 
-              <Text style={styles.sectionTitle}>Transactions</Text>
-            </View>
-          }
-          ListEmptyComponent={<Text style={styles.empty}>No transactions yet.</Text>}
-          contentContainerStyle={styles.listContent}
-        />
+          <SectionList
+            style={styles.list}
+            testID="wallet-transactions"
+            sections={transactionSections}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <TransactionRow item={item} />}
+            renderSectionHeader={({ section }) => (
+              <Text style={styles.dayHeader}>{section.title}</Text>
+            )}
+            stickySectionHeadersEnabled={false}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
+            ListHeaderComponent={
+              <View>
+                <View style={styles.totalsRow}>
+                  <TotalsMetricCard label="Earned">
+                    <CurrencyTotals totals={earnedTotals} fallback={zeroFallback} />
+                  </TotalsMetricCard>
+                  <TotalsMetricCard label="Spent">
+                    <CurrencyTotals totals={spentTotals} fallback={zeroFallback} />
+                  </TotalsMetricCard>
+                  <TotalsMetricCard label="Answered">
+                    <Text style={styles.totalsValue}>
+                      {wallet?.totals.questionsAnswered ?? 0}
+                    </Text>
+                  </TotalsMetricCard>
+                </View>
+
+                <Text style={styles.sectionTitle}>Transactions</Text>
+              </View>
+            }
+            ListEmptyComponent={<Text style={styles.empty}>No transactions yet.</Text>}
+            ListFooterComponent={
+              showEndFooter ? (
+                <Text style={styles.endFooter}>You&apos;ve reached the end!</Text>
+              ) : null
+            }
+            contentContainerStyle={styles.listContent}
+          />
+        </>
       )}
     </SafeAreaView>
   );
@@ -204,23 +242,36 @@ const styles = StyleSheet.create({
   },
   payoutBannerShell: {
     paddingHorizontal: SCREEN_CHROME_HORIZONTAL_PADDING,
-    marginBottom: 16,
+    marginBottom: 32,
+  },
+  payoutSetupDescription: {
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   payoutActiveLabel: {
     fontFamily: fonts.FONT_FAMILY_BOLD,
     color: colors.SUCCESS_GREEN,
   },
+  totalsMetricCard: {
+    flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    height: 104,
+    backgroundColor: colors.INPUT_BG,
+    borderRadius: BORDER_RADIUS_INPUT,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    justifyContent: 'center',
+    marginBottom: 0,
+  },
   totalsRow: {
     flexDirection: 'row',
+    alignItems: 'stretch',
     gap: 10,
-  },
-  totalsCard: {
-    flex: 1,
-    backgroundColor: colors.CARD_BG,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    padding: 12,
+    marginBottom: 12,
   },
   totalsLabel: {
     fontFamily: fonts.FONT_FAMILY_REGULAR,
@@ -231,13 +282,13 @@ const styles = StyleSheet.create({
   totalsValue: {
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_MEDIUM,
-    color: colors.TEXT_DARK,
+    color: colors.PRIMARY,
   },
   sectionTitle: {
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.TEXT_DARK,
-    marginTop: 24,
+    marginTop: 12,
     marginBottom: 8,
   },
   listContent: {
@@ -254,37 +305,73 @@ const styles = StyleSheet.create({
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.CARD_BORDER,
   },
-  txMain: {
+  txIconBox: {
+    width: CIRCULAR_CLICK_WIDTH,
+    height: CIRCULAR_CLICK_HEIGHT,
+    borderRadius: CIRCULAR_CLICK_WIDTH / 2,
+    backgroundColor: colors.INPUT_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  txBody: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    minWidth: 0,
+    gap: 8,
+  },
+  txLeft: {
+    flex: 7,
+    minWidth: 0,
     gap: 2,
   },
-  txAmount: {
+  txRight: {
+    flex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    minWidth: 0,
+  },
+  txTitle: {
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
   },
-  txCounterparty: {
+  txSubtitle: {
     fontFamily: fonts.FONT_FAMILY_REGULAR,
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_BODY,
-  },
-  txQuestion: {
-    fontFamily: fonts.FONT_FAMILY_REGULAR,
-    fontSize: fonts.FONT_SIZE_SMALL,
+    fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
   },
-  txDate: {
-    fontFamily: fonts.FONT_FAMILY_REGULAR,
-    fontSize: 12,
-    color: colors.MEDIUM_GRAY,
-  },
-  txStatus: {
+  txAmount: {
+    flexShrink: 1,
     fontFamily: fonts.FONT_FAMILY_BOLD,
     fontSize: fonts.FONT_SIZE_SMALL,
-    marginLeft: 8,
+    color: colors.TEXT_DARK,
+    textAlign: 'right',
+  },
+  txAmountEarned: {
+    color: colors.SUCCESS_GREEN,
+  },
+  dayHeader: {
+    fontFamily: fonts.FONT_FAMILY_BOLD,
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
+    letterSpacing: 0.6,
+    marginTop: 32,
+    marginBottom: 4,
+  },
+  endFooter: {
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    textAlign: 'center',
+    marginTop: 24,
   },
 });

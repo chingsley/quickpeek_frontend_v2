@@ -65,7 +65,7 @@ describe('UserProfileModal review sorting', () => {
   it('shows reviews in server order with sort buttons below the title', async () => {
     renderModal([review('a', 2), review('b', 5), review('c', 3)]);
 
-    expect(await screen.findByText('Reviews (3)')).toBeTruthy();
+    expect(await screen.findByText(/Reviews \(3\)/)).toBeTruthy();
     expect(screen.getByText('Best first')).toBeTruthy();
     expect(screen.getByText('Worst first')).toBeTruthy();
     expect(commentOrder()).toEqual(['comment-a', 'comment-b', 'comment-c']);
@@ -94,5 +94,35 @@ describe('UserProfileModal review sorting', () => {
     renderModal([]);
     expect(await screen.findByText('No reviews yet.')).toBeTruthy();
     expect(screen.queryByText('Best first')).toBeNull();
+  });
+});
+
+describe('UserProfileModal request decision', () => {
+  it('pins accept and decline actions in a footer outside the review list', async () => {
+    const onAccept = jest.fn();
+    const onReject = jest.fn();
+    mockGetProfile.mockResolvedValue(
+      profile([review('a', 5), review('b', 4), review('c', 3)]),
+    );
+
+    render(
+      <UserProfileModal
+        visible
+        userId="u1"
+        onClose={jest.fn()}
+        requestDecision={{ onAccept, onReject }}
+      />,
+    );
+
+    expect(await screen.findByTestId('profile-decision-footer')).toBeTruthy();
+    expect(screen.getByText('Accept or decline?')).toBeTruthy();
+    expect(screen.getByText('Accept request')).toBeTruthy();
+    expect(screen.getByText('Decline')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Accept request'));
+    expect(onAccept).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByText('Decline'));
+    expect(onReject).toHaveBeenCalledTimes(1);
   });
 });

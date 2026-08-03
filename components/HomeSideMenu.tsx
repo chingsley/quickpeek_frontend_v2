@@ -57,6 +57,73 @@ const categoryIconVisual = (key: DrawerMenuCategoryKey): StatusIconVisual => {
 /** Logo asset is 240×240; size to align with the brand title line height. */
 const DRAWER_BRAND_LOGO_SIZE = 32;
 
+type DrawerMenuVariant = 'outlined';
+
+type DrawerNavRowProps = {
+  icon: StatusIconVisual;
+  label: string;
+  onPress: () => void;
+  selected?: boolean;
+  numberOfLines?: number;
+  menuVariant?: DrawerMenuVariant;
+  bold?: boolean;
+};
+
+const DrawerNavRow = ({
+  icon,
+  label,
+  onPress,
+  selected = false,
+  numberOfLines = 1,
+  menuVariant,
+  bold = false,
+}: DrawerNavRowProps) => {
+  const isMenuItem = menuVariant != null;
+  const iconColor = menuVariant === 'outlined' ? colors.PRIMARY : colors.DARK_GRAY;
+
+  return (
+    <Pressable
+      style={isMenuItem ? styles.highlightedMenuRow : styles.categoryRow}
+      onPress={onPress}
+    >
+      <View
+        style={[
+          styles.categoryRowContent,
+          selected && styles.categoryRowSelected,
+          menuVariant === 'outlined' && styles.highlightedMenuRowOutlined,
+        ]}
+      >
+        <View style={styles.categoryTitleRow}>
+          <View style={styles.categoryIconSlot}>
+            <StatusIconGlyph
+              visual={icon}
+              size={STATUS_ICON_SIZE}
+              color={iconColor}
+            />
+          </View>
+          <Text
+            style={[
+              styles.categoryTitle,
+              bold && styles.categoryTitleBold,
+              menuVariant === 'outlined' && styles.highlightedMenuRowTitleOutlined,
+              selected && styles.categoryTitleSelected,
+            ]}
+            numberOfLines={numberOfLines}
+          >
+            {label}
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+};
+
+const walletMenuIcon: StatusIconVisual = {
+  name: 'wallet-outline',
+  color: STATUS_ICON_NEUTRAL_COLOR,
+  bg: colors.TRANSPARENT,
+};
+
 type DrawerCategoriesSectionProps = {
   categories: DrawerMenuCategory[];
   selectedCategoryKey: DrawerMenuCategoryKey;
@@ -77,26 +144,15 @@ const DrawerCategoriesSection = ({
       ) : (
         categories.map((category) => {
           const isSelected = selectedCategoryKey === category.key;
-          const iconVisual = categoryIconVisual(category.key);
           return (
-            <Pressable
+            <DrawerNavRow
               key={category.key}
-              style={styles.categoryRow}
+              icon={categoryIconVisual(category.key)}
+              label={`${category.title} (${category.count})`}
               onPress={() => onCategoryPress(category.key)}
-            >
-              <View style={[styles.categoryRowContent, isSelected && styles.categoryRowSelected]}>
-                <View style={styles.categoryTitleRow}>
-                  <StatusIconGlyph
-                    visual={iconVisual}
-                    size={STATUS_ICON_SIZE}
-                    color={isSelected ? colors.DARK_GRAY : colors.DARK_GRAY}
-                  />
-                  <Text style={[styles.categoryTitle, isSelected && styles.categoryTitleSelected]} numberOfLines={2}>
-                    {category.title} ({category.count})
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
+              selected={isSelected}
+              numberOfLines={2}
+            />
           );
         })
       )}
@@ -132,11 +188,6 @@ const HomeSideMenu = () => {
   const close = useDrawerStore((state) => state.close);
   const openSettingsSheet = useDrawerStore((state) => state.openSettingsSheet);
 
-  const handleAskQuestion = () => {
-    close();
-    router.push('/ask');
-  };
-
   const handleOpenWallet = () => {
     close();
     router.push('/wallet');
@@ -167,15 +218,15 @@ const HomeSideMenu = () => {
         <Text style={styles.brand}>QuickPeek</Text>
       </View>
 
-      <Pressable style={styles.askButton} onPress={handleAskQuestion}>
-        <Ionicons name="add" size={18} color={colors.BG_WHITE} />
-        <Text style={styles.askButtonText}>Ask a Question</Text>
-      </Pressable>
-
-      <Pressable style={styles.walletButton} onPress={handleOpenWallet}>
-        <Ionicons name="wallet-outline" size={18} color={colors.PRIMARY} />
-        <Text style={styles.walletButtonText}>Wallet</Text>
-      </Pressable>
+      <View style={styles.menuItems}>
+        <DrawerNavRow
+          menuVariant="outlined"
+          bold
+          icon={walletMenuIcon}
+          label="Wallet"
+          onPress={handleOpenWallet}
+        />
+      </View>
 
       <View style={styles.categoriesSectionContainer}>
         <DrawerCategoriesSection
@@ -217,39 +268,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: colors.TEXT_DARK,
   },
-  askButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.PRIMARY,
-    borderRadius: BORDER_RADIUS_BUTTON,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginLeft: DRAWER_CATEGORY_ITEM_INSET,
+  menuItems: {
+    width: '100%',
     marginBottom: DRAWER_ASK_BUTTON_BOTTOM_MARGIN,
+    paddingRight: 10,
   },
-  askButtonText: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.BG_WHITE,
-  },
-  walletButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.SECONDARY,
-    borderRadius: BORDER_RADIUS_BUTTON,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginLeft: DRAWER_CATEGORY_ITEM_INSET,
-    marginBottom: DRAWER_ASK_BUTTON_BOTTOM_MARGIN,
-  },
-  walletButtonText: {
-    fontFamily: 'roboto-bold',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.PRIMARY,
+  highlightedMenuRow: {
+    paddingVertical: 0,
   },
   categoriesSectionContainer: {
     flex: 1,
@@ -302,6 +327,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.CARD_BG,
   },
+  highlightedMenuRowOutlined: {
+    backgroundColor: colors.INPUT_BG,
+    borderRadius: BORDER_RADIUS_BUTTON,
+    borderWidth: 1,
+    borderColor: colors.PRIMARY,
+  },
   categoryTitle: {
     flex: 1,
     fontFamily: 'roboto-medium',
@@ -309,13 +340,24 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
     lineHeight: 22,
   },
+  categoryTitleBold: {
+    fontFamily: fonts.FONT_FAMILY_BOLD,
+  },
+  highlightedMenuRowTitleOutlined: {
+    color: colors.PRIMARY,
+  },
   categoryTitleSelected: {
     // color: colors.PRIMARY,
   },
   categoryTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     gap: 8,
+    width: '100%',
+  },
+  categoryIconSlot: {
+    flexShrink: 0,
   },
   accountRow: {
     flexDirection: 'row',

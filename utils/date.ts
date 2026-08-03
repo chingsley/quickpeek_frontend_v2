@@ -81,3 +81,25 @@ export const getDayKey = (dateString: string) => {
   const date = new Date(dateString);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 };
+
+/**
+ * Timestamp for chat system-event cards.
+ * Today / yesterday use plain labels; older events use the app's absolute date style.
+ */
+export const formatSystemMessageTime = (dateString: string, now: Date = new Date()) => {
+  const time = formatListTime(dateString);
+  const dayKey = getDayKey(dateString);
+  const todayKey = getDayKey(now.toISOString());
+
+  if (dayKey === todayKey) {
+    return `Today • ${time}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (dayKey === getDayKey(yesterday.toISOString())) {
+    return `Yesterday • ${time}`;
+  }
+
+  return formatDate(dateString);
+};

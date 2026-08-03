@@ -27,3 +27,7 @@ export const SCREEN_CHROME_ACTION_ROW_MARGIN_TOP = 8;
 export const SCREEN_CHROME_ACTION_ROW_MARGIN_BOTTOM = 20;
 export const SCREEN_CHROME_TITLE_ROW_MARGIN_TOP = 8;
 export const SCREEN_CHROME_TITLE_ROW_MARGIN_BOTTOM = 20;
+/** Question-detail meta row spacing below the page title. */
+export const SCREEN_CHROME_DETAIL_META_MARGIN_BOTTOM = 16;
+/** Question-detail status row spacing above the info banner. */
+export const SCREEN_CHROME_DETAIL_STATUS_MARGIN_BOTTOM = 16;

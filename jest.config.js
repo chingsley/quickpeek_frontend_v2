@@ -7,7 +7,9 @@ module.exports = {
   // Coverage is scoped to the payments feature, which is held to 100%.
   collectCoverageFrom: [
     'components/payment/**/*.{ts,tsx}',
+    'components/ask/FormField.tsx',
     'app/wallet/**/*.{ts,tsx}',
+    'app/ask/index.tsx',
     'services/payments.services.ts',
     'store/wallet.store.ts',
     'types/payment.types.ts',

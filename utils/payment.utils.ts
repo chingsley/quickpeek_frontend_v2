@@ -39,6 +39,40 @@ export const formatTransactionDate = (iso: string): string =>
     timeZone: 'UTC',
   });
 
+/** Bank-style section header for a transaction day: "SAT, AUG 01, 2026". */
+export const formatTransactionDayHeader = (iso: string): string =>
+  new Date(iso)
+    .toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+    .toUpperCase();
+
+export type TransactionDaySection<T> = { title: string; data: T[] };
+
+/**
+ * Groups a date-descending transaction list into per-day sections. Relies on
+ * the input already being sorted newest-first (the server order).
+ */
+export const groupTransactionsByDay = <T extends { createdAt: string }>(
+  items: T[],
+): TransactionDaySection<T>[] => {
+  const sections: TransactionDaySection<T>[] = [];
+  for (const item of items) {
+    const title = formatTransactionDayHeader(item.createdAt);
+    const last = sections[sections.length - 1];
+    if (last?.title === title) {
+      last.data.push(item);
+    } else {
+      sections.push({ title, data: [item] });
+    }
+  }
+  return sections;
+};
+
 /**
  * The chat "Make payment" action is available to the questioner while the
  * request is accepted and no successful payment exists yet (PENDING/FAILED

@@ -33,7 +33,8 @@ import { useAuthStore } from '@/store/auth.store';
 import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TMessage, TRequestThread } from '@/types/message.types';
 import { TReviewEligibility } from '@/types/review.types';
-import { formatDaySeparator, getDayKey } from '@/utils/date';
+import { formatDaySeparator, formatSystemMessageTime, getDayKey } from '@/utils/date';
+import { openLinkedQuestionDetail } from '@/utils/linkedScreenNavigation';
 import { shouldShowMakePayment } from '@/utils/payment.utils';
 import { StatusIconKey } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -410,8 +411,7 @@ const ChatScreen = () => {
         key: 'go-to-question',
         label: 'Go to Question',
         icon: 'document-text-outline',
-        onPress: () =>
-          router.push({ pathname: '/question-detail', params: { questionId: thread.question.id } }),
+        onPress: () => openLinkedQuestionDetail(router, thread.question.id),
       });
     }
 
@@ -492,6 +492,9 @@ const ChatScreen = () => {
             <View style={flagTone ? styles.systemTextWrap : undefined}>
               <Text style={[styles.systemText, flagTone && styles.systemTextWithFlag]}>
                 {message.text}
+              </Text>
+              <Text style={[styles.systemTime, flagTone && styles.systemTimeWithFlag]}>
+                {formatSystemMessageTime(message.createdAt)}
               </Text>
             </View>
           </View>
@@ -868,6 +871,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   systemTextWithFlag: {
+    textAlign: 'left',
+  },
+  systemTime: {
+    fontFamily: 'roboto',
+    fontSize: 10,
+    color: colors.MEDIUM_GRAY,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  systemTimeWithFlag: {
     textAlign: 'left',
   },
   viewProfileBtn: {

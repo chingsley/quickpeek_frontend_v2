@@ -92,18 +92,28 @@ beforeEach(() => {
 
 describe('WalletScreen', () => {
   it('shows a loading indicator while the first page loads', () => {
-    mockGetWallet.mockImplementation(() => new Promise(() => {}));
+    mockGetWallet.mockImplementation(() => new Promise(() => { }));
     useWalletStore.setState({ wallet: null, loading: true });
     render(<WalletScreen />);
     expect(screen.getByTestId('wallet-loading')).toBeTruthy();
   });
 
-  it('renders totals and transactions', async () => {
+  it('waits for payout account status before showing body content', () => {
+    mockGetWallet.mockResolvedValue(wallet([]));
+    mockGetStatus.mockImplementation(() => new Promise(() => { }));
+    render(<WalletScreen />);
+    expect(screen.getByTestId('wallet-loading')).toBeTruthy();
+    expect(screen.queryByText('Payouts active')).toBeNull();
+    expect(screen.queryByTestId('wallet-transactions')).toBeNull();
+  });
+
+  it('renders totals and the grouped transaction list', async () => {
     mockGetWallet.mockResolvedValue(
       wallet([
         tx({ id: 't1', direction: 'earned', amount: 25 }),
         tx({ id: 't2', direction: 'spent', amount: 30, question: null, status: 'PENDING' }),
         tx({ id: 't3', direction: 'earned', amount: 20, status: 'FAILED' }),
+        tx({ id: 't4', direction: 'spent', amount: 15, status: 'SUCCEEDED' }),
       ]),
     );
     render(<WalletScreen />);
@@ -111,15 +121,22 @@ describe('WalletScreen', () => {
     expect(await screen.findByText('$45.00')).toBeTruthy(); // earned
     expect(screen.getByText('$50.00')).toBeTruthy(); // spent
     expect(screen.getByText('2')).toBeTruthy(); // questions answered
+
+    // One day-group header for the shared fixture date.
+    expect(screen.getByText('WED, JUL 15, 2026')).toBeTruthy();
+
+    // Row titles/subtitles.
+    expect(screen.getAllByText('Payment received')).toHaveLength(2);
+    expect(screen.getAllByText('Payment sent')).toHaveLength(2);
+    expect(screen.getAllByText('Payer Pete · Best tacos nearby?')).toHaveLength(3);
+    expect(screen.getByText('Payer Pete')).toBeTruthy();
+
+    // Amounts.
     expect(screen.getByText('+$25.00')).toBeTruthy();
     expect(screen.getByText('-$30.00')).toBeTruthy();
-    expect(screen.getAllByText('Payer Pete')).toHaveLength(3);
-    expect(screen.getAllByText('Best tacos nearby?')).toHaveLength(2);
-    expect(screen.getByText('No linked question')).toBeTruthy();
-    expect(screen.getByText('Paid')).toBeTruthy();
-    expect(screen.getByText('Pending')).toBeTruthy();
-    expect(screen.getByText('Failed')).toBeTruthy();
-    expect(screen.getAllByText('Jul 15, 2026')).toHaveLength(3);
+
+    // End-of-list footer.
+    expect(screen.getByText("You've reached the end!")).toBeTruthy();
   });
 
   it('shows zero totals for an empty wallet', async () => {
@@ -130,6 +147,18 @@ describe('WalletScreen', () => {
     expect(await screen.findAllByText('$0.00')).toHaveLength(2);
     expect(screen.getByText('No transactions yet.')).toBeTruthy();
     expect(screen.getByText('0')).toBeTruthy();
+    expect(screen.queryByText("You've reached the end!")).toBeNull();
+  });
+
+  it('renders fallback content when the wallet fails to load', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGetWallet.mockRejectedValue(new Error('network'));
+    render(<WalletScreen />);
+    expect(await screen.findAllByText('$0.00')).toHaveLength(2);
+    expect(screen.getByText('No transactions yet.')).toBeTruthy();
+    expect(screen.getByText('0')).toBeTruthy();
+    expect(screen.queryByText("You've reached the end!")).toBeNull();
+    consoleError.mockRestore();
   });
 
   it('prompts payout setup when there is no account and navigates on press', async () => {
@@ -137,7 +166,10 @@ describe('WalletScreen', () => {
     mockGetStatus.mockResolvedValue(null);
     render(<WalletScreen />);
 
-    const cta = await screen.findByText('Set up payouts');
+    expect(
+      await screen.findByText(/we need a payout account so we know where to send it/i),
+    ).toBeTruthy();
+    const cta = await screen.findByText('Set up payout');
     fireEvent.press(cta);
     expect(mockPush).toHaveBeenCalledWith('/wallet/onboarding');
   });
@@ -147,7 +179,7 @@ describe('WalletScreen', () => {
     mockGetStatus.mockResolvedValue({ ...activeAccount, payoutsEnabled: false, status: 'ONBOARDING' });
     render(<WalletScreen />);
 
-    const cta = await screen.findByText('Finish payout setup');
+    const cta = await screen.findByText('Set up payout');
     fireEvent.press(cta);
     expect(mockPush).toHaveBeenCalledWith('/wallet/onboarding');
   });
@@ -156,14 +188,15 @@ describe('WalletScreen', () => {
     mockGetWallet.mockResolvedValue(wallet([]));
     render(<WalletScreen />);
     expect(await screen.findByText('Payouts active')).toBeTruthy();
-    expect(screen.queryByText('Set up payouts')).toBeNull();
+    expect(screen.queryByText('Set up payout')).toBeNull();
+    expect(screen.queryByText(/we need a payout account/i)).toBeNull();
   });
 
   it('treats an account status failure as no account', async () => {
     mockGetWallet.mockResolvedValue(wallet([]));
     mockGetStatus.mockRejectedValue(new Error('network'));
     render(<WalletScreen />);
-    expect(await screen.findByText('Set up payouts')).toBeTruthy();
+    expect(await screen.findByText('Set up payout')).toBeTruthy();
   });
 
   it('renders multi-currency totals', async () => {
@@ -188,6 +221,7 @@ describe('WalletScreen', () => {
     mockGetWallet.mockResolvedValue(wallet([tx({ id: 't1' })], {}, true));
     render(<WalletScreen />);
     await screen.findByText('+$25.00');
+    expect(screen.queryByText("You've reached the end!")).toBeNull();
 
     fireEvent(screen.getByTestId('wallet-transactions'), 'onEndReached');
     await waitFor(() => expect(mockGetWallet).toHaveBeenCalledTimes(2));

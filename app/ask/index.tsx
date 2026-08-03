@@ -1,12 +1,15 @@
+import FormField from '@/components/ask/FormField';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
+import QuestionPublishedSheet from '@/components/ask/QuestionPublishedSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
+import { formatMoney } from '@/utils/payment.utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -17,10 +20,22 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+/** Mirrors the backend question validation (questionMiddleware). */
+const MAX_PRICE = 10_000;
+const TITLE_MAX = 120;
+const DETAIL_MAX = 2000;
+const CRITERIA_MAX = 1000;
+
+/** Digits and a single decimal point — what a money amount may contain. */
+const sanitizePrice = (text: string): string => {
+  const digitsAndDot = text.replace(/[^0-9.]/g, '');
+  const [whole, ...decimals] = digitsAndDot.split('.');
+  return decimals.length > 0 ? `${whole}.${decimals.join('')}` : whole;
+};
 
 const AskScreen = () => {
   const router = useRouter();
@@ -36,14 +51,22 @@ const AskScreen = () => {
   // When true (default), only viewers the backend can verify are within the
   // market near-me radius of `coords` may request to answer.
   const [restrictToNearby, setRestrictToNearby] = useState(true);
+  const [successVisible, setSuccessVisible] = useState(false);
+  /** Inline publish feedback — Alert.alert is a no-op on web. */
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const priceNum = parseFloat(price);
+  const priceError =
+    !isNaN(priceNum) && priceNum > MAX_PRICE
+      ? `Price cannot exceed ${formatMoney(MAX_PRICE, 'USD')}`
+      : null;
 
   const isValid =
     title.trim().length > 0 &&
     detail.trim().length > 0 &&
     !isNaN(priceNum) &&
     priceNum > 0 &&
+    priceNum <= MAX_PRICE &&
     acceptanceCriteria.trim().length > 0;
 
   const captureLocation = async () => {
@@ -65,9 +88,22 @@ const AskScreen = () => {
     setIncludeLocation(true);
   };
 
+  const clearForm = () => {
+    setTitle('');
+    setDetail('');
+    setPrice('');
+    setAcceptanceCriteria('');
+    setIncludeLocation(false);
+    setAddress('');
+    setCoords(null);
+    setRestrictToNearby(true);
+    setSubmitError(null);
+  };
+
   const handlePublish = async () => {
-    if (!isValid) return;
+    // Reachable only when valid — the button is disabled otherwise.
     setLoading(true);
+    setSubmitError(null);
     try {
       const payload = {
         title: title.trim(),
@@ -84,11 +120,13 @@ const AskScreen = () => {
           : {}),
       };
       await createQuestion(payload);
-      Alert.alert('Published', 'Your question is now live.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)/Home') },
-      ]);
+      clearForm();
+      setSuccessVisible(true);
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to publish.');
+      // The backend sends { error }; show it where the user is looking.
+      setSubmitError(
+        error?.response?.data?.error ?? 'Failed to publish. Please try again.',
+      );
     } finally {
       setLoading(false);
     }
@@ -101,48 +139,43 @@ const AskScreen = () => {
         <ScreenTitle title="Ask a question" style={styles.pageTitleSpacing} />
         <Text style={styles.subtitle}>Post a question to responders.</Text>
 
-        <Text style={styles.label}>Title</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Short summary of what you need"
-          placeholderTextColor={colors.LIGHT_GRAY}
+        <FormField
+          label="Title"
           value={title}
           onChangeText={setTitle}
-          maxLength={120}
+          placeholder="Short summary of what you need"
+          maxLength={TITLE_MAX}
+          testID="title-input"
         />
 
-        <Text style={styles.label}>Price ($)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Amount you want to pay for the information ? e.g. 5.00"
-          placeholderTextColor={colors.LIGHT_GRAY}
+        <FormField
+          label="Price ($)"
           value={price}
-          onChangeText={setPrice}
+          onChangeText={(text) => setPrice(sanitizePrice(text))}
+          placeholder="Amount you want to pay for the information ? e.g. 5.00"
           keyboardType="decimal-pad"
+          error={priceError}
+          testID="price-input"
         />
 
-        <Text style={styles.label}>Details</Text>
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          placeholder="Describe what you want to know..."
-          placeholderTextColor={colors.LIGHT_GRAY}
+        <FormField
+          label="Details"
           value={detail}
           onChangeText={setDetail}
+          placeholder="Describe what you want to know..."
+          maxLength={DETAIL_MAX}
           multiline
-          textAlignVertical="top"
-          maxLength={1000}
+          testID="detail-input"
         />
 
-        <Text style={styles.label}>Acceptance criteria</Text>
-        <TextInput
-          style={[styles.input, styles.multiline]}
-          placeholder="What counts as a good answer?"
-          placeholderTextColor={colors.LIGHT_GRAY}
+        <FormField
+          label="Acceptance criteria"
           value={acceptanceCriteria}
           onChangeText={setAcceptanceCriteria}
+          placeholder="What counts as a good answer?"
+          maxLength={CRITERIA_MAX}
           multiline
-          textAlignVertical="top"
-          maxLength={500}
+          testID="criteria-input"
         />
 
         <Pressable style={styles.locationToggle} onPress={includeLocation ? () => setIncludeLocation(false) : captureLocation}>
@@ -174,10 +207,13 @@ const AskScreen = () => {
                 onValueChange={setRestrictToNearby}
                 trackColor={{ false: colors.LIGHT_GRAY, true: colors.PRIMARY }}
                 thumbColor={colors.BG_WHITE}
+                testID="restrict-nearby-switch"
               />
             </View>
           </>
         )}
+
+        {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
 
         <CustomButton
           text={loading ? 'Publishing…' : 'Publish question'}
@@ -187,6 +223,15 @@ const AskScreen = () => {
           style={styles.publishBtn}
         />
       </KeyboardAwareScreen>
+
+      <QuestionPublishedSheet
+        visible={successVisible}
+        onPostAnother={() => setSuccessVisible(false)}
+        onReturnHome={() => {
+          setSuccessVisible(false);
+          router.replace('/(tabs)/Home');
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -199,22 +244,6 @@ const styles = StyleSheet.create({
   pageTitleSpacing: { marginTop: 12, marginBottom: 8 },
   subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
   label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.LIGHT_GRAY,
-    borderRadius: 100,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_SMALL,
-    color: colors.TEXT_DARK,
-    backgroundColor: colors.BG_WHITE,
-  },
-  multiline: {
-    minHeight: 100,
-    lineHeight: 22,
-    borderRadius: BORDER_RADIUS_INPUT,
-  },
   locationToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -247,6 +276,13 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 4,
+  },
+  submitError: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.RED,
+    marginTop: 16,
+    textAlign: 'center',
   },
   publishBtn: { marginTop: 28 },
 });

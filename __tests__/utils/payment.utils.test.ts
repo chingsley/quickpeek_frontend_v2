@@ -2,7 +2,9 @@ import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import {
   formatMoney,
   formatTransactionDate,
+  formatTransactionDayHeader,
   getAppDeepLink,
+  groupTransactionsByDay,
   shouldShowMakePayment,
 } from '@/utils/payment.utils';
 import Constants from 'expo-constants';
@@ -14,7 +16,7 @@ jest.mock('expo-constants', () => ({
 
 const mockConstants = Constants as unknown as {
   appOwnership: string | null;
-  expoConfig: { scheme?: string; hostUri?: string };
+  expoConfig: { scheme?: string; hostUri?: string; };
 };
 
 beforeEach(() => {
@@ -132,5 +134,38 @@ describe('getAppDeepLink', () => {
     expect(getAppDeepLink('/wallet/onboarding')).toBe(
       'exp://localhost:8081/--/wallet/onboarding',
     );
+  });
+});
+
+describe('formatTransactionDayHeader', () => {
+  it('renders the bank-style uppercase day header', () => {
+    expect(formatTransactionDayHeader('2026-08-01T10:30:00.000Z')).toBe('SAT, AUG 01, 2026');
+    expect(formatTransactionDayHeader('2026-07-15T10:30:00.000Z')).toBe('WED, JUL 15, 2026');
+  });
+});
+
+describe('groupTransactionsByDay', () => {
+  const item = (id: string, createdAt: string) => ({ id, createdAt });
+
+  it('groups consecutive same-day items under one header, preserving order', () => {
+    const items = [
+      item('a', '2026-08-01T10:00:00.000Z'),
+      item('b', '2026-08-01T09:00:00.000Z'),
+      item('c', '2026-07-25T12:00:00.000Z'),
+      item('d', '2026-07-22T12:00:00.000Z'),
+      item('e', '2026-07-22T11:00:00.000Z'),
+    ];
+    const sections = groupTransactionsByDay(items);
+    expect(sections.map((s) => s.title)).toEqual([
+      'SAT, AUG 01, 2026',
+      'SAT, JUL 25, 2026',
+      'WED, JUL 22, 2026',
+    ]);
+    expect(sections[0].data.map((i) => i.id)).toEqual(['a', 'b']);
+    expect(sections[2].data.map((i) => i.id)).toEqual(['d', 'e']);
+  });
+
+  it('handles an empty list', () => {
+    expect(groupTransactionsByDay([])).toEqual([]);
   });
 });

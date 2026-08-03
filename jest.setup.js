@@ -8,3 +8,13 @@ jest.mock('react-native-safe-area-context', () => {
   const mock = require('react-native-safe-area-context/jest/mock');
   return mock.default ?? mock;
 });
+jest.mock('react-native-svg', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: View,
+    Circle: View,
+    Path: View,
+  };
+});

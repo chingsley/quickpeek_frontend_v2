@@ -19,8 +19,8 @@ export const STATUS_ICON_NEUTRAL_COLOR = colors.MEDIUM_GRAY;
  * detail views. Do not mix icon families or filled/sharp variants here.
  */
 export const STATUS_ICON_IONICON_NAMES: Record<StatusIconKey, IoniconName> = {
-  outgoing: 'arrow-redo-circle-outline',
-  incoming: 'arrow-undo-circle-outline',
+  outgoing: 'arrow-up-outline',
+  incoming: 'arrow-down-outline',
   request_pending: 'time-outline',
   request_approved: 'checkmark-circle-outline',
   request_denied: 'close-circle-outline',

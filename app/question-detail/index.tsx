@@ -12,7 +12,7 @@ import UserProfileModal from '@/components/UserProfileModal';
 import { colors } from '@/constants/colors';
 import { chipStyles } from '@/constants/chips';
 import { fonts } from '@/constants/fonts';
-import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { BORDER_RADIUS_INPUT, SCREEN_CHROME_DETAIL_META_MARGIN_BOTTOM, SCREEN_CHROME_DETAIL_STATUS_MARGIN_BOTTOM } from '@/constants/layout';
 import { screenChromeStyles } from '@/constants/screenChrome';
 import {
   acceptRequest,
@@ -35,11 +35,19 @@ import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
+import { openLinkedChat } from '@/utils/linkedScreenNavigation';
 import { normalizeRouteParam } from '@/utils/routeParams';
 import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Animated, {
+  useAnimatedStyle,
+  useDerivedValue,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   ActivityIndicator,
   Alert,
@@ -116,6 +124,10 @@ type RequestSectionProps = {
   children: React.ReactNode;
 };
 
+/** Springy accordion feel — gentle overshoot on open/close. */
+const SECTION_SPRING_CONFIG = { damping: 16, stiffness: 170, mass: 0.8 };
+const CHEVRON_SPRING_CONFIG = { damping: 14, stiffness: 260, mass: 0.6 };
+
 const RequestSection = ({
   title,
   count,
@@ -126,6 +138,49 @@ const RequestSection = ({
   children,
 }: RequestSectionProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const open = useSharedValue(defaultExpanded ? 1 : 0);
+  const contentHeight = useSharedValue(0);
+  const hintHeight = useSharedValue(0);
+
+  const toggleExpanded = () => {
+    const next = !expanded;
+    setExpanded(next);
+    open.value = next ? 1 : 0;
+  };
+
+  // Body and hint spring in opposite directions at the same time, so no
+  // layout change ever happens instantly — the header keeps a constant
+  // footprint and the page never jumps, from any scroll position.
+  const animatedHeight = useDerivedValue(() =>
+    withSpring(open.value ? contentHeight.value : 0, SECTION_SPRING_CONFIG),
+  );
+  const bodyOpacity = useDerivedValue(() =>
+    withTiming(open.value ? 1 : 0, { duration: 180 }),
+  );
+  const animatedHintHeight = useDerivedValue(() =>
+    withSpring(open.value ? 0 : hintHeight.value, SECTION_SPRING_CONFIG),
+  );
+  const hintOpacity = useDerivedValue(() =>
+    withTiming(open.value ? 0 : 1, { duration: 160 }),
+  );
+  const chevronRotation = useDerivedValue(() =>
+    withSpring(open.value * 180, CHEVRON_SPRING_CONFIG),
+  );
+
+  const bodyStyle = useAnimatedStyle(() => ({
+    height: animatedHeight.value,
+    opacity: bodyOpacity.value,
+    overflow: 'hidden',
+  }));
+  const hintStyle = useAnimatedStyle(() => ({
+    height: animatedHintHeight.value,
+    opacity: hintOpacity.value,
+    overflow: 'hidden',
+  }));
+  const chevronStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${chevronRotation.value}deg` }],
+  }));
+
   const itemWord = count === 1 ? itemLabel : `${itemLabel}s`;
   const collapsedHint =
     count === 0 ? 'Tap to expand' : `Tap to show ${count} ${itemWord}`;
@@ -134,7 +189,7 @@ const RequestSection = ({
     <View style={styles.requestSection}>
       <Pressable
         style={({ pressed }) => [styles.sectionHeader, pressed && styles.sectionHeaderPressed]}
-        onPress={() => setExpanded((value) => !value)}
+        onPress={toggleExpanded}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={`${title}, ${count} ${itemWord}. ${expanded ? 'Collapse' : 'Expand'} section`}
@@ -143,29 +198,50 @@ const RequestSection = ({
           <Text style={styles.sectionTitle}>
             {title} ({count})
           </Text>
-          <View style={styles.sectionChevron}>
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={colors.MEDIUM_GRAY}
-            />
-          </View>
+          <Animated.View style={[styles.sectionChevron, chevronStyle]}>
+            <Ionicons name="chevron-down" size={20} color={colors.MEDIUM_GRAY} />
+          </Animated.View>
         </View>
-        {expanded ? (
-          <>
-            <Text style={styles.sectionDescription}>{description}</Text>
-            {note ? (
-              <View style={styles.sectionNote}>
-                <Ionicons name="information-circle-outline" size={17} color={colors.PRIMARY} />
-                <Text style={styles.sectionNoteText}>{note}</Text>
-              </View>
-            ) : null}
-          </>
-        ) : (
-          <Text style={styles.sectionCollapsedHint}>{collapsedHint}</Text>
-        )}
+        <Animated.View style={hintStyle}>
+          {/* Measured like the body so the hint springs in/out instead of
+              swapping instantly and reflowing the page. */}
+          <View
+            style={styles.sectionMeasure}
+            onLayout={(event) => {
+              const measured = event.nativeEvent.layout.height;
+              if (measured > 0 && hintHeight.value !== measured) {
+                hintHeight.value = measured;
+              }
+            }}
+          >
+            <Text style={styles.sectionCollapsedHint}>{collapsedHint}</Text>
+          </View>
+        </Animated.View>
       </Pressable>
-      {expanded ? <View style={styles.requestSectionContent}>{children}</View> : null}
+
+      <Animated.View style={bodyStyle}>
+        {/* position:absolute so the animated container owns the height while
+            this view still measures at its natural size (reanimated's
+            AnimateHeight pattern). */}
+        <View
+          style={styles.sectionMeasure}
+          onLayout={(event) => {
+            const measured = event.nativeEvent.layout.height;
+            if (measured > 0 && contentHeight.value !== measured) {
+              contentHeight.value = measured;
+            }
+          }}
+        >
+          <Text style={styles.sectionDescription}>{description}</Text>
+          {note ? (
+            <View style={styles.sectionNote}>
+              <Ionicons name="information-circle-outline" size={17} color={colors.PRIMARY} />
+              <Text style={styles.sectionNoteText}>{note}</Text>
+            </View>
+          ) : null}
+          <View style={styles.requestSectionContent}>{children}</View>
+        </View>
+      </Animated.View>
     </View>
   );
 };
@@ -333,7 +409,7 @@ const QuestionDetail = () => {
         liveCoords ?? undefined,
       );
       Alert.alert('Request sent', 'The questioner will review your request.', [
-        { text: 'Open chat', onPress: () => router.replace({ pathname: '/chat', params: { requestId: result.id } }) },
+        { text: 'Open chat', onPress: () => openLinkedChat(router, result.id) },
         { text: 'OK', onPress: () => load() },
       ]);
     } catch (error: any) {
@@ -352,7 +428,7 @@ const QuestionDetail = () => {
       try {
         await acceptRequest(requestId);
         Alert.alert('Accepted', 'You can now chat with this responder.', [
-          { text: 'Open chat', onPress: () => router.push({ pathname: '/chat', params: { requestId } }) },
+          { text: 'Open chat', onPress: () => openLinkedChat(router, requestId) },
           { text: 'OK', onPress: () => load() },
         ]);
         load();
@@ -599,9 +675,7 @@ const QuestionDetail = () => {
                 {showOpenChat && requestIdForChat && (
                   <Pressable
                     style={styles.infoOpenChatBtn}
-                    onPress={() =>
-                      router.push({ pathname: '/chat', params: { requestId: requestIdForChat } })
-                    }
+                    onPress={() => openLinkedChat(router, requestIdForChat)}
                     accessibilityRole="button"
                   >
                     <Text style={styles.infoOpenChatBtnText}>Open chat</Text>
@@ -673,7 +747,7 @@ const QuestionDetail = () => {
                     />
                     <Pressable
                       style={styles.openChatBtn}
-                      onPress={() => router.push({ pathname: '/chat', params: { requestId: req.id } })}
+                      onPress={() => openLinkedChat(router, req.id)}
                     >
                       <Text style={styles.openChatBtnText}>Open chat</Text>
                       <Ionicons name="chevron-forward" size={18} color={colors.MEDIUM_GRAY} />
@@ -849,7 +923,7 @@ const QuestionDetail = () => {
           profileRequestId && !profilePendingRequest
             ? () => {
               setProfileModalVisible(false);
-              router.push({ pathname: '/chat', params: { requestId: profileRequestId } });
+              openLinkedChat(router, profileRequestId);
             }
             : undefined
         }
@@ -869,7 +943,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: SCREEN_CHROME_DETAIL_META_MARGIN_BOTTOM,
   },
   price: {
     fontFamily: 'roboto-bold',
@@ -885,10 +959,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   statusRow: {
-    marginBottom: 16,
+    marginBottom: SCREEN_CHROME_DETAIL_STATUS_MARGIN_BOTTOM,
   },
   chip: { backgroundColor: colors.SECONDARY },
-  locationBanner: { marginBottom: 4 },
+  locationBanner: { marginBottom: 20 },
   contentSection: {
     paddingTop: 20,
     paddingBottom: 20,
@@ -998,6 +1072,12 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
     lineHeight: 20,
+  },
+  // Detached from layout flow so the animated wrapper owns the height while
+  // this view measures at its natural size.
+  sectionMeasure: {
+    position: 'absolute',
+    width: '100%',
   },
   requestSectionContent: {},
   sectionTitle: {

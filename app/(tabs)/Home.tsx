@@ -4,6 +4,7 @@ import { FilterTabletGroup } from '@/components/FilterTablet';
 import { ALL_QUESTIONS_CATEGORY_KEY, CLOSED_QUESTIONS_CATEGORY_KEY, FEED_CATEGORY_DEFS, INCOMING_CATEGORY_KEY, OUTGOING_CATEGORY_KEY } from '@/constants/feedCategories';
 import { HOME_FILTER_TABLET_ITEMS, SEARCH_FILTER_HEADER_GAP } from '@/constants/filterTablets';
 import { colors } from '@/constants/colors';
+import { feedCardStyles } from '@/constants/feedCard';
 import { fonts } from '@/constants/fonts';
 import { HOME_COLLAPSED_HEADER_HEIGHT } from '@/constants/homeChrome';
 import { images } from '@/constants/images';
@@ -415,7 +416,7 @@ const HomeScreen = () => {
 
     return (
       <TouchableOpacity
-        style={viewMode === 'card' ? styles.card : styles.listItem}
+        style={viewMode === 'card' ? feedCardStyles.card : styles.listItem}
         onPress={() => handleQuestionPress(item)}
         activeOpacity={0.85}
       >
@@ -568,7 +569,7 @@ const HomeScreen = () => {
                 <View style={screenChromeStyles.titleRow}>
                   <ScreenTitle title={activeCategory.title} />
                   {categorySubtitle ? (
-                    <Text style={styles.categorySubtitle}>{categorySubtitle}</Text>
+                    <Text style={screenChromeStyles.screenSubtitle}>{categorySubtitle}</Text>
                   ) : null}
                 </View>
 
@@ -673,7 +674,7 @@ const HomeScreen = () => {
           accessibilityLabel="Ask a Question"
           accessibilityRole="button"
         >
-          <Ionicons name="add" size={22} color={colors.BG_WHITE} />
+          <Ionicons name="add-circle-outline" size={22} color={colors.BG_WHITE} />
           <Animated.Text style={[styles.floatingAskBtnText, fabTextStyle]} numberOfLines={1}>
             Ask a Question
           </Animated.Text>
@@ -748,12 +749,6 @@ const styles = StyleSheet.create({
     color: colors.MEDIUM_GRAY,
   },
   menuBtn: { paddingTop: 4, paddingBottom: 4, paddingRight: 4 },
-  categorySubtitle: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    marginTop: 2,
-  },
   chatIconBtn: { padding: 4, position: 'relative' },
   chatBadge: {
     position: 'absolute',
@@ -793,19 +788,6 @@ const styles = StyleSheet.create({
   listAvoider: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
   listContentGrow: { flexGrow: 1 },
-  card: {
-    backgroundColor: colors.BG_WHITE,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.BG_BLACK,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
-  },
   listItem: {
     backgroundColor: colors.BG_WHITE,
     borderBottomWidth: 1,

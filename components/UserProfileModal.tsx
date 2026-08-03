@@ -19,8 +19,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type RequestDecisionActions = {
   onAccept: () => void;
@@ -50,6 +52,8 @@ const UserProfileModal = ({
   primaryActionLabel,
   requestDecision,
 }: Props) => {
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [profile, setProfile] = useState<TPublicUserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -124,6 +128,41 @@ const UserProfileModal = ({
     loadProfile(userId, () => false);
   };
 
+  const decisionFooter = requestDecision ? (
+    <View
+      testID="profile-decision-footer"
+      style={[
+        styles.decisionFooter,
+        { paddingBottom: Math.max(insets.bottom, 16) },
+      ]}
+    >
+      <Text style={styles.decisionTitle}>Accept or decline?</Text>
+      <Text style={styles.decisionHelper}>
+        Review their ratings and feedback above, then choose an action.
+      </Text>
+      <View style={styles.decisionRow}>
+        <Pressable
+          style={[
+            styles.rejectBtn,
+            requestDecision.rejectLoading && styles.decisionBtnDisabled,
+          ]}
+          onPress={requestDecision.onReject}
+          disabled={requestDecision.rejectLoading || requestDecision.acceptLoading}
+        >
+          <Text style={styles.rejectBtnText}>Decline</Text>
+        </Pressable>
+        <CustomButton
+          text="Accept request"
+          onPress={requestDecision.onAccept}
+          loading={requestDecision.acceptLoading}
+          disabled={requestDecision.rejectLoading}
+          style={styles.acceptBtn}
+          noTopMargin
+        />
+      </View>
+    </View>
+  ) : null;
+
   return (
     <BottomSheet visible={visible} onClose={onClose} onClosed={onClosed} sheetStyle={styles.sheet}>
       <View style={styles.sheetHeader}>
@@ -145,7 +184,18 @@ const UserProfileModal = ({
           </Pressable>
         </View>
       ) : profile ? (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <View
+          style={[
+            styles.profileBody,
+            requestDecision && { maxHeight: windowHeight * 0.85 },
+          ]}
+        >
+          <ScrollView
+            testID="profile-scroll"
+            style={requestDecision ? styles.profileScroll : undefined}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
           <View style={styles.headerRow}>
             <UserAvatar imageUrl={profile.profileImageUrl} size={64} />
             <View style={styles.headerInfo}>
@@ -222,32 +272,6 @@ const UserProfileModal = ({
             ))
           )}
 
-          {requestDecision && (
-            <View style={styles.decisionArea}>
-              <Text style={styles.decisionTitle}>Review this request</Text>
-              <View style={styles.decisionRow}>
-                <Pressable
-                  style={[
-                    styles.rejectBtn,
-                    requestDecision.rejectLoading && styles.decisionBtnDisabled,
-                  ]}
-                  onPress={requestDecision.onReject}
-                  disabled={requestDecision.rejectLoading || requestDecision.acceptLoading}
-                >
-                  <Text style={styles.rejectBtnText}>Decline</Text>
-                </Pressable>
-                <CustomButton
-                  text="Accept request"
-                  onPress={requestDecision.onAccept}
-                  loading={requestDecision.acceptLoading}
-                  disabled={requestDecision.rejectLoading}
-                  style={styles.acceptBtn}
-                  noTopMargin
-                />
-              </View>
-            </View>
-          )}
-
           {onPrimaryAction && primaryActionLabel && !requestDecision && (
             <CustomButton
               text={primaryActionLabel}
@@ -255,7 +279,10 @@ const UserProfileModal = ({
               style={styles.primaryBtn}
             />
           )}
-        </ScrollView>
+          </ScrollView>
+
+          {decisionFooter}
+        </View>
       ) : (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>Could not load this profile.</Text>
@@ -303,7 +330,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollContent: { padding: 20, paddingBottom: 40 },
+  profileBody: {
+    minHeight: 0,
+  },
+  profileScroll: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  scrollContent: { padding: 20, paddingBottom: 24 },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
   headerInfo: { flex: 1 },
   name: { fontFamily: 'roboto-bold', fontSize: fonts.FONT_SIZE_MEDIUM, color: colors.TEXT_DARK },
@@ -375,12 +409,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reviewRater: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, lineHeight: 17 },
-  decisionArea: { marginTop: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.CARD_BORDER },
+  decisionFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.CARD_BORDER,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    backgroundColor: colors.BG_WHITE,
+    shadowColor: colors.BG_BLACK,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 6,
+  },
   decisionTitle: {
     fontFamily: 'roboto-bold',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,
+    marginBottom: 4,
+  },
+  decisionHelper: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.MEDIUM_GRAY,
     marginBottom: 12,
+    lineHeight: 18,
   },
   decisionRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   acceptBtn: { flex: 1, marginTop: 0 },
