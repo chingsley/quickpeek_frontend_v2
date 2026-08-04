@@ -1,4 +1,5 @@
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
+import { useActionSheet } from '@/components/shared/useActionSheet';
 import { notifConfig } from '@/config';
 import { colors } from '@/constants/colors';
 import { loginUser } from '@/services/auth.services';
@@ -6,7 +7,7 @@ import { useAuthStore } from '@/store/auth.store';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -17,10 +18,15 @@ const SignIn = () => {
   const [email, setEmail] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
   const [password, setPassword] = useState('password123'); // TODO: Initialize to ''
   const [isLoading, setIsLoading] = useState(false);
+  const { showActionSheet, actionSheet } = useActionSheet();
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      showActionSheet({
+        title: 'Error',
+        message: 'Please enter both email and password',
+        tone: 'error',
+      });
       return;
     }
 
@@ -46,12 +52,16 @@ const SignIn = () => {
         await login(user.locationSharingEnabled, user, token);
         router.replace('/(tabs)/Home');
       } else {
-        Alert.alert('Error', 'Invalid response from server');
+        showActionSheet({
+          title: 'Error',
+          message: 'Invalid response from server',
+          tone: 'error',
+        });
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Login failed';
       console.error('Login error:', error, '\errorMessage: ', errorMessage);
-      Alert.alert('Error', errorMessage);
+      showActionSheet({ title: 'Error', message: errorMessage, tone: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -99,6 +109,8 @@ const SignIn = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScreen>
+
+      {actionSheet}
     </SafeAreaView>
   );
 };

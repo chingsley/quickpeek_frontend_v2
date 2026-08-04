@@ -1,5 +1,6 @@
 import CustomButton from '@/components/shared/CustomButton';
 import BottomSheet from '@/components/shared/BottomSheet';
+import { useActionSheet } from '@/components/shared/useActionSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
@@ -9,7 +10,6 @@ import { useReviewWindowCountdown } from '@/utils/reviewWindow';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -44,6 +44,7 @@ const ReviewModal = ({
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { showActionSheet, actionSheet } = useActionSheet();
   const { remaining, ended } = useReviewWindowCountdown({
     endsAt: reviewWindowEndsAt,
     windowOpen: reviewWindowOpen,
@@ -66,22 +67,28 @@ const ReviewModal = ({
     setSubmitting(true);
     try {
       const result = await submitReview(requestId, stars, comment.trim() || undefined);
-      Alert.alert(
-        result.revealed ? 'Review submitted' : 'Review submitted',
-        result.revealed
+      showActionSheet({
+        title: 'Review submitted',
+        message: result.revealed
           ? 'Your review is now visible on their profile.'
           : 'Your review is hidden until they review you or the review window closes.',
-      );
+        tone: 'success',
+      });
       onSubmitted();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not submit review.');
+      showActionSheet({
+        title: 'Error',
+        message: err?.response?.data?.error || 'Could not submit review.',
+        tone: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
+    <>
+      <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
       <Text style={styles.title}>Rate this user</Text>
       {windowClosed ? (
         <Text style={styles.endedText}>Review window ended — you can no longer submit a review.</Text>
@@ -136,7 +143,10 @@ const ReviewModal = ({
         loading={submitting}
         disabled={windowClosed || stars === 0 || submitting}
       />
-    </BottomSheet>
+      </BottomSheet>
+
+      {actionSheet}
+    </>
   );
 };
 

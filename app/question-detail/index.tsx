@@ -4,6 +4,7 @@ import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenInfoBanner } from '@/components/shared/ScreenInfoBanner';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
+import { useActionSheet } from '@/components/shared/useActionSheet';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
 import { STATUS_ICON_SIZE } from '@/constants/statusIcons';
 import StarRating from '@/components/StarRating';
@@ -50,7 +51,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -68,6 +68,9 @@ const buildLocationMessage = (question: {
   return `This question needs responders close to ${place}.`;
 };
 
+const LOCATION_PROXIMITY_HINT =
+  `Enable your location so the system can determine if you're close to this location.`;
+
 const getCanRequestMessage = (
   question: NonNullable<Awaited<ReturnType<typeof getQuestionDetail>>>,
 ): string => {
@@ -78,9 +81,7 @@ const getCanRequestMessage = (
     }
     case 'NO_VIEWER_LOCATION': {
       const base = buildLocationMessage(question);
-      return base
-        ? `${base} Enable your location to check if you are close.`
-        : 'Enable your location to request location-based questions.';
+      return base ? `${base} ${LOCATION_PROXIMITY_HINT}` : LOCATION_PROXIMITY_HINT;
     }
     case 'ALREADY_REQUESTED':
       return 'You already sent a request for this question.';
@@ -287,6 +288,7 @@ const QuestionDetail = () => {
   const questionId = normalizeRouteParam(params.questionId);
   const focusSection = params.section;
   const authUserId = useAuthStore((state) => state.user?.id);
+  const { showActionSheet, actionSheet } = useActionSheet();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -345,7 +347,7 @@ const QuestionDetail = () => {
         setRejectedResponders(rejected);
       }
     } catch {
-      Alert.alert('Error', 'Could not load question.');
+      showActionSheet({ title: 'Error', message: 'Could not load question.', tone: 'error' });
     } finally {
       setLoading(false);
     }
@@ -408,12 +410,21 @@ const QuestionDetail = () => {
         question.id,
         liveCoords ?? undefined,
       );
-      Alert.alert('Request sent', 'The questioner will review your request.', [
-        { text: 'Open chat', onPress: () => openLinkedChat(router, result.id) },
-        { text: 'OK', onPress: () => load() },
-      ]);
+      showActionSheet({
+        title: 'Request sent',
+        message: 'The questioner will review your request.',
+        tone: 'success',
+        buttons: [
+          { label: 'Open chat', onPress: () => openLinkedChat(router, result.id) },
+          { label: 'OK', onPress: () => load(), role: 'secondary' },
+        ],
+      });
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.error || 'Could not send request.');
+      showActionSheet({
+        title: 'Error',
+        message: error?.response?.data?.error || 'Could not send request.',
+        tone: 'error',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -427,27 +438,38 @@ const QuestionDetail = () => {
     const proceed = async () => {
       try {
         await acceptRequest(requestId);
-        Alert.alert('Accepted', 'You can now chat with this responder.', [
-          { text: 'Open chat', onPress: () => openLinkedChat(router, requestId) },
-          { text: 'OK', onPress: () => load() },
-        ]);
+        showActionSheet({
+          title: 'Accepted',
+          message: 'You can now chat with this responder.',
+          tone: 'success',
+          buttons: [
+            { label: 'Open chat', onPress: () => openLinkedChat(router, requestId) },
+            { label: 'OK', onPress: () => load(), role: 'secondary' },
+          ],
+        });
         load();
       } catch (error: any) {
-        Alert.alert('Error', error?.response?.data?.error || 'Could not accept request.');
+        showActionSheet({
+          title: 'Error',
+          message: error?.response?.data?.error || 'Could not accept request.',
+          tone: 'error',
+        });
       }
     };
 
     if (alreadyAccepted > 0) {
-      Alert.alert(
-        'Multiple responders',
-        `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
-        'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
-        'Continue accepting this request?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Accept', onPress: proceed },
+      showActionSheet({
+        title: 'Multiple responders',
+        message:
+          `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
+          'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+          'Continue accepting this request?',
+        tone: 'info',
+        buttons: [
+          { label: 'Accept', onPress: proceed },
+          { label: 'Cancel', role: 'secondary' },
         ],
-      );
+      });
     } else {
       proceed();
     }
@@ -469,7 +491,11 @@ const QuestionDetail = () => {
       setRejectModalVisible(false);
       load();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.error || 'Could not decline request.');
+      showActionSheet({
+        title: 'Error',
+        message: error?.response?.data?.error || 'Could not decline request.',
+        tone: 'error',
+      });
     }
   };
 
@@ -489,7 +515,11 @@ const QuestionDetail = () => {
       setCloseModalVisible(false);
       router.back();
     } catch (error: any) {
-      Alert.alert('Error', error?.response?.data?.error || 'Could not close question.');
+      showActionSheet({
+        title: 'Error',
+        message: error?.response?.data?.error || 'Could not close question.',
+        tone: 'error',
+      });
     } finally {
       setClosing(false);
     }
@@ -505,24 +535,29 @@ const QuestionDetail = () => {
   const handleUnblockResponder = (responderId: string, name: string) => {
     if (!questionId) return;
     const id = questionId;
-    Alert.alert(
-      'Allow to request again?',
-      `${name} will be able to send a new request for this question.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showActionSheet({
+      title: 'Allow to request again?',
+      message: `${name} will be able to send a new request for this question.`,
+      tone: 'info',
+      buttons: [
         {
-          text: 'Allow',
+          label: 'Allow',
           onPress: async () => {
             try {
               await unblockResponder(id, responderId);
               load();
             } catch (error: any) {
-              Alert.alert('Error', error?.response?.data?.error || 'Could not unblock responder.');
+              showActionSheet({
+                title: 'Error',
+                message: error?.response?.data?.error || 'Could not unblock responder.',
+                tone: 'error',
+              });
             }
           },
         },
+        { label: 'Cancel', role: 'secondary' },
       ],
-    );
+    });
   };
 
   const requestIdForChat =
@@ -928,6 +963,8 @@ const QuestionDetail = () => {
             : undefined
         }
       />
+
+      {actionSheet}
     </SafeAreaView>
   );
 };

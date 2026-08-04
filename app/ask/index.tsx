@@ -1,4 +1,5 @@
 import FormField from '@/components/ask/FormField';
+import LocationPickerModal, { LocationPick } from '@/components/ask/LocationPickerModal';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
@@ -6,16 +7,15 @@ import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionPublishedSheet from '@/components/ask/QuestionPublishedSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
-import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { SWITCH_APPEARANCE_PROPS } from '@/constants/switch';
+import { PRICE_INPUT_PROPS } from '@/constants/textInput';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import { formatMoney } from '@/utils/payment.utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Switch,
@@ -54,6 +54,7 @@ const AskScreen = () => {
   const [successVisible, setSuccessVisible] = useState(false);
   /** Inline publish feedback — Alert.alert is a no-op on web. */
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
   const priceNum = parseFloat(price);
   const priceError =
@@ -69,23 +70,24 @@ const AskScreen = () => {
     priceNum <= MAX_PRICE &&
     acceptanceCriteria.trim().length > 0;
 
-  const captureLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Location permission is required to add a location.');
+  const handleApplyLocation = (pick: LocationPick) => {
+    // An empty pick (Apply with nothing chosen) just closes — it must not
+    // enable location features with a phantom address.
+    if (!pick.address.trim()) {
+      setPickerVisible(false);
       return;
     }
-    const loc = await Location.getCurrentPositionAsync({});
-    setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-    const [place] = await Location.reverseGeocodeAsync({
-      latitude: loc.coords.latitude,
-      longitude: loc.coords.longitude,
-    });
-    if (place) {
-      const parts = [place.name, place.street, place.city, place.region].filter(Boolean);
-      setAddress(parts.join(', '));
-    }
+    setCoords({ lat: pick.latitude, lng: pick.longitude });
+    setAddress(pick.address);
     setIncludeLocation(true);
+    setPickerVisible(false);
+  };
+
+  const clearLocation = () => {
+    setIncludeLocation(false);
+    setAddress('');
+    setCoords(null);
+    setRestrictToNearby(true);
   };
 
   const clearForm = () => {
@@ -114,7 +116,7 @@ const AskScreen = () => {
           ? {
             latitude: coords.lat,
             longitude: coords.lng,
-            address: address.trim() || null,
+            address: address.trim(),
             restrictToNearby,
           }
           : {}),
@@ -153,7 +155,8 @@ const AskScreen = () => {
           value={price}
           onChangeText={(text) => setPrice(sanitizePrice(text))}
           placeholder="Amount you want to pay for the information ? e.g. 5.00"
-          keyboardType="decimal-pad"
+          keyboardType={PRICE_INPUT_PROPS.keyboardType}
+          inputMode={PRICE_INPUT_PROPS.inputMode}
           error={priceError}
           testID="price-input"
         />
@@ -178,19 +181,35 @@ const AskScreen = () => {
           testID="criteria-input"
         />
 
-        <Pressable style={styles.locationToggle} onPress={includeLocation ? () => setIncludeLocation(false) : captureLocation}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="location-outline" size={16} color={colors.PRIMARY} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.locationToggleText}>
-              {includeLocation ? 'Location added' : 'Add location (optional)'}
-            </Text>
-            {includeLocation && address ? (
-              <Text style={styles.locationAddress} numberOfLines={2}>{address}</Text>
-            ) : null}
-          </View>
-          <Ionicons name={includeLocation ? 'checkmark-circle' : 'add-circle-outline'} size={22} color={colors.PRIMARY} />
+        <Text style={styles.label}>Location (optional)</Text>
+        <Pressable
+          style={styles.locationField}
+          onPress={() => setPickerVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Choose location"
+        >
+          <Ionicons name="location-outline" size={18} color={colors.PRIMARY} />
+          <Text
+            style={[
+              styles.locationFieldText,
+              !(includeLocation && address) && styles.locationFieldPlaceholder,
+            ]}
+            numberOfLines={2}
+          >
+            {includeLocation && address ? address : 'Search for a location'}
+          </Text>
+          {includeLocation && address ? (
+            <Pressable
+              onPress={clearLocation}
+              accessibilityLabel="Remove location"
+              accessibilityRole="button"
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
+            </Pressable>
+          ) : (
+            <Ionicons name="chevron-down" size={18} color={colors.MEDIUM_GRAY} />
+          )}
         </Pressable>
 
         {includeLocation && (
@@ -203,10 +222,9 @@ const AskScreen = () => {
                 </Text>
               </View>
               <Switch
+                {...SWITCH_APPEARANCE_PROPS}
                 value={restrictToNearby}
                 onValueChange={setRestrictToNearby}
-                trackColor={{ false: colors.LIGHT_GRAY, true: colors.PRIMARY }}
-                thumbColor={colors.BG_WHITE}
                 testID="restrict-nearby-switch"
               />
             </View>
@@ -223,6 +241,17 @@ const AskScreen = () => {
           style={styles.publishBtn}
         />
       </KeyboardAwareScreen>
+
+      <LocationPickerModal
+        visible={pickerVisible}
+        initial={
+          includeLocation && coords
+            ? { latitude: coords.lat, longitude: coords.lng, address }
+            : null
+        }
+        onApply={handleApplyLocation}
+        onClose={() => setPickerVisible(false)}
+      />
 
       <QuestionPublishedSheet
         visible={successVisible}
@@ -244,26 +273,25 @@ const styles = StyleSheet.create({
   pageTitleSpacing: { marginTop: 12, marginBottom: 8 },
   subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
   label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
-  locationToggle: {
+  locationField: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.CARD_BORDER,
-    borderRadius: BORDER_RADIUS_INPUT,
-    padding: 14,
-    marginTop: 16,
-    gap: 12,
+    borderColor: colors.LIGHT_GRAY,
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
   },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.SECONDARY,
-    alignItems: 'center',
-    justifyContent: 'center',
+  locationFieldText: {
+    flex: 1,
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.TEXT_DARK,
   },
-  locationToggleText: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK },
-  locationAddress: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_XS, color: colors.MEDIUM_GRAY, marginTop: 4 },
+  locationFieldPlaceholder: {
+    color: colors.LIGHT_GRAY,
+  },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',

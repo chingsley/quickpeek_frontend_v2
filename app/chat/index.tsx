@@ -10,6 +10,7 @@ import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import OverflowMenu, { OverflowMenuItem } from '@/components/shared/OverflowMenu';
 import BottomSheet from '@/components/shared/BottomSheet';
+import { useActionSheet } from '@/components/shared/useActionSheet';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT, CHAT_AVATAR_SIZE } from '@/constants/layout';
@@ -42,7 +43,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -94,6 +94,7 @@ const ChatScreen = () => {
   const params = useLocalSearchParams<{ requestId: string; }>();
   const requestId = params.requestId as string;
   const authUserId = useAuthStore((state) => state.user?.id);
+  const { showActionSheet, actionSheet } = useActionSheet();
 
   const [thread, setThread] = useState<TRequestThread | null>(null);
   const [messages, setMessages] = useState<TMessage[]>([]);
@@ -199,8 +200,12 @@ const ChatScreen = () => {
       try {
         await loadThread();
       } catch (err: any) {
-        Alert.alert('Error', err?.response?.data?.error || 'Failed to load chat.');
-        router.back();
+        showActionSheet({
+          title: 'Error',
+          message: err?.response?.data?.error || 'Failed to load chat.',
+          tone: 'error',
+          buttons: [{ label: 'OK', onPress: () => router.back() }],
+        });
       } finally {
         setLoading(false);
       }
@@ -315,7 +320,11 @@ const ChatScreen = () => {
         setProfileVisible(false);
         await loadThread();
       } catch (err: any) {
-        Alert.alert('Error', err?.response?.data?.error || 'Could not accept request.');
+        showActionSheet({
+          title: 'Error',
+          message: err?.response?.data?.error || 'Could not accept request.',
+          tone: 'error',
+        });
       } finally {
         setAccepting(false);
       }
@@ -329,21 +338,27 @@ const ChatScreen = () => {
       const alreadyAccepted = incoming.items.length;
 
       if (alreadyAccepted > 0) {
-        Alert.alert(
-          'Multiple responders',
-          `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
-          'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
-          'Continue accepting this request?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Accept', onPress: proceed },
+        showActionSheet({
+          title: 'Multiple responders',
+          message:
+            `You have already accepted ${alreadyAccepted} responder${alreadyAccepted === 1 ? '' : 's'}. ` +
+            'Each accepted responder whose answer meets your acceptance criteria will need to be paid. ' +
+            'Continue accepting this request?',
+          tone: 'info',
+          buttons: [
+            { label: 'Accept', onPress: proceed },
+            { label: 'Cancel', role: 'secondary' },
           ],
-        );
+        });
       } else {
         await proceed();
       }
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not accept request.');
+      showActionSheet({
+        title: 'Error',
+        message: err?.response?.data?.error || 'Could not accept request.',
+        tone: 'error',
+      });
     }
   };
 
@@ -358,7 +373,11 @@ const ChatScreen = () => {
       setProfileVisible(false);
       await loadThread();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not decline request.');
+      showActionSheet({
+        title: 'Error',
+        message: err?.response?.data?.error || 'Could not decline request.',
+        tone: 'error',
+      });
     } finally {
       setRejecting(false);
     }
@@ -456,7 +475,11 @@ const ChatScreen = () => {
         return [...prev, message];
       });
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.error || 'Could not send message.');
+      showActionSheet({
+        title: 'Error',
+        message: err?.response?.data?.error || 'Could not send message.',
+        tone: 'error',
+      });
       setInputText(text);
       userSentMessageRef.current = false;
       awaitingSendScrollRef.current = false;
@@ -695,6 +718,8 @@ const ChatScreen = () => {
           loadThread().catch(() => undefined);
         }}
       />
+
+      {actionSheet}
 
       <UserProfileModal
         visible={profileVisible}

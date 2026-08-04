@@ -1,9 +1,11 @@
 import CustomButton from '@/components/shared/CustomButton';
+import { useActionSheet } from '@/components/shared/useActionSheet';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
+import { SWITCH_APPEARANCE_PROPS } from '@/constants/switch';
 import { useAuthStore } from '@/store/auth.store';
 import { useUserStore } from '@/store/user.store';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -12,7 +14,6 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Switch,
   Text,
@@ -27,6 +28,7 @@ type Props = {
 };
 
 const SettingsPanel = ({ showTitle = true }: Props) => {
+  const { showActionSheet, actionSheet } = useActionSheet();
   const router = useRouter();
   const logout = useAuthStore((state) => state.logout);
   const updateAuthUser = useAuthStore((state) => state.updateUser);
@@ -65,7 +67,11 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission needed', 'Allow photo library access to update your profile picture.');
+        showActionSheet({
+          title: 'Permission needed',
+          message: 'Allow photo library access to update your profile picture.',
+          tone: 'info',
+        });
         return;
       }
 
@@ -82,12 +88,12 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
       const updated = await uploadProfileImageAction(result.assets[0].uri);
       if (updated) {
         updateAuthUser({ profileImageUrl: updated.profileImageUrl ?? null });
-        Alert.alert('Updated', 'Your profile picture has been updated.');
+        showActionSheet({ title: 'Updated', message: 'Your profile picture has been updated.', tone: 'success' });
       } else {
-        Alert.alert('Error', 'Could not update your profile picture.');
+        showActionSheet({ title: 'Error', message: 'Could not update your profile picture.', tone: 'error' });
       }
     } catch {
-      Alert.alert('Error', 'Could not update your profile picture.');
+      showActionSheet({ title: 'Error', message: 'Could not update your profile picture.', tone: 'error' });
     } finally {
       setUploadingImage(false);
     }
@@ -102,9 +108,9 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
     });
     if (updated) {
       setIsEditing(false);
-      Alert.alert('Saved', 'Your profile has been updated.');
+      showActionSheet({ title: 'Saved', message: 'Your profile has been updated.', tone: 'success' });
     } else {
-      Alert.alert('Error', 'Could not update your profile.');
+      showActionSheet({ title: 'Error', message: 'Could not update your profile.', tone: 'error' });
     }
   };
 
@@ -213,10 +219,9 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
             <Text style={styles.rowSubtitle}>Get notified about requests and messages</Text>
           </View>
           <Switch
+            {...SWITCH_APPEARANCE_PROPS}
             value={notificationsEnabled}
             onValueChange={handleToggleNotifications}
-            trackColor={{ false: colors.LIGHT_GRAY, true: colors.SECONDARY }}
-            thumbColor={notificationsEnabled ? colors.PRIMARY : colors.BG_WHITE}
           />
         </View>
 
@@ -231,10 +236,9 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
             <Text style={styles.rowSubtitle}>Show nearby questions in your feed</Text>
           </View>
           <Switch
+            {...SWITCH_APPEARANCE_PROPS}
             value={locationSharingEnabled}
             onValueChange={handleToggleLocation}
-            trackColor={{ false: colors.LIGHT_GRAY, true: colors.SECONDARY }}
-            thumbColor={locationSharingEnabled ? colors.PRIMARY : colors.BG_WHITE}
           />
         </View>
       </View>
@@ -245,6 +249,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </View>
+      {actionSheet}
     </KeyboardAwareScrollView>
   );
 };

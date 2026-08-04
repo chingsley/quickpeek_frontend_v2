@@ -1,13 +1,17 @@
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
+import { TEXT_INPUT_CLIPBOARD_PROPS } from '@/constants/textInput';
 import React from 'react';
 import {
   KeyboardTypeOptions,
+  Platform,
   StyleProp,
   StyleSheet,
   Text,
   TextInput,
+  TextInputProps,
+  TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
@@ -23,6 +27,7 @@ type FormFieldProps = {
   error?: string | null;
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
+  inputMode?: TextInputProps['inputMode'];
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
@@ -41,13 +46,20 @@ const FormField = ({
   error,
   multiline,
   keyboardType,
+  inputMode,
   style,
   testID,
 }: FormFieldProps) => (
   <View style={style}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
-      style={[styles.input, multiline && styles.multiline, error ? styles.inputError : null]}
+      {...TEXT_INPUT_CLIPBOARD_PROPS}
+      style={[
+        styles.input,
+        multiline && styles.multiline,
+        error ? styles.inputError : null,
+        Platform.OS === 'web' && styles.inputWeb,
+      ]}
       placeholder={placeholder}
       placeholderTextColor={colors.LIGHT_GRAY}
       value={value}
@@ -55,6 +67,7 @@ const FormField = ({
       maxLength={maxLength}
       multiline={multiline}
       keyboardType={keyboardType}
+      inputMode={inputMode}
       textAlignVertical={multiline ? 'top' : 'center'}
       testID={testID}
     />
@@ -103,6 +116,9 @@ const styles = StyleSheet.create({
   inputError: {
     borderColor: colors.RED,
   },
+  inputWeb: {
+    userSelect: 'text',
+  } as TextStyle,
   errorText: {
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,

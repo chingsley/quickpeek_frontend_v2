@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AskScreen from '@/app/ask/index';
 import { createQuestion } from '@/services/questions.services';
+import { PRICE_KEYBOARD_TYPE } from '@/constants/textInput';
 import useAppStore from '@/store/app.store';
-import * as Location from 'expo-location';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
@@ -14,18 +14,22 @@ jest.mock('@/services/questions.services', () => ({
   createQuestion: jest.fn(),
 }));
 
-jest.mock('expo-location', () => ({
-  requestForegroundPermissionsAsync: jest.fn(),
-  getCurrentPositionAsync: jest.fn(),
-  reverseGeocodeAsync: jest.fn(),
-}));
+jest.mock('@/components/ask/LocationPickerModal', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    __esModule: true,
+    default: (props: Record<string, unknown> & { visible: boolean; }) =>
+      props.visible ? React.createElement(View, { testID: 'location-picker', ...props }) : null,
+  };
+});
 
 jest.mock('@/components/shared/KeyboardAwareScreen', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: ({ children }: { children: React.ReactNode }) =>
+    default: ({ children }: { children: React.ReactNode; }) =>
       React.createElement(View, null, children),
   };
 });
@@ -35,15 +39,12 @@ jest.mock('@/components/ask/QuestionPublishedSheet', () => {
   const { View, Text } = require('react-native');
   return {
     __esModule: true,
-    default: ({ visible }: { visible: boolean }) =>
+    default: ({ visible }: { visible: boolean; }) =>
       visible ? React.createElement(View, { testID: 'published-sheet' }, React.createElement(Text, null, 'published')) : null,
   };
 });
 
 const mockCreateQuestion = createQuestion as jest.Mock;
-const mockRequestPermission = Location.requestForegroundPermissionsAsync as jest.Mock;
-const mockGetPosition = Location.getCurrentPositionAsync as jest.Mock;
-const mockReverseGeocode = Location.reverseGeocodeAsync as jest.Mock;
 
 const fillValidForm = () => {
   fireEvent.changeText(screen.getByTestId('title-input'), 'Where is the best shawarma?');
@@ -77,7 +78,7 @@ describe('AskScreen price input', () => {
     fireEvent.changeText(input, '12.5.75');
     expect(input.props.value).toBe('12.575');
 
-    expect(input.props.keyboardType).toBe('decimal-pad');
+    expect(input.props.keyboardType).toBe(PRICE_KEYBOARD_TYPE);
   });
 
   it('shows the limit message and red border above $10,000 and disables publish', () => {
@@ -170,17 +171,25 @@ describe('AskScreen publish', () => {
 });
 
 describe('AskScreen location', () => {
-  it('adds location and includes it in the payload', async () => {
-    mockRequestPermission.mockResolvedValue({ status: 'granted' });
-    mockGetPosition.mockResolvedValue({ coords: { latitude: 44.6, longitude: -63.6 } });
-    mockReverseGeocode.mockResolvedValue([
-      { name: '123', street: 'Main St', city: 'Halifax', region: 'NS' },
-    ]);
+  const applyPick = (pick: { latitude: number; longitude: number; address: string; }) => {
+    act(() => {
+      screen.getByTestId('location-picker').props.onApply(pick);
+    });
+  };
+
+  it('opens the picker from the location field and applies a pick', async () => {
     mockCreateQuestion.mockResolvedValue({ id: 'q2' });
     render(<AskScreen />);
 
-    fireEvent.press(screen.getByText('Add location (optional)'));
-    expect(await screen.findByText(/123, Main St, Halifax, NS/)).toBeTruthy();
+    expect(screen.getByText('Search for a location')).toBeTruthy();
+    expect(screen.queryByTestId('location-picker')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    expect(screen.getByTestId('location-picker')).toBeTruthy();
+
+    applyPick({ latitude: 44.6, longitude: -63.6, address: '123, Main St, Halifax, NS' });
+    expect(screen.queryByTestId('location-picker')).toBeNull();
+    expect(screen.getByText('123, Main St, Halifax, NS')).toBeTruthy();
 
     fillValidForm();
     fireEvent.press(screen.getByText('Publish question'));
@@ -196,61 +205,73 @@ describe('AskScreen location', () => {
     );
   });
 
-  it('handles missing reverse-geocode results with a null address', async () => {
-    mockRequestPermission.mockResolvedValue({ status: 'granted' });
-    mockGetPosition.mockResolvedValue({ coords: { latitude: 44.6, longitude: -63.6 } });
-    mockReverseGeocode.mockResolvedValue([]);
+  it('publishes without location fields when none was picked', async () => {
     mockCreateQuestion.mockResolvedValue({ id: 'q3' });
     render(<AskScreen />);
 
-    fireEvent.press(screen.getByText('Add location (optional)'));
-    await waitFor(() =>
-      expect(screen.getByText('Location added')).toBeTruthy(),
-    );
-
     fillValidForm();
     fireEvent.press(screen.getByText('Publish question'));
-    await waitFor(() =>
-      expect(mockCreateQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({ address: null }),
-      ),
-    );
+    await waitFor(() => expect(mockCreateQuestion).toHaveBeenCalled());
+    const payload = mockCreateQuestion.mock.calls[0][0];
+    expect(payload).not.toHaveProperty('latitude');
+    expect(payload).not.toHaveProperty('longitude');
+    expect(payload).not.toHaveProperty('address');
   });
 
-  it('alerts and does not add a location when permission is denied', async () => {
-    mockRequestPermission.mockResolvedValue({ status: 'denied' });
+  it('removes a picked location with the clear button', async () => {
     render(<AskScreen />);
 
-    fireEvent.press(screen.getByText('Add location (optional)'));
-    await waitFor(() =>
-      expect(mockRequestPermission).toHaveBeenCalled(),
-    );
-    expect(screen.getByText('Add location (optional)')).toBeTruthy();
-    expect(mockGetPosition).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
+    expect(screen.getByText('Halifax, NS')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Remove location'));
+    expect(screen.getByText('Search for a location')).toBeTruthy();
+    expect(screen.queryByText('Halifax, NS')).toBeNull();
   });
 
-  it('removes the location when toggled off', async () => {
-    mockRequestPermission.mockResolvedValue({ status: 'granted' });
-    mockGetPosition.mockResolvedValue({ coords: { latitude: 44.6, longitude: -63.6 } });
-    mockReverseGeocode.mockResolvedValue([{ city: 'Halifax' }]);
+  it('closes the picker without applying', () => {
     render(<AskScreen />);
 
-    fireEvent.press(screen.getByText('Add location (optional)'));
-    expect(await screen.findByText('Location added')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    act(() => {
+      screen.getByTestId('location-picker').props.onClose();
+    });
+    expect(screen.queryByTestId('location-picker')).toBeNull();
+    expect(screen.getByText('Search for a location')).toBeTruthy();
+  });
 
-    fireEvent.press(screen.getByText('Location added'));
-    expect(screen.getByText('Add location (optional)')).toBeTruthy();
+  it('reopens the picker with the current pick as initial', () => {
+    render(<AskScreen />);
+
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
+
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    expect(screen.getByTestId('location-picker').props.initial).toEqual({
+      latitude: 44.6,
+      longitude: -63.6,
+      address: 'Halifax, NS',
+    });
+  });
+
+  it('ignores an empty pick — no location set, toggle stays hidden', () => {
+    render(<AskScreen />);
+
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    applyPick({ latitude: 44.65, longitude: -63.57, address: '' });
+
+    expect(screen.queryByTestId('location-picker')).toBeNull();
+    expect(screen.getByText('Search for a location')).toBeTruthy();
+    expect(screen.queryByTestId('restrict-nearby-switch')).toBeNull();
   });
 
   it('toggles the nearby-only switch', async () => {
-    mockRequestPermission.mockResolvedValue({ status: 'granted' });
-    mockGetPosition.mockResolvedValue({ coords: { latitude: 44.6, longitude: -63.6 } });
-    mockReverseGeocode.mockResolvedValue([{ city: 'Halifax' }]);
     mockCreateQuestion.mockResolvedValue({ id: 'q4' });
     render(<AskScreen />);
 
-    fireEvent.press(screen.getByText('Add location (optional)'));
-    await screen.findByText('Location added');
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
 
     const toggle = screen.getByTestId('restrict-nearby-switch');
     expect(toggle.props.value).toBe(true);

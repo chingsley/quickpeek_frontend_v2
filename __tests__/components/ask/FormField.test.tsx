@@ -67,19 +67,29 @@ describe('FormField', () => {
     expect(flat.borderColor).not.toBe(colors.RED);
   });
 
-  it('forwards keyboard type and multiline to the input', () => {
+  it('keeps copy and paste enabled on the native input', () => {
+    render(<FormField label="Title" value="" onChangeText={jest.fn()} testID="clipboard-field" />);
+    const input = screen.getByTestId('clipboard-field');
+    expect(input.props.contextMenuHidden).toBe(false);
+    expect(input.props.editable).toBe(true);
+    expect(input.props.selectionColor).toBe(colors.PRIMARY);
+  });
+
+  it('forwards keyboard type, input mode, and multiline to the input', () => {
     render(
       <FormField
         label="Price ($)"
         value=""
         onChangeText={jest.fn()}
         keyboardType="decimal-pad"
+        inputMode="decimal"
         multiline
         testID="props-field"
       />,
     );
     const input = screen.getByTestId('props-field');
     expect(input.props.keyboardType).toBe('decimal-pad');
+    expect(input.props.inputMode).toBe('decimal');
     expect(input.props.multiline).toBe(true);
   });
 });
