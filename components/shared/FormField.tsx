@@ -1,3 +1,4 @@
+import FormFieldFooter from '@/components/shared/FormFieldFooter';
 import { colors } from '@/constants/colors';
 import { fonts } from '@/constants/fonts';
 import { BORDER_RADIUS_INPUT } from '@/constants/layout';
@@ -23,19 +24,21 @@ type FormFieldProps = {
   placeholder?: string;
   /** Shows a live "x / max" counter and caps the input length. */
   maxLength?: number;
-  /** Error message shown below the input; also turns the border red. */
+  /** Error message in the footer row (left); also turns the border red. */
   error?: string | null;
   multiline?: boolean;
   keyboardType?: KeyboardTypeOptions;
   inputMode?: TextInputProps['inputMode'];
+  secureTextEntry?: boolean;
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoComplete?: TextInputProps['autoComplete'];
   style?: StyleProp<ViewStyle>;
   testID?: string;
 };
 
 /**
- * Labeled form input with the validation UX built in: a live character
- * counter, a red border + message for errors. Used by the ask form so limits
- * are communicated where they happen, not after a failed submit.
+ * Labeled form input with validation UX: red border on error, footer row with
+ * the message on the left and an optional character counter on the right.
  */
 const FormField = ({
   label,
@@ -47,10 +50,13 @@ const FormField = ({
   multiline,
   keyboardType,
   inputMode,
+  secureTextEntry,
+  autoCapitalize,
+  autoComplete,
   style,
   testID,
 }: FormFieldProps) => (
-  <View style={style}>
+  <View style={[styles.field, style]}>
     <Text style={styles.label}>{label}</Text>
     <TextInput
       {...TEXT_INPUT_CLIPBOARD_PROPS}
@@ -68,21 +74,23 @@ const FormField = ({
       multiline={multiline}
       keyboardType={keyboardType}
       inputMode={inputMode}
+      secureTextEntry={secureTextEntry}
+      autoCapitalize={autoCapitalize}
+      autoComplete={autoComplete}
       textAlignVertical={multiline ? 'top' : 'center'}
       testID={testID}
     />
-    {maxLength ? (
-      <Text style={styles.counter}>
-        {value.length} / {maxLength}
-      </Text>
-    ) : null}
-    {error ? <Text style={styles.errorText}>{error}</Text> : null}
+    <FormFieldFooter error={error} valueLength={value.length} maxLength={maxLength} />
   </View>
 );
 
 export default FormField;
 
 const styles = StyleSheet.create({
+  field: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
   label: {
     fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_SMALL,
@@ -90,14 +98,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 12,
   },
-  counter: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.MEDIUM_GRAY,
-    marginTop: 6,
-    textAlign: 'right',
-  },
   input: {
+    width: '100%',
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
     borderRadius: 100,
@@ -119,10 +121,4 @@ const styles = StyleSheet.create({
   inputWeb: {
     userSelect: 'text',
   } as TextStyle,
-  errorText: {
-    fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
-    color: colors.RED,
-    marginTop: 6,
-  },
 });

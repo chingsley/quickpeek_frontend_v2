@@ -1,16 +1,16 @@
+import FormField from '@/components/shared/FormField';
+import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { useActionSheet } from '@/components/shared/useActionSheet';
+import { authScreenStyles } from '@/constants/authScreen';
 import { notifConfig } from '@/config';
-import { colors } from '@/constants/colors';
 import { loginUser } from '@/services/auth.services';
 import { useAuthStore } from '@/store/auth.store';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-
 
 const SignIn = () => {
   const router = useRouter();
@@ -18,21 +18,24 @@ const SignIn = () => {
   const [email, setEmail] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
   const [password, setPassword] = useState('password123'); // TODO: Initialize to ''
   const [isLoading, setIsLoading] = useState(false);
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
   const { showActionSheet, actionSheet } = useActionSheet();
 
+  const fieldErrors = useMemo(() => {
+    const errors: { email?: string; password?: string } = {};
+    if (!email.trim()) errors.email = 'Enter your email.';
+    if (!password) errors.password = 'Enter your password.';
+    return errors;
+  }, [email, password]);
+
   const handleSignIn = async () => {
-    if (!email || !password) {
-      showActionSheet({
-        title: 'Error',
-        message: 'Please enter both email and password',
-        tone: 'error',
-      });
+    if (Object.keys(fieldErrors).length > 0) {
+      setShowFieldErrors(true);
       return;
     }
 
     setIsLoading(true);
     try {
-      // Get device token for notifications
       const deviceToken = await notifConfig.registerForPushNotificationsAsync();
       const deviceType = Platform.OS === 'web' ? 'web' : (Constants.platform?.ios ? 'ios' : 'android');
 
@@ -40,14 +43,13 @@ const SignIn = () => {
         email,
         password,
         deviceType,
-        deviceToken: deviceToken, // || 'ExponentPushToken[ubw-MEPEIQgJdA3RQbGDrQ]',
+        deviceToken: deviceToken,
         notificationsEnabled: !!deviceToken,
-        locationSharingEnabled: false // Start with false, user can enable after login
+        locationSharingEnabled: false,
       };
       const response = await loginUser(credentials);
 
       if (response && response.data) {
-        // Successful login - update auth store
         const { user, token } = response.data;
         await login(user.locationSharingEnabled, user, token);
         router.replace('/(tabs)/Home');
@@ -68,45 +70,42 @@ const SignIn = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAwareScreen contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Sign In</Text>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
+    <SafeAreaView style={authScreenStyles.safeArea}>
+      <KeyboardAwareScreen contentContainerStyle={authScreenStyles.scrollContainer}>
+        <View style={authScreenStyles.container}>
+          <Text style={authScreenStyles.title}>Sign In</Text>
+          <View style={authScreenStyles.form}>
+            <FormField
+              label="Email"
               value={email}
               onChangeText={setEmail}
+              placeholder="Email"
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              error={showFieldErrors ? fieldErrors.email ?? null : null}
+              testID="signin-email-input"
             />
-          </View>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
+            <FormField
+              label="Password"
               value={password}
               onChangeText={setPassword}
+              placeholder="Password"
               secureTextEntry
               autoComplete="password"
+              error={showFieldErrors ? fieldErrors.password ?? null : null}
+              testID="signin-password-input"
             />
+            <CustomButton
+              text={isLoading ? 'Signing In...' : 'Sign In'}
+              onPress={handleSignIn}
+              disabled={isLoading}
+              loading={isLoading}
+            />
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+              <Text style={authScreenStyles.link}>Don't have an account? Sign up</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleSignIn}
-            disabled={isLoading}
-          >
-            <Text style={styles.buttonText}>
-              {isLoading ? 'Signing In...' : 'Sign In'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-            <Text style={styles.link}>Don't have an account? Sign up</Text>
-          </TouchableOpacity>
         </View>
       </KeyboardAwareScreen>
 
@@ -116,60 +115,3 @@ const SignIn = () => {
 };
 
 export default SignIn;
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  container: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 10,
-  },
-  label: {
-    alignSelf: 'flex-start',
-    marginBottom: 5,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  input: {
-    width: '100%',
-    height: 50,
-    borderWidth: 1,
-    borderColor: colors.BORDER_GRAY,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  button: {
-    width: '100%',
-    height: 50,
-    backgroundColor: colors.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 100,
-    marginTop: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.MEDIUM_GRAY,
-  },
-  buttonText: {
-    color: colors.BG_WHITE,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  link: {
-    marginTop: 20,
-    color: colors.LINK,
-  },
-});

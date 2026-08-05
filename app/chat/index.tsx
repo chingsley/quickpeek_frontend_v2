@@ -430,7 +430,7 @@ const ChatScreen = () => {
         key: 'go-to-question',
         label: 'Go to Question',
         icon: 'document-text-outline',
-        onPress: () => openLinkedQuestionDetail(router, thread.question.id),
+        onPress: () => openLinkedQuestionDetail(router, thread.question.id, requestId),
       });
     }
 

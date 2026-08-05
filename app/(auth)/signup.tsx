@@ -1,4 +1,4 @@
-import { colors } from '@/constants/colors';
+import { authScreenStyles } from '@/constants/authScreen';
 import PreferencesForm from '@/components/signup/PreferencesForm';
 import ReviewDetails from '@/components/signup/ReviewDetails';
 import UserDetailsForm from '@/components/signup/UserDetailsForm';
@@ -9,7 +9,7 @@ import { SignupFormData } from '@/types/signup.types';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const Signup = () => {
@@ -76,10 +76,10 @@ const Signup = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <KeyboardAwareScreen contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Sign Up - Step {step} of 3</Text>
+    <SafeAreaView style={authScreenStyles.safeArea}>
+      <KeyboardAwareScreen contentContainerStyle={authScreenStyles.scrollContainer}>
+        <View style={authScreenStyles.container}>
+          <Text style={authScreenStyles.title}>Sign Up - Step {step} of 3</Text>
           {renderStep()}
         </View>
       </KeyboardAwareScreen>
@@ -90,20 +90,3 @@ const Signup = () => {
 };
 
 export default Signup;
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  container: {
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-});

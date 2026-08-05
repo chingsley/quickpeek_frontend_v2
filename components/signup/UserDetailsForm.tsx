@@ -1,72 +1,88 @@
-import { colors } from '@/constants/colors';
+import CustomButton from '@/components/shared/CustomButton';
+import FormField from '@/components/shared/FormField';
 import { UserDetailsFormProps } from '@/types/signup.types';
-import React from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-const UserDetailsForm: React.FC<UserDetailsFormProps> = ({ formData, setFormData, nextStep }) => {
-  const passwordsMatch = formData.password === formData.confirmPassword;
-  const isNextDisabled =
-    !formData.name ||
-    !formData.username ||
-    !formData.email ||
-    !formData.password ||
-    !formData.confirmPassword ||
-    !passwordsMatch;
+type FieldKey = 'name' | 'username' | 'email' | 'password' | 'confirmPassword';
+
+const UserDetailsForm: React.FC<UserDetailsFormProps> = ({ formData, setFormData, nextStep, prevStep }) => {
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
+
+  const fieldErrors = useMemo(() => {
+    const errors: Partial<Record<FieldKey, string>> = {};
+    if (!formData.name.trim()) errors.name = 'Enter your name.';
+    if (!formData.username.trim()) errors.username = 'Choose a username.';
+    if (!formData.email.trim()) errors.email = 'Enter your email.';
+    if (!formData.password) errors.password = 'Enter a password.';
+    if (!formData.confirmPassword) errors.confirmPassword = 'Confirm your password.';
+    else if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = 'The two passwords do not match.';
+    }
+    return errors;
+  }, [formData]);
+
+  const fieldError = (key: FieldKey) => (showFieldErrors ? fieldErrors[key] ?? null : null);
+
+  const handleNext = () => {
+    if (Object.keys(fieldErrors).length > 0) {
+      setShowFieldErrors(true);
+      return;
+    }
+    nextStep();
+  };
 
   return (
     <View style={styles.stepContainer}>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Name"
-          value={formData.name}
-          onChangeText={(text) => setFormData({ ...formData, name: text })}
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Username</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Username"
-          value={formData.username}
-          onChangeText={(text) => setFormData({ ...formData, username: text })}
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={formData.email}
-          onChangeText={(text) => setFormData({ ...formData, email: text })}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={[styles.input, formData.confirmPassword.length > 0 && !passwordsMatch && styles.inputError]}
-          placeholder="Password"
-          value={formData.password}
-          onChangeText={(text) => setFormData({ ...formData, password: text })}
-          secureTextEntry
-        />
-      </View>
-      <View style={styles.inputContainer}>
-        <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={[styles.input, formData.confirmPassword.length > 0 && !passwordsMatch && styles.inputError]}
-          placeholder="Confirm Password"
-          value={formData.confirmPassword}
-          onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-          secureTextEntry
-        />
-        {formData.confirmPassword.length > 0 && !passwordsMatch && <Text style={styles.errorText}>The two passwords do not match</Text>}
-      </View>
-      <TouchableOpacity style={[styles.button, isNextDisabled && styles.buttonDisabled]} onPress={nextStep} disabled={isNextDisabled}>
-        <Text style={styles.buttonText}>Next</Text>
+      <FormField
+        label="Name"
+        value={formData.name}
+        onChangeText={(text) => setFormData({ ...formData, name: text })}
+        placeholder="Name"
+        error={fieldError('name')}
+        testID="signup-name-input"
+      />
+      <FormField
+        label="Username"
+        value={formData.username}
+        onChangeText={(text) => setFormData({ ...formData, username: text })}
+        placeholder="Username"
+        autoCapitalize="none"
+        error={fieldError('username')}
+        testID="signup-username-input"
+      />
+      <FormField
+        label="Email"
+        value={formData.email}
+        onChangeText={(text) => setFormData({ ...formData, email: text })}
+        placeholder="Email"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        error={fieldError('email')}
+        testID="signup-email-input"
+      />
+      <FormField
+        label="Password"
+        value={formData.password}
+        onChangeText={(text) => setFormData({ ...formData, password: text })}
+        placeholder="Password"
+        secureTextEntry
+        error={fieldError('password')}
+        testID="signup-password-input"
+      />
+      <FormField
+        label="Confirm Password"
+        value={formData.confirmPassword}
+        onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+        placeholder="Confirm Password"
+        secureTextEntry
+        error={fieldError('confirmPassword')}
+        testID="signup-confirm-password-input"
+      />
+      <CustomButton text="Next" onPress={handleNext} />
+      <TouchableOpacity style={styles.backButton} onPress={prevStep}>
+        <Text style={styles.backButtonText}>Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -78,48 +94,16 @@ const styles = StyleSheet.create({
   stepContainer: {
     width: '100%',
   },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 10,
-  },
-  label: {
-    alignSelf: 'flex-start',
-    marginBottom: 5,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  input: {
+  backButton: {
     width: '100%',
     height: 50,
-    borderWidth: 1,
-    borderColor: colors.BORDER_GRAY,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-  },
-  button: {
-    width: '100%',
-    height: 50,
-    backgroundColor: colors.PRIMARY,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 100,
     marginTop: 10,
   },
-  buttonText: {
-    color: colors.BG_WHITE,
+  backButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  inputError: {
-    borderColor: colors.RED,
-  },
-  errorText: {
-    color: colors.RED,
-    alignSelf: 'flex-start',
-    marginBottom: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.MEDIUM_GRAY,
   },
 });

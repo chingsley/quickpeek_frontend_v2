@@ -27,7 +27,7 @@ const CustomButton = ({
   noTopMargin,
   fullWidth,
 }: CustomButtonProps) => {
-  const isInactive = loading || disabled;
+  const isLoading = !!loading;
 
   return (
     <View style={[fullWidth && styles.wrapFullWidth, style]}>
@@ -37,12 +37,11 @@ const CustomButton = ({
           styles.btn,
           fullWidth && styles.btnFullWidth,
           noTopMargin && styles.btnNoTopMargin,
-          isInactive && styles.btnDisabled,
         ]}
-        disabled={isInactive}
-        accessibilityState={{ disabled: isInactive }}
+        disabled={isLoading || disabled}
+        accessibilityState={{ disabled: isLoading || !!disabled }}
       >
-        {loading ? (
+        {isLoading ? (
           <ActivityIndicator size="small" color={styles.actvIndicator.color} />
         ) : (
           <Text style={styles.text}>{text}</Text>
@@ -68,9 +67,6 @@ const styles = StyleSheet.create({
   },
   btnNoTopMargin: {
     marginTop: 0,
-  },
-  btnDisabled: {
-    opacity: 0.8,
   },
   wrapFullWidth: {
     alignSelf: 'stretch',
