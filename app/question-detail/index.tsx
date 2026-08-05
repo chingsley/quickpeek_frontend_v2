@@ -36,7 +36,7 @@ import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
 import { formatDate } from '@/utils/date';
-import { openLinkedChat } from '@/utils/linkedScreenNavigation';
+import { LINKED_FROM_CHAT_PARAM, openLinkedChat } from '@/utils/linkedScreenNavigation';
 import { normalizeRouteParam } from '@/utils/routeParams';
 import { getMainStatusIcons } from '@/utils/questionStatus';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -284,9 +284,14 @@ const ResponderIdentity = ({
 
 const QuestionDetail = () => {
   const router = useRouter();
-  const params = useLocalSearchParams<{ questionId: string; section?: string; }>();
+  const params = useLocalSearchParams<{
+    questionId: string;
+    section?: string;
+    [LINKED_FROM_CHAT_PARAM]?: string;
+  }>();
   const questionId = normalizeRouteParam(params.questionId);
   const focusSection = params.section;
+  const linkedFromChat = normalizeRouteParam(params[LINKED_FROM_CHAT_PARAM]);
   const authUserId = useAuthStore((state) => state.user?.id);
   const { showActionSheet, actionSheet } = useActionSheet();
 
@@ -316,6 +321,13 @@ const QuestionDetail = () => {
   const [profileOpenKey, setProfileOpenKey] = useState(0);
   const [profileRequestId, setProfileRequestId] = useState<string | null>(null);
   const pendingRejectRequestIdRef = useRef<string | null>(null);
+
+  const openChat = useCallback(
+    (requestId: string) => {
+      openLinkedChat(router, requestId, { replace: !!linkedFromChat });
+    },
+    [linkedFromChat, router],
+  );
 
   const load = useCallback(async () => {
     if (!questionId) {
@@ -415,7 +427,7 @@ const QuestionDetail = () => {
         message: 'The questioner will review your request.',
         tone: 'success',
         buttons: [
-          { label: 'Open chat', onPress: () => openLinkedChat(router, result.id) },
+          { label: 'Open chat', onPress: () => openChat(result.id) },
           { label: 'OK', onPress: () => load(), role: 'secondary' },
         ],
       });
@@ -443,7 +455,7 @@ const QuestionDetail = () => {
           message: 'You can now chat with this responder.',
           tone: 'success',
           buttons: [
-            { label: 'Open chat', onPress: () => openLinkedChat(router, requestId) },
+            { label: 'Open chat', onPress: () => openChat(requestId) },
             { label: 'OK', onPress: () => load(), role: 'secondary' },
           ],
         });
@@ -710,7 +722,7 @@ const QuestionDetail = () => {
                 {showOpenChat && requestIdForChat && (
                   <Pressable
                     style={styles.infoOpenChatBtn}
-                    onPress={() => openLinkedChat(router, requestIdForChat)}
+                    onPress={() => openChat(requestIdForChat)}
                     accessibilityRole="button"
                   >
                     <Text style={styles.infoOpenChatBtnText}>Open chat</Text>
@@ -782,7 +794,7 @@ const QuestionDetail = () => {
                     />
                     <Pressable
                       style={styles.openChatBtn}
-                      onPress={() => openLinkedChat(router, req.id)}
+                      onPress={() => openChat(req.id)}
                     >
                       <Text style={styles.openChatBtnText}>Open chat</Text>
                       <Ionicons name="chevron-forward" size={18} color={colors.MEDIUM_GRAY} />
@@ -958,7 +970,7 @@ const QuestionDetail = () => {
           profileRequestId && !profilePendingRequest
             ? () => {
               setProfileModalVisible(false);
-              openLinkedChat(router, profileRequestId);
+              openChat(profileRequestId);
             }
             : undefined
         }

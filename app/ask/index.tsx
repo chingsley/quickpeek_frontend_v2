@@ -1,4 +1,4 @@
-import FormField from '@/components/ask/FormField';
+import FormField from '@/components/shared/FormField';
 import LocationPickerModal, { LocationPick } from '@/components/ask/LocationPickerModal';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
@@ -6,6 +6,7 @@ import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionPublishedSheet from '@/components/ask/QuestionPublishedSheet';
 import { colors } from '@/constants/colors';
+import { formFieldLabelStyles, FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { fonts } from '@/constants/fonts';
 import { SWITCH_APPEARANCE_PROPS } from '@/constants/switch';
 import { PRICE_INPUT_PROPS } from '@/constants/textInput';
@@ -14,7 +15,7 @@ import useAppStore from '@/store/app.store';
 import { formatMoney } from '@/utils/payment.utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -37,6 +38,8 @@ const sanitizePrice = (text: string): string => {
   return decimals.length > 0 ? `${whole}.${decimals.join('')}` : whole;
 };
 
+type AskFieldKey = 'title' | 'price' | 'detail' | 'acceptanceCriteria';
+
 const AskScreen = () => {
   const router = useRouter();
   const { loading, setLoading } = useAppStore();
@@ -48,31 +51,44 @@ const AskScreen = () => {
   const [includeLocation, setIncludeLocation] = useState(false);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
-  // When true (default), only viewers the backend can verify are within the
-  // market near-me radius of `coords` may request to answer.
   const [restrictToNearby, setRestrictToNearby] = useState(true);
   const [successVisible, setSuccessVisible] = useState(false);
-  /** Inline publish feedback — Alert.alert is a no-op on web. */
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
 
   const priceNum = parseFloat(price);
-  const priceError =
-    !isNaN(priceNum) && priceNum > MAX_PRICE
-      ? `Price cannot exceed ${formatMoney(MAX_PRICE, 'USD')}`
-      : null;
 
-  const isValid =
-    title.trim().length > 0 &&
-    detail.trim().length > 0 &&
-    !isNaN(priceNum) &&
-    priceNum > 0 &&
-    priceNum <= MAX_PRICE &&
-    acceptanceCriteria.trim().length > 0;
+  const fieldErrors = useMemo(() => {
+    const errors: Partial<Record<AskFieldKey, string>> = {};
+
+    if (!title.trim()) errors.title = 'Enter a title.';
+    if (!detail.trim()) errors.detail = 'Add details about what you need.';
+    if (!acceptanceCriteria.trim()) {
+      errors.acceptanceCriteria = 'Describe what counts as a good answer.';
+    }
+
+    if (!price.trim()) errors.price = 'Enter a price.';
+    else if (isNaN(priceNum) || priceNum <= 0) errors.price = 'Enter a price greater than $0.';
+    else if (priceNum > MAX_PRICE) {
+      errors.price = `Price cannot exceed ${formatMoney(MAX_PRICE, 'USD')}`;
+    }
+
+    return errors;
+  }, [title, detail, acceptanceCriteria, price, priceNum]);
+
+  const isValid = Object.keys(fieldErrors).length === 0;
+
+  const fieldError = (key: AskFieldKey): string | null => {
+    const message = fieldErrors[key];
+    if (!message) return null;
+    if (key === 'price' && price.trim() && !isNaN(priceNum) && priceNum > MAX_PRICE) {
+      return message;
+    }
+    return showFieldErrors ? message : null;
+  };
 
   const handleApplyLocation = (pick: LocationPick) => {
-    // An empty pick (Apply with nothing chosen) just closes — it must not
-    // enable location features with a phantom address.
     if (!pick.address.trim()) {
       setPickerVisible(false);
       return;
@@ -100,10 +116,15 @@ const AskScreen = () => {
     setCoords(null);
     setRestrictToNearby(true);
     setSubmitError(null);
+    setShowFieldErrors(false);
   };
 
   const handlePublish = async () => {
-    // Reachable only when valid — the button is disabled otherwise.
+    if (!isValid) {
+      setShowFieldErrors(true);
+      return;
+    }
+
     setLoading(true);
     setSubmitError(null);
     try {
@@ -125,7 +146,6 @@ const AskScreen = () => {
       clearForm();
       setSuccessVisible(true);
     } catch (error: any) {
-      // The backend sends { error }; show it where the user is looking.
       setSubmitError(
         error?.response?.data?.error ?? 'Failed to publish. Please try again.',
       );
@@ -147,6 +167,7 @@ const AskScreen = () => {
           onChangeText={setTitle}
           placeholder="Short summary of what you need"
           maxLength={TITLE_MAX}
+          error={fieldError('title')}
           testID="title-input"
         />
 
@@ -157,7 +178,7 @@ const AskScreen = () => {
           placeholder="Amount you want to pay for the information ? e.g. 5.00"
           keyboardType={PRICE_INPUT_PROPS.keyboardType}
           inputMode={PRICE_INPUT_PROPS.inputMode}
-          error={priceError}
+          error={fieldError('price')}
           testID="price-input"
         />
 
@@ -168,6 +189,7 @@ const AskScreen = () => {
           placeholder="Describe what you want to know..."
           maxLength={DETAIL_MAX}
           multiline
+          error={fieldError('detail')}
           testID="detail-input"
         />
 
@@ -178,10 +200,11 @@ const AskScreen = () => {
           placeholder="What counts as a good answer?"
           maxLength={CRITERIA_MAX}
           multiline
+          error={fieldError('acceptanceCriteria')}
           testID="criteria-input"
         />
 
-        <Text style={styles.label}>Location (optional)</Text>
+        <Text style={formFieldLabelStyles.label}>Location (optional)</Text>
         <Pressable
           style={styles.locationField}
           onPress={() => setPickerVisible(true)}
@@ -213,22 +236,20 @@ const AskScreen = () => {
         </Pressable>
 
         {includeLocation && (
-          <>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleTextWrap}>
-                <Text style={styles.label}>Only allow users close to this location to answer</Text>
-                <Text style={styles.helperText}>
-                  Everyone can see the question. Only users who share their live location and are within the market near-me radius can request to answer.
-                </Text>
-              </View>
-              <Switch
-                {...SWITCH_APPEARANCE_PROPS}
-                value={restrictToNearby}
-                onValueChange={setRestrictToNearby}
-                testID="restrict-nearby-switch"
-              />
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextWrap}>
+              <Text style={formFieldLabelStyles.label}>Only allow users close to this location to answer</Text>
+              <Text style={styles.helperText}>
+                Everyone can see the question. Only users who share their live location and are within the market near-me radius can request to answer.
+              </Text>
             </View>
-          </>
+            <Switch
+              {...SWITCH_APPEARANCE_PROPS}
+              value={restrictToNearby}
+              onValueChange={setRestrictToNearby}
+              testID="restrict-nearby-switch"
+            />
+          </View>
         )}
 
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
@@ -236,7 +257,7 @@ const AskScreen = () => {
         <CustomButton
           text={loading ? 'Publishing…' : 'Publish question'}
           onPress={handlePublish}
-          disabled={!isValid || loading}
+          disabled={loading}
           loading={loading}
           style={styles.publishBtn}
         />
@@ -272,14 +293,13 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
   pageTitleSpacing: { marginTop: 12, marginBottom: 8 },
   subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
-  label: { fontFamily: 'roboto-medium', fontSize: fonts.FONT_SIZE_SMALL, color: colors.TEXT_DARK, marginBottom: 8, marginTop: 12 },
   locationField: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
     borderRadius: 100,
-    paddingHorizontal: 14,
+    paddingHorizontal: FORM_FIELD_INPUT_PADDING_HORIZONTAL,
     paddingVertical: 12,
     gap: 10,
   },

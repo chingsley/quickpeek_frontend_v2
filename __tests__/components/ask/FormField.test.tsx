@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import FormField from '@/components/ask/FormField';
+import FormField from '@/components/shared/FormField';
+import { FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { colors } from '@/constants/colors';
 
 describe('FormField', () => {
@@ -73,6 +74,30 @@ describe('FormField', () => {
     expect(input.props.contextMenuHidden).toBe(false);
     expect(input.props.editable).toBe(true);
     expect(input.props.selectionColor).toBe(colors.PRIMARY);
+  });
+
+  it('places the error and counter on the same footer row', () => {
+    render(
+      <FormField
+        label="Details"
+        value="abc"
+        onChangeText={jest.fn()}
+        maxLength={2000}
+        error="Add details about what you need."
+        multiline
+      />,
+    );
+    expect(screen.getByText('Add details about what you need.')).toBeTruthy();
+    expect(screen.getByText('3 / 2000')).toBeTruthy();
+  });
+
+  it('insets the label to align with pill input text', () => {
+    render(<FormField label="Title" value="" onChangeText={jest.fn()} />);
+    const label = screen.getByText('Title');
+    const flat = Array.isArray(label.props.style)
+      ? Object.assign({}, ...label.props.style.flat())
+      : label.props.style;
+    expect(flat.paddingLeft).toBe(FORM_FIELD_INPUT_PADDING_HORIZONTAL);
   });
 
   it('forwards keyboard type, input mode, and multiline to the input', () => {

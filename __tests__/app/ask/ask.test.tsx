@@ -81,7 +81,7 @@ describe('AskScreen price input', () => {
     expect(input.props.keyboardType).toBe(PRICE_KEYBOARD_TYPE);
   });
 
-  it('shows the limit message and red border above $10,000 and disables publish', () => {
+  it('shows the limit message and red border above $10,000 when publish is tapped', () => {
     render(<AskScreen />);
     fillValidForm();
     fireEvent.changeText(screen.getByTestId('price-input'), '10001');
@@ -90,8 +90,7 @@ describe('AskScreen price input', () => {
     const input = screen.getByTestId('price-input');
     const flat = Object.assign({}, ...input.props.style.flat());
     expect(flat.borderColor).toBe('#FF0000');
-    expect(screen.getByText('Publish question')).toBeTruthy();
-    // The button stays disabled while the error is visible.
+    fireEvent.press(screen.getByText('Publish question'));
     expect(mockCreateQuestion).not.toHaveBeenCalled();
   });
 
@@ -158,14 +157,19 @@ describe('AskScreen publish', () => {
     expect(await screen.findByText(/failed to publish/i)).toBeTruthy();
   });
 
-  it('keeps publish disabled until every field is valid', () => {
+  it('shows field errors when publish is tapped with an invalid form', () => {
     render(<AskScreen />);
     fireEvent.press(screen.getByText('Publish question'));
+    expect(screen.getByText('Enter a title.')).toBeTruthy();
+    expect(screen.getByText('Enter a price.')).toBeTruthy();
+    expect(screen.getByText('Add details about what you need.')).toBeTruthy();
+    expect(screen.getByText('Describe what counts as a good answer.')).toBeTruthy();
     expect(mockCreateQuestion).not.toHaveBeenCalled();
 
     fillValidForm();
     fireEvent.changeText(screen.getByTestId('price-input'), '0');
     fireEvent.press(screen.getByText('Publish question'));
+    expect(screen.getByText('Enter a price greater than $0.')).toBeTruthy();
     expect(mockCreateQuestion).not.toHaveBeenCalled();
   });
 });

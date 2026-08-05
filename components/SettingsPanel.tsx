@@ -4,6 +4,7 @@ import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import StarRating from '@/components/StarRating';
 import UserAvatar from '@/components/UserAvatar';
 import { colors } from '@/constants/colors';
+import { FORM_FIELD_INPUT_PADDING_HORIZONTAL, formFieldLabelStyles } from '@/constants/formField';
 import { fonts } from '@/constants/fonts';
 import { SWITCH_APPEARANCE_PROPS } from '@/constants/switch';
 import { useAuthStore } from '@/store/auth.store';
@@ -187,7 +188,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
 
       {isEditing && (
         <View style={styles.editCard}>
-          <Text style={styles.fieldLabel}>Display name</Text>
+          <Text style={[formFieldLabelStyles.label, styles.fieldLabel]}>Display name</Text>
           <TextInput
             style={styles.input}
             value={name}
@@ -195,7 +196,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
             placeholder="Your name"
             placeholderTextColor={colors.MEDIUM_GRAY}
           />
-          <Text style={styles.fieldLabel}>Username</Text>
+          <Text style={[formFieldLabelStyles.label, styles.fieldLabel]}>Username</Text>
           <TextInput
             style={styles.input}
             value={username}
@@ -364,16 +365,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    fontFamily: 'roboto-medium',
     fontSize: fonts.FONT_SIZE_XS,
     color: colors.MEDIUM_GRAY,
     marginTop: 6,
+    marginBottom: 0,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.LIGHT_GRAY,
     borderRadius: 100,
-    padding: 12,
+    paddingHorizontal: FORM_FIELD_INPUT_PADDING_HORIZONTAL,
+    paddingVertical: 12,
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.TEXT_DARK,

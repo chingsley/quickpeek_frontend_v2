@@ -1,5 +1,6 @@
 import CustomButton from '@/components/shared/CustomButton';
 import { colors } from '@/constants/colors';
+import { FORM_FIELD_INPUT_PADDING_HORIZONTAL, formFieldLabelStyles } from '@/constants/formField';
 import { fonts } from '@/constants/fonts';
 import { TEXT_INPUT_CLIPBOARD_PROPS } from '@/constants/textInput';
 import {
@@ -43,6 +44,9 @@ const SEARCH_DEBOUNCE_MS = 500;
 /** Market default when nothing has been picked yet (Halifax). */
 const DEFAULT_COORDS = { latitude: 44.65, longitude: -63.57 };
 const MAP_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
+const MAP_PICK_HINT = 'Enter address or drag the map over the pin to choose location.';
+const LOCATION_APPLY_ERROR =
+  'Enter address or drag the map to choose a location. Click "X" to Cancel.';
 
 /**
  * Marketplace-style location picker: debounced address suggestions, a
@@ -59,12 +63,15 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
   const [center, setCenter] = useState(DEFAULT_COORDS);
   const [addressLabel, setAddressLabel] = useState('');
   const [gpsError, setGpsError] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
   /** True once the user has actually chosen something (suggestion, drag, GPS). */
   const [hasPicked, setHasPicked] = useState(false);
 
   const suppressSearchRef = useRef(false);
   const searchSeq = useRef(0);
   const geocodeSeq = useRef(0);
+  /** Ignore programmatic map settles — only user drags count as a pick. */
+  const userMovedMapRef = useRef(false);
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
 
   // Reset whenever the picker opens.
@@ -80,10 +87,12 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setSearchError(false);
     setResultTerm(null);
     setGpsError(false);
+    setApplyError(null);
     setCoords(start);
     setCenter(start);
     setAddressLabel(initial?.address ?? '');
     setHasPicked(!!initial);
+    userMovedMapRef.current = false;
   }, [visible, initial]);
 
   // Debounced suggestion search, latest request wins.
@@ -122,6 +131,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
 
   const handleChangeText = (text: string) => {
     setQuery(text);
+    if (applyError) setApplyError(null);
   };
 
   const handleClear = () => {
@@ -140,6 +150,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCenter(next);
     setAddressLabel(suggestion.label);
     setHasPicked(true);
+    setApplyError(null);
     Keyboard.dismiss();
   };
 
@@ -152,12 +163,18 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     });
   };
 
+  const handlePanDrag = () => {
+    userMovedMapRef.current = true;
+  };
+
   const handleRegionChangeComplete = (region: {
     latitude: number;
     longitude: number;
   }) => {
     setCoords({ latitude: region.latitude, longitude: region.longitude });
+    if (!userMovedMapRef.current) return;
     setHasPicked(true);
+    setApplyError(null);
     reverseGeocodeIntoLabel(region.latitude, region.longitude);
   };
 
@@ -176,11 +193,16 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCoords(next);
     setCenter(next);
     setHasPicked(true);
+    setApplyError(null);
     reverseGeocodeIntoLabel(next.latitude, next.longitude);
   };
 
   const handleApply = () => {
-    // Reachable only with a pick — Apply is disabled otherwise.
+    if (!hasPicked) {
+      setApplyError(LOCATION_APPLY_ERROR);
+      return;
+    }
+    setApplyError(null);
     onApply({
       latitude: coords.latitude,
       longitude: coords.longitude,
@@ -225,29 +247,33 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
           <View style={styles.headerButton} />
         </View>
 
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={18} color={colors.MEDIUM_GRAY} />
-          <TextInput
-            {...TEXT_INPUT_CLIPBOARD_PROPS}
-            testID="location-search-input"
-            style={[styles.searchInput, Platform.OS === 'web' && styles.searchInputWeb]}
-            placeholder="Search by city, neighborhood or ZIP code"
-            placeholderTextColor={colors.PLACEHOLDER}
-            value={query}
-            onChangeText={handleChangeText}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {query.length > 0 ? (
-            <Pressable
-              onPress={handleClear}
-              accessibilityLabel="Clear search"
-              accessibilityRole="button"
-              style={styles.clearButton}
-            >
-              <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
-            </Pressable>
-          ) : null}
+        <View style={styles.searchSection}>
+          <Text style={[formFieldLabelStyles.label, styles.fieldLabel]}>{MAP_PICK_HINT}</Text>
+          <View style={[styles.searchRow, applyError ? styles.searchRowError : null]}>
+            <Ionicons name="search" size={18} color={colors.MEDIUM_GRAY} />
+            <TextInput
+              {...TEXT_INPUT_CLIPBOARD_PROPS}
+              testID="location-search-input"
+              style={[styles.searchInput, Platform.OS === 'web' && styles.searchInputWeb]}
+              placeholder="Search by city, neighborhood or ZIP code"
+              placeholderTextColor={colors.PLACEHOLDER}
+              value={query}
+              onChangeText={handleChangeText}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {query.length > 0 ? (
+              <Pressable
+                onPress={handleClear}
+                accessibilityLabel="Clear search"
+                accessibilityRole="button"
+                style={styles.clearButton}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.MEDIUM_GRAY} />
+              </Pressable>
+            ) : null}
+          </View>
+          {applyError ? <Text style={styles.fieldError}>{applyError}</Text> : null}
         </View>
 
         {searchError ? (
@@ -295,19 +321,22 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
                 key={`${center.latitude},${center.longitude}`}
                 style={StyleSheet.absoluteFill}
                 initialRegion={{ ...center, ...MAP_DELTA }}
+                onPanDrag={handlePanDrag}
                 onRegionChangeComplete={handleRegionChangeComplete}
               />
               <View pointerEvents="none" style={styles.centerPin}>
-                <Ionicons name="location" size={40} color={colors.PRIMARY} />
+                <Ionicons name="location" size={40} color={colors.AMBER} />
               </View>
             </>
           )}
 
-          <View style={styles.addressPill} pointerEvents="none">
-            <Text style={styles.addressPillText} numberOfLines={2}>
-              {addressLabel || 'Drag map to choose location'}
-            </Text>
-          </View>
+          {addressLabel ? (
+            <View style={styles.addressPill} pointerEvents="none">
+              <Text style={styles.addressPillText} numberOfLines={2}>
+                {addressLabel}
+              </Text>
+            </View>
+          ) : null}
 
           {Platform.OS !== 'web' ? (
             <Pressable
@@ -331,7 +360,6 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
           <CustomButton
             text="Apply"
             onPress={handleApply}
-            disabled={!hasPicked}
             noTopMargin
           />
         </View>
@@ -365,6 +393,14 @@ const styles = StyleSheet.create({
     fontSize: fonts.FONT_SIZE_MEDIUM,
     color: colors.TEXT_DARK,
   },
+  searchSection: {
+    marginTop: 4,
+  },
+  fieldLabel: {
+    marginBottom: 0,
+    marginTop: 0,
+    marginHorizontal: 16,
+  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -372,9 +408,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.INPUT_BG,
     borderRadius: 100,
     marginHorizontal: 16,
-    marginTop: 4,
+    marginTop: 8,
     paddingHorizontal: 14,
     height: 48,
+    borderWidth: 1,
+    borderColor: colors.TRANSPARENT,
+  },
+  searchRowError: {
+    borderColor: colors.RED,
+  },
+  fieldError: {
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_XS,
+    color: colors.RED,
+    textAlign: 'left',
+    marginTop: 6,
+    marginHorizontal: 16,
+    paddingLeft: FORM_FIELD_INPUT_PADDING_HORIZONTAL,
   },
   searchInput: {
     flex: 1,
@@ -498,7 +548,5 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 16,
     paddingTop: 24,
-    // borderWidth: 1,
-    // borderColor: 'red',
   },
 });

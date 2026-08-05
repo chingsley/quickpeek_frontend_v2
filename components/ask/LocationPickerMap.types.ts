@@ -15,4 +15,5 @@ export type LocationPickerMapProps = {
     latitudeDelta: number;
     longitudeDelta: number;
   }) => void;
+  onPanDrag?: () => void;
 };

@@ -40,6 +40,29 @@ const typeAndSettle = async (text: string) => {
   });
 };
 
+const dragMapTo = async (coords: { latitude: number; longitude: number }) => {
+  const map = screen.getByTestId('picker-map');
+  await act(async () => {
+    map.props.onPanDrag?.();
+    map.props.onRegionChangeComplete({
+      ...coords,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    });
+  });
+};
+
+const settleMapOnly = async (coords: { latitude: number; longitude: number }) => {
+  const map = screen.getByTestId('picker-map');
+  await act(async () => {
+    map.props.onRegionChangeComplete({
+      ...coords,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    });
+  });
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
@@ -156,15 +179,7 @@ describe('LocationPickerModal selection and apply', () => {
     const onApply = jest.fn();
     renderPicker({ onApply });
 
-    const map = screen.getByTestId('picker-map');
-    await act(async () => {
-      map.props.onRegionChangeComplete({
-        latitude: 45.0,
-        longitude: -64.0,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      });
-    });
+    await dragMapTo({ latitude: 45.0, longitude: -64.0 });
 
     expect(mockGetAddressLabel).toHaveBeenCalledWith(45.0, -64.0);
     expect(await screen.findByText('123, Main St, Halifax, NS')).toBeTruthy();
@@ -230,7 +245,23 @@ describe('LocationPickerModal selection and apply', () => {
     expect(onApply).not.toHaveBeenCalled();
   });
 
-  it('keeps Apply disabled until a location is actually chosen', async () => {
+  it('shows an apply hint when Apply is tapped before a location is chosen', async () => {
+    const onApply = jest.fn();
+    renderPicker({ onApply });
+
+    fireEvent.press(screen.getByText('Apply'));
+    expect(onApply).not.toHaveBeenCalled();
+    expect(screen.getByText(/enter an address or drag the map to choose a location/i)).toBeTruthy();
+
+    mockGetAddressLabel.mockResolvedValue('Halifax Harbour, Halifax, NS');
+    await settleMapOnly({ latitude: 44.65, longitude: -63.57 });
+
+    expect(screen.getByText(/enter an address or drag the map to choose a location/i)).toBeTruthy();
+    expect(screen.queryByText('Halifax Harbour, Halifax, NS')).toBeNull();
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it('keeps Apply inactive until a location is actually chosen', async () => {
     const onApply = jest.fn();
     renderPicker({ onApply });
 
@@ -250,12 +281,7 @@ describe('LocationPickerModal selection and apply', () => {
     fireEvent.press(screen.getByText('Apply'));
     expect(onApply).not.toHaveBeenCalled();
 
-    await act(async () => {
-      screen.getByTestId('picker-map').props.onRegionChangeComplete({
-        latitude: 45.0,
-        longitude: -64.0,
-      });
-    });
+    await dragMapTo({ latitude: 45.0, longitude: -64.0 });
     fireEvent.press(screen.getByText('Apply'));
     expect(onApply).toHaveBeenCalledTimes(1);
   });
@@ -296,13 +322,8 @@ it('ignores a stale reverse-geocode after a newer drag', async () => {
     .mockResolvedValueOnce('Newest address');
 
   renderPicker();
-  const map = screen.getByTestId('picker-map');
-  await act(async () => {
-    map.props.onRegionChangeComplete({ latitude: 45.0, longitude: -64.0 });
-  });
-  await act(async () => {
-    map.props.onRegionChangeComplete({ latitude: 46.0, longitude: -65.0 });
-  });
+  await dragMapTo({ latitude: 45.0, longitude: -64.0 });
+  await dragMapTo({ latitude: 46.0, longitude: -65.0 });
   await act(async () => {
     resolveFirst('Stale address');
   });
@@ -316,17 +337,19 @@ it('falls back to coordinates when applying before the geocode resolves', async 
   const onApply = jest.fn();
   renderPicker({ onApply });
 
-  await act(async () => {
-    screen.getByTestId('picker-map').props.onRegionChangeComplete({
-      latitude: 45.0,
-      longitude: -64.0,
-    });
-  });
+  await dragMapTo({ latitude: 45.0, longitude: -64.0 });
   fireEvent.press(screen.getByText('Apply'));
   expect(onApply).toHaveBeenCalledWith({
     latitude: 45.0,
     longitude: -64.0,
     address: '45.00000, -64.00000',
+  });
+});
+
+describe('LocationPickerModal map hint', () => {
+  it('shows the pick instructions as a label above the search input', () => {
+    renderPicker();
+    expect(screen.getByText(/drag the map to move the pin/i)).toBeTruthy();
   });
 });
 
