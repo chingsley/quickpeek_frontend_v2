@@ -7,6 +7,12 @@ export enum QuestionStatus {
   Closed = 'CLOSED',
 }
 
+/**
+ * Who may respond to a location-pinned question. The numeric radius for each
+ * gated tier resolves from market config server-side.
+ */
+export type LocationScope = 'EXACT_SPOT' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
+
 export type TQuestionerRating = {
   averageRating: number;
   reviewsCount: number;
@@ -22,7 +28,7 @@ export type TQuestion = {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
-  restrictToNearby: boolean;
+  locationScope: LocationScope;
   userId: string;
   status: QuestionStatus;
   createdAt: string;
@@ -32,6 +38,10 @@ export type TQuestion = {
   category?: TCategory;
   distanceKm?: number | null;
   nearMe?: boolean;
+  /** Whether the viewer is inside this question's scope (can respond). */
+  eligible?: boolean;
+  /** Resolved radius for the question's scope (null for ANYWHERE). */
+  scopeRadiusKm?: number | null;
   questioner?: {
     id: string;
     name: string;
@@ -67,7 +77,7 @@ export type TCreateQuestionPayload = {
   latitude?: number | null;
   longitude?: number | null;
   address?: string | null;
-  restrictToNearby?: boolean;
+  locationScope?: LocationScope;
 };
 
 export type TViewerRequest = {

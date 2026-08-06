@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
+import { Platform } from 'react-native';
 import FormField from '@/components/shared/FormField';
 import { FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { colors } from '@/constants/colors';
@@ -116,5 +117,18 @@ describe('FormField', () => {
     expect(input.props.keyboardType).toBe('decimal-pad');
     expect(input.props.inputMode).toBe('decimal');
     expect(input.props.multiline).toBe(true);
+  });
+
+  it('applies the web text-selection style on web', () => {
+    const originalOS = Object.getOwnPropertyDescriptor(Platform, 'OS');
+    Object.defineProperty(Platform, 'OS', { value: 'web', configurable: true });
+    try {
+      render(<FormField label="Title" value="" onChangeText={jest.fn()} testID="web-field" />);
+      const input = screen.getByTestId('web-field');
+      const flat = Object.assign({}, ...input.props.style.flat());
+      expect(flat.userSelect).toBe('text');
+    } finally {
+      if (originalOS) Object.defineProperty(Platform, 'OS', originalOS);
+    }
   });
 });

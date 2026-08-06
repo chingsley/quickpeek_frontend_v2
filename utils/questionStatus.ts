@@ -6,7 +6,7 @@ import { TFeedQuestion } from '@/types/question.types';
  * - `outgoing` / `incoming` are mutually exclusive and rendered in a neutral color.
  * - The remaining icons stack alongside them and are NOT mutually exclusive.
  * - `near_me` is used for the Home filter tag only; proximity on cards is shown
- *   via the distance label when `restrictToNearby` is true, not an icon.
+ *   via the distance label when the question's locationScope gates responses.
  */
 export type StatusIconKey =
   | 'outgoing'
@@ -85,13 +85,12 @@ export function getQuestionStatusIcons(
     }
   }
 
-  // Near-me applies only to incoming questions the backend flagged as within
-  // the market-wide near-me radius. The FE trusts the BE-provided `nearMe`
-  // (computed using live GPS coords sent up by Home) so there is no risk of
-  // radius drift between client and server.
+  // The near-me badge means nearby AND answerable: the BE `nearMe` flag
+  // covers the browse radius and `eligible` covers the question's scope, both
+  // computed from the live GPS coords Home sends up.
   const hasLocation = question.latitude != null && question.longitude != null;
   const isIncoming = question.userId !== viewerId;
-  if (isIncoming && hasLocation && question.nearMe === true) {
+  if (isIncoming && hasLocation && question.nearMe === true && question.eligible === true) {
     icons.push(iconFromKey('near_me'));
   }
 

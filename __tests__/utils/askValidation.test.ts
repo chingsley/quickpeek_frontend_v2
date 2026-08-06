@@ -14,28 +14,28 @@ describe('validateAskForm', () => {
   });
 
   it('flags a missing or too-short title', () => {
-    expect(validateAskForm({ ...valid, title: '' }).title).toMatch(/title/i);
-    expect(validateAskForm({ ...valid, title: 'abc' }).title).toMatch(/at least 5/);
-    expect(validateAskForm({ ...valid, title: '     ' }).title).toBeTruthy();
+    expect(validateAskForm({ ...valid, title: '' }).title).toBe('Enter a title.');
+    expect(validateAskForm({ ...valid, title: 'abc' }).title).toBe('Enter a title.');
+    expect(validateAskForm({ ...valid, title: '     ' }).title).toBe('Enter a title.');
   });
 
   it('flags price problems distinctly', () => {
-    expect(validateAskForm({ ...valid, price: '' }).price).toMatch(/enter the amount/i);
-    expect(validateAskForm({ ...valid, price: '0' }).price).toMatch(/greater than \$0/);
-    expect(validateAskForm({ ...valid, price: '-3' }).price).toMatch(/greater than \$0/);
+    expect(validateAskForm({ ...valid, price: '' }).price).toBe('Enter a price.');
+    expect(validateAskForm({ ...valid, price: '0' }).price).toBe('Enter a price greater than $0.');
+    expect(validateAskForm({ ...valid, price: '-3' }).price).toBe('Enter a price greater than $0.');
     expect(validateAskForm({ ...valid, price: '10001' }).price).toMatch(/cannot exceed \$10,000/);
     expect(validateAskForm({ ...valid, price: '10000' }).price).toBeUndefined();
   });
 
   it('flags short details and criteria', () => {
-    expect(validateAskForm({ ...valid, detail: 'too short' }).detail).toMatch(/at least 10/);
+    expect(validateAskForm({ ...valid, detail: 'too short' }).detail).toBe(
+      'Add details about what you need.',
+    );
     expect(validateAskForm({ ...valid, detail: '' }).detail).toBeTruthy();
-    expect(validateAskForm({ ...valid, acceptanceCriteria: '' }).acceptanceCriteria).toMatch(
-      /at least 5/,
+    expect(validateAskForm({ ...valid, acceptanceCriteria: '' }).acceptanceCriteria).toBe(
+      'Describe what counts as a good answer.',
     );
-    expect(validateAskForm({ ...valid, acceptanceCriteria: 'ok' }).acceptanceCriteria).toMatch(
-      /at least 5/,
-    );
+    expect(validateAskForm({ ...valid, acceptanceCriteria: 'ok' }).acceptanceCriteria).toBeTruthy();
   });
 
   it('collects multiple errors at once', () => {

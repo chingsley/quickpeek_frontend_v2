@@ -175,7 +175,12 @@ describe('AskScreen publish', () => {
 });
 
 describe('AskScreen location', () => {
-  const applyPick = (pick: { latitude: number; longitude: number; address: string; }) => {
+  const applyPick = (pick: {
+    latitude: number;
+    longitude: number;
+    address: string;
+    scope?: 'EXACT_SPOT' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
+  }) => {
     act(() => {
       screen.getByTestId('location-picker').props.onApply(pick);
     });
@@ -191,7 +196,7 @@ describe('AskScreen location', () => {
     fireEvent.press(screen.getByLabelText('Choose location'));
     expect(screen.getByTestId('location-picker')).toBeTruthy();
 
-    applyPick({ latitude: 44.6, longitude: -63.6, address: '123, Main St, Halifax, NS' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: '123, Main St, Halifax, NS', scope: 'EXACT_SPOT' });
     expect(screen.queryByTestId('location-picker')).toBeNull();
     expect(screen.getByText('123, Main St, Halifax, NS')).toBeTruthy();
 
@@ -203,7 +208,7 @@ describe('AskScreen location', () => {
           latitude: 44.6,
           longitude: -63.6,
           address: '123, Main St, Halifax, NS',
-          restrictToNearby: true,
+          locationScope: 'EXACT_SPOT',
         }),
       ),
     );
@@ -226,7 +231,7 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
     expect(screen.getByText('Halifax, NS')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Remove location'));
@@ -249,13 +254,14 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
 
     fireEvent.press(screen.getByLabelText('Choose location'));
     expect(screen.getByTestId('location-picker').props.initial).toEqual({
       latitude: 44.6,
       longitude: -63.6,
       address: 'Halifax, NS',
+      scope: 'EXACT_SPOT',
     });
   });
 
@@ -263,30 +269,50 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.65, longitude: -63.57, address: '' });
+    applyPick({ latitude: 44.65, longitude: -63.57, address: '', scope: 'EXACT_SPOT' });
 
     expect(screen.queryByTestId('location-picker')).toBeNull();
     expect(screen.getByText('Search for a location')).toBeTruthy();
-    expect(screen.queryByTestId('restrict-nearby-switch')).toBeNull();
+    expect(screen.queryByText('Who can answer this?')).toBeNull();
   });
 
-  it('toggles the nearby-only switch', async () => {
+  it('pre-selects the detected scope and lets the user override it', async () => {
     mockCreateQuestion.mockResolvedValue({ id: 'q4' });
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
 
-    const toggle = screen.getByTestId('restrict-nearby-switch');
-    expect(toggle.props.value).toBe(true);
-    fireEvent(toggle, 'onValueChange', false);
-    expect(screen.getByTestId('restrict-nearby-switch').props.value).toBe(false);
+    // Chips appear with the detected scope pre-selected and concrete copy.
+    expect(screen.getByText('Who can answer this?')).toBeTruthy();
+    expect(screen.getByText(/within 300 m/)).toBeTruthy();
+
+    // Override to ANYWHERE — helper and payload follow.
+    fireEvent.press(screen.getByText('Anyone can answer'));
+    expect(screen.getByText('Location is shown for context only.')).toBeTruthy();
 
     fillValidForm();
     fireEvent.press(screen.getByText('Publish question'));
     await waitFor(() =>
       expect(mockCreateQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({ restrictToNearby: false }),
+        expect.objectContaining({ locationScope: 'ANYWHERE' }),
+      ),
+    );
+  });
+
+  it('uses the detected scope in the payload when not overridden', async () => {
+    mockCreateQuestion.mockResolvedValue({ id: 'q6' });
+    render(<AskScreen />);
+
+    fireEvent.press(screen.getByLabelText('Choose location'));
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'CITY' });
+    expect(screen.getByText(/within 25 km/)).toBeTruthy();
+
+    fillValidForm();
+    fireEvent.press(screen.getByText('Publish question'));
+    await waitFor(() =>
+      expect(mockCreateQuestion).toHaveBeenCalledWith(
+        expect.objectContaining({ locationScope: 'CITY' }),
       ),
     );
   });

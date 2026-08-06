@@ -1,4 +1,6 @@
 import * as Location from 'expo-location';
+import { LocationScope } from '@/types/question.types';
+import { calculateHaversineDistance } from '@/utils/geo';
 
 /**
  * Address autocomplete via OpenStreetMap Nominatim — free and keyless, which
@@ -10,12 +12,33 @@ export type LocationSuggestion = {
   label: string;
   latitude: number;
   longitude: number;
+  /** South/north/west/east bounds from the geocoder, when it provides them. */
+  boundingBox: LocationBoundingBox | null;
+};
+
+export type LocationBoundingBox = {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
 };
 
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const SUGGESTION_LIMIT = 5;
 
-type NominatimRow = { display_name?: string; lat?: string; lon?: string };
+type NominatimRow = {
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  /** [south, north, west, east] as strings. */
+  boundingbox?: [string, string, string, string];
+};
+
+const parseBoundingBox = (row: NominatimRow): LocationBoundingBox | null => {
+  if (!row.boundingbox) return null;
+  const [south, north, west, east] = row.boundingbox.map(parseFloat);
+  return { south, west, north, east };
+};
 
 export const getLocationSuggestions = async (
   query: string,
@@ -34,7 +57,21 @@ export const getLocationSuggestions = async (
     label: String(row.display_name ?? ''),
     latitude: parseFloat(String(row.lat)),
     longitude: parseFloat(String(row.lon)),
+    boundingBox: parseBoundingBox(row),
   }));
+};
+
+/**
+ * Buckets a geocoder bounding box into a location scope. Deliberately
+ * geometry-based (not OSM addresstype) so it stays provider-agnostic —
+ * Google Places' viewport maps the same way.
+ */
+export const detectLocationScope = (bbox: LocationBoundingBox): LocationScope => {
+  const diagonalKm = calculateHaversineDistance(bbox.south, bbox.west, bbox.north, bbox.east);
+  if (diagonalKm < 0.5) return 'EXACT_SPOT';
+  if (diagonalKm < 2) return 'WALKING';
+  if (diagonalKm < 8) return 'NEIGHBOURHOOD';
+  return 'CITY';
 };
 
 const coordsLabel = (latitude: number, longitude: number): string =>

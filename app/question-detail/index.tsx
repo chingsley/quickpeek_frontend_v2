@@ -3,6 +3,7 @@ import BottomSheet from '@/components/shared/BottomSheet';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenInfoBanner } from '@/components/shared/ScreenInfoBanner';
+import { LocationScopeSummaryText } from '@/components/shared/LocationScopeSummaryText';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import { useActionSheet } from '@/components/shared/useActionSheet';
 import QuestionStatusIcons from '@/components/QuestionStatusIcons';
@@ -34,7 +35,9 @@ import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
 import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
-import { QuestionStatus, TRejectedResponder } from '@/types/question.types';
+import { LocationScope, QuestionStatus, TRejectedResponder } from '@/types/question.types';
+import { formatLocationScopeSummary } from '@/constants/locationScope';
+import { resolveScopeRadii, useMarketConfigStore } from '@/store/marketConfig.store';
 import { formatDate } from '@/utils/date';
 import { LINKED_FROM_CHAT_PARAM, openLinkedChat } from '@/utils/linkedScreenNavigation';
 import { normalizeRouteParam } from '@/utils/routeParams';
@@ -59,13 +62,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const buildLocationMessage = (question: {
-  address?: string | null;
-  restrictToNearby?: boolean;
-}): string | null => {
-  if (!question.restrictToNearby) return null;
+const buildLocationMessage = (
+  question: {
+    address?: string | null;
+    locationScope?: LocationScope;
+    scopeRadiusKm?: number | null;
+  },
+  scopeRadii: Record<string, number>,
+): string | null => {
+  if (!question.locationScope || question.locationScope === 'ANYWHERE') return null;
   const place = question.address?.trim() || 'the pinned location';
-  return `This question needs responders close to ${place}.`;
+  const scopeSummary = formatLocationScopeSummary(
+    question.locationScope,
+    question.scopeRadiusKm,
+    scopeRadii,
+  );
+  return `This question needs responders at ${place} — ${scopeSummary}.`;
 };
 
 const LOCATION_PROXIMITY_HINT =
@@ -73,14 +85,15 @@ const LOCATION_PROXIMITY_HINT =
 
 const getCanRequestMessage = (
   question: NonNullable<Awaited<ReturnType<typeof getQuestionDetail>>>,
+  scopeRadii: Record<string, number>,
 ): string => {
   switch (question.canRequestReason) {
     case 'OUTSIDE_RADIUS': {
-      const base = buildLocationMessage(question);
+      const base = buildLocationMessage(question, scopeRadii);
       return base ?? 'You are outside the required radius for this question.';
     }
     case 'NO_VIEWER_LOCATION': {
-      const base = buildLocationMessage(question);
+      const base = buildLocationMessage(question, scopeRadii);
       return base ? `${base} ${LOCATION_PROXIMITY_HINT}` : LOCATION_PROXIMITY_HINT;
     }
     case 'ALREADY_REQUESTED':
@@ -98,6 +111,7 @@ const getCanRequestMessage = (
 
 const getResponderStatusMessage = (
   question: NonNullable<Awaited<ReturnType<typeof getQuestionDetail>>>,
+  scopeRadii: Record<string, number>,
 ): string => {
   const vr = question.viewerRequest;
   if (vr?.status === AnswerRequestStatus.Pending) {
@@ -110,9 +124,9 @@ const getResponderStatusMessage = (
   }
   if (vr?.status === AnswerRequestStatus.Rejected || vr?.isBlocked || question.canRequestReason === 'BLOCKED') {
     const reason = vr?.rejectionReason;
-    return reason ? `Declined: ${reason}` : getCanRequestMessage(question);
+    return reason ? `Declined: ${reason}` : getCanRequestMessage(question, scopeRadii);
   }
-  return getCanRequestMessage(question);
+  return getCanRequestMessage(question, scopeRadii);
 };
 
 type RequestSectionProps = {
@@ -293,6 +307,7 @@ const QuestionDetail = () => {
   const focusSection = params.section;
   const linkedFromChat = normalizeRouteParam(params[LINKED_FROM_CHAT_PARAM]);
   const authUserId = useAuthStore((state) => state.user?.id);
+  const scopeRadii = resolveScopeRadii(useMarketConfigStore((state) => state.config));
   const { showActionSheet, actionSheet } = useActionSheet();
 
   const [loading, setLoading] = useState(true);
@@ -341,12 +356,30 @@ const QuestionDetail = () => {
       setQuestion(detail);
 
       const liveCoords = await useLiveLocationStore.getState().ensureCoords();
+      console.log('[QuestionDetail] liveCoords:', liveCoords);
       if (liveCoords) {
         try {
           const enriched = await getQuestionDetail(id, liveCoords);
+          console.log('[QuestionDetail] enriched canRequest:', enriched.canRequest, 'reason:', enriched.canRequestReason, 'eligible:', enriched.eligible);
           setQuestion(enriched);
-        } catch {
+        } catch (err) {
+          console.warn('[QuestionDetail] enrich failed', err);
           /* keep detail without distance enrichment */
+        }
+      } else if (detail.locationScope && detail.locationScope !== 'ANYWHERE') {
+        // Scoped question needs location to show the request button. Ask for
+        // permission once; the enriched call then runs on next load.
+        console.warn('[QuestionDetail] no liveCoords — prompting for location permission');
+        await useLiveLocationStore.getState().promptForCoords();
+        // Reload with the newly granted coords so the button state updates.
+        const retryCoords = await useLiveLocationStore.getState().ensureCoords();
+        if (retryCoords) {
+          try {
+            const enriched = await getQuestionDetail(id, retryCoords);
+            setQuestion(enriched);
+          } catch {
+            /* keep detail without distance enrichment */
+          }
         }
       }
 
@@ -655,8 +688,23 @@ const QuestionDetail = () => {
 
         <ScreenInfoBanner
           iconName="location-outline"
-          label={question.address?.trim() || 'No Location'}
+          label={question.address?.trim() || 'No location'}
           style={styles.locationBanner}
+          secondaryRow={
+            question.locationScope
+              ? {
+                iconName: 'navigate-circle-outline',
+                labelContent: (
+                  <LocationScopeSummaryText
+                    scope={question.locationScope}
+                    radiusKm={question.scopeRadiusKm}
+                    radii={scopeRadii}
+                    style={styles.locationScopeSummary}
+                  />
+                ),
+              }
+              : undefined
+          }
         />
 
         <View style={styles.contentSection}>
@@ -718,7 +766,7 @@ const QuestionDetail = () => {
               />
             ) : (
               <View style={styles.infoBox}>
-                <Text style={styles.infoText}>{getResponderStatusMessage(question)}</Text>
+                <Text style={styles.infoText}>{getResponderStatusMessage(question, scopeRadii)}</Text>
                 {showOpenChat && requestIdForChat && (
                   <Pressable
                     style={styles.infoOpenChatBtn}
@@ -1012,6 +1060,12 @@ const styles = StyleSheet.create({
   },
   chip: { backgroundColor: colors.SECONDARY },
   locationBanner: { marginBottom: 20 },
+  locationScopeSummary: {
+    flex: 1,
+    fontFamily: fonts.FONT_FAMILY_REGULAR,
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.TEXT_DARK,
+  },
   contentSection: {
     paddingTop: 20,
     paddingBottom: 20,

@@ -41,8 +41,8 @@ describe('getLocationSuggestions', () => {
     expect(url).toContain('format=json');
     expect((init.headers as Record<string, string>).Accept).toBe('application/json');
     expect(results).toEqual([
-      { label: 'Halifax, Nova Scotia, Canada', latitude: 44.65, longitude: -63.57 },
-      { label: 'Downtown Halifax, Canada', latitude: 44.64, longitude: -63.58 },
+      { label: 'Halifax, Nova Scotia, Canada', latitude: 44.65, longitude: -63.57, boundingBox: null },
+      { label: 'Downtown Halifax, Canada', latitude: 44.64, longitude: -63.58, boundingBox: null },
     ]);
   });
 
@@ -52,7 +52,7 @@ describe('getLocationSuggestions', () => {
       json: () => Promise.resolve([{ lat: '44.65', lon: '-63.57' }]),
     });
     const results = await getLocationSuggestions('halifa');
-    expect(results).toEqual([{ label: '', latitude: 44.65, longitude: -63.57 }]);
+    expect(results).toEqual([{ label: '', latitude: 44.65, longitude: -63.57, boundingBox: null }]);
   });
 
   it('encodes the query string', async () => {

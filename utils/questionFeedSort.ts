@@ -16,7 +16,8 @@ const tierForItem = (item: TFeedQuestion, viewerId: string): number => {
   if (unreadCount > 0) return 1;
 
   const isIncoming = item.userId !== viewerId;
-  if (isIncoming && !hasViewerRequest(item) && item.nearMe) return 2;
+  // Tier 2 = nearby AND answerable (browse radius AND question scope).
+  if (isIncoming && !hasViewerRequest(item) && item.nearMe && item.eligible) return 2;
   if (isIncoming && !hasViewerRequest(item)) return 3;
   if (isIncoming) return 4;
 

@@ -29,7 +29,8 @@ export const chipStyles = {
   } satisfies ViewStyle,
 
   pillContainerActive: {
-    backgroundColor: colors.SECONDARY,
+    backgroundColor: colors.INPUT_BG,
+    // borderColor: colors.BORDER_GRAY,
     borderColor: colors.PRIMARY,
   } satisfies ViewStyle,
 
@@ -41,7 +42,7 @@ export const chipStyles = {
   } satisfies TextStyle,
 
   pillTextActive: {
-    color: colors.PRIMARY,
+    // color: colors.PRIMARY,
   } satisfies TextStyle,
 
   presetContainer: {

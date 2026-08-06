@@ -4,11 +4,13 @@ import { FORM_FIELD_INPUT_PADDING_HORIZONTAL, formFieldLabelStyles } from '@/con
 import { fonts } from '@/constants/fonts';
 import { TEXT_INPUT_CLIPBOARD_PROPS } from '@/constants/textInput';
 import {
+  detectLocationScope,
   getAddressLabel,
   getLocationSuggestions,
   LocationSuggestion,
 } from '@/services/location.services';
 import { useDebouncedValue } from '@/utils/useDebouncedValue';
+import { LocationScope } from '@/types/question.types';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
@@ -30,6 +32,8 @@ export type LocationPick = {
   latitude: number;
   longitude: number;
   address: string;
+  /** Detected from the geocoder bbox; EXACT_SPOT for pin drops/drags. */
+  scope: LocationScope;
 };
 
 type LocationPickerModalProps = {
@@ -44,9 +48,9 @@ const SEARCH_DEBOUNCE_MS = 500;
 /** Market default when nothing has been picked yet (Halifax). */
 const DEFAULT_COORDS = { latitude: 44.65, longitude: -63.57 };
 const MAP_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
-const MAP_PICK_HINT = 'Enter address or drag the map over the pin to choose location.';
+const MAP_PICK_HINT = 'Search for an address, or drag the map to move the pin.';
 const LOCATION_APPLY_ERROR =
-  'Enter address or drag the map to choose a location. Click "X" to Cancel.';
+  'Enter an address or drag the map to choose a location. Click "X" to Cancel.';
 
 /**
  * Marketplace-style location picker: debounced address suggestions, a
@@ -66,6 +70,8 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
   const [applyError, setApplyError] = useState<string | null>(null);
   /** True once the user has actually chosen something (suggestion, drag, GPS). */
   const [hasPicked, setHasPicked] = useState(false);
+  /** Scope detected from the picked suggestion's bbox (EXACT_SPOT for pins). */
+  const [pickedScope, setPickedScope] = useState<LocationScope>('EXACT_SPOT');
 
   const suppressSearchRef = useRef(false);
   const searchSeq = useRef(0);
@@ -92,6 +98,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCenter(start);
     setAddressLabel(initial?.address ?? '');
     setHasPicked(!!initial);
+    setPickedScope(initial?.scope ?? 'EXACT_SPOT');
     userMovedMapRef.current = false;
   }, [visible, initial]);
 
@@ -151,6 +158,10 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setAddressLabel(suggestion.label);
     setHasPicked(true);
     setApplyError(null);
+    // Geocoder bbox decides the scope; a bare point means an exact spot.
+    setPickedScope(
+      suggestion.boundingBox ? detectLocationScope(suggestion.boundingBox) : 'EXACT_SPOT',
+    );
     Keyboard.dismiss();
   };
 
@@ -175,6 +186,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     if (!userMovedMapRef.current) return;
     setHasPicked(true);
     setApplyError(null);
+    setPickedScope('EXACT_SPOT');
     reverseGeocodeIntoLabel(region.latitude, region.longitude);
   };
 
@@ -194,6 +206,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCenter(next);
     setHasPicked(true);
     setApplyError(null);
+    setPickedScope('EXACT_SPOT');
     reverseGeocodeIntoLabel(next.latitude, next.longitude);
   };
 
@@ -211,6 +224,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
       address:
         addressLabel ||
         `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
+      scope: pickedScope,
     });
   };
 

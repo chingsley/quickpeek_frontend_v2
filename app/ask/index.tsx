@@ -5,6 +5,7 @@ import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionPublishedSheet from '@/components/ask/QuestionPublishedSheet';
+import PillChip from '@/components/shared/PillChip';
 import { colors } from '@/constants/colors';
 import { formFieldLabelStyles, FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { fonts } from '@/constants/fonts';
@@ -12,6 +13,12 @@ import { SWITCH_APPEARANCE_PROPS } from '@/constants/switch';
 import { PRICE_INPUT_PROPS } from '@/constants/textInput';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
+import {
+  LOCATION_SCOPE_TIERS,
+  scopeRadiusHelper,
+} from '@/constants/locationScope';
+import { resolveScopeRadii, useMarketConfigStore } from '@/store/marketConfig.store';
+import { LocationScope } from '@/types/question.types';
 import { formatMoney } from '@/utils/payment.utils';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
@@ -19,7 +26,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -51,7 +57,8 @@ const AskScreen = () => {
   const [includeLocation, setIncludeLocation] = useState(false);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number; } | null>(null);
-  const [restrictToNearby, setRestrictToNearby] = useState(true);
+  const [locationScope, setLocationScope] = useState<LocationScope>('NEIGHBOURHOOD');
+  const scopeRadii = resolveScopeRadii(useMarketConfigStore((s) => s.config));
   const [successVisible, setSuccessVisible] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -95,6 +102,7 @@ const AskScreen = () => {
     }
     setCoords({ lat: pick.latitude, lng: pick.longitude });
     setAddress(pick.address);
+    setLocationScope(pick.scope);
     setIncludeLocation(true);
     setPickerVisible(false);
   };
@@ -103,7 +111,7 @@ const AskScreen = () => {
     setIncludeLocation(false);
     setAddress('');
     setCoords(null);
-    setRestrictToNearby(true);
+    setLocationScope('NEIGHBOURHOOD');
   };
 
   const clearForm = () => {
@@ -114,7 +122,7 @@ const AskScreen = () => {
     setIncludeLocation(false);
     setAddress('');
     setCoords(null);
-    setRestrictToNearby(true);
+    setLocationScope('NEIGHBOURHOOD');
     setSubmitError(null);
     setShowFieldErrors(false);
   };
@@ -138,7 +146,7 @@ const AskScreen = () => {
             latitude: coords.lat,
             longitude: coords.lng,
             address: address.trim(),
-            restrictToNearby,
+            locationScope,
           }
           : {}),
       };
@@ -236,19 +244,21 @@ const AskScreen = () => {
         </Pressable>
 
         {includeLocation && (
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleTextWrap}>
-              <Text style={formFieldLabelStyles.label}>Only allow users close to this location to answer</Text>
-              <Text style={styles.helperText}>
-                Everyone can see the question. Only users who share their live location and are within the market near-me radius can request to answer.
-              </Text>
+          <View style={styles.scopeSection}>
+            <Text style={formFieldLabelStyles.label}>Who can answer this?</Text>
+            <View style={styles.scopeChips}>
+              {LOCATION_SCOPE_TIERS.map((tier) => (
+                <PillChip
+                  key={tier.scope}
+                  label={tier.label}
+                  active={locationScope === tier.scope}
+                  onPress={() => setLocationScope(tier.scope)}
+                />
+              ))}
             </View>
-            <Switch
-              {...SWITCH_APPEARANCE_PROPS}
-              value={restrictToNearby}
-              onValueChange={setRestrictToNearby}
-              testID="restrict-nearby-switch"
-            />
+            <Text style={styles.helperText}>
+              {scopeRadiusHelper(locationScope, scopeRadii)}
+            </Text>
           </View>
         )}
 
@@ -267,7 +277,7 @@ const AskScreen = () => {
         visible={pickerVisible}
         initial={
           includeLocation && coords
-            ? { latitude: coords.lat, longitude: coords.lng, address }
+            ? { latitude: coords.lat, longitude: coords.lng, address, scope: locationScope }
             : null
         }
         onApply={handleApplyLocation}
@@ -312,13 +322,15 @@ const styles = StyleSheet.create({
   locationFieldPlaceholder: {
     color: colors.LIGHT_GRAY,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  scopeSection: {
     marginTop: 12,
   },
-  toggleTextWrap: { flex: 1 },
+  scopeChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
   helperText: {
     fontFamily: 'roboto',
     fontSize: fonts.FONT_SIZE_XS,

@@ -13,6 +13,7 @@ module.exports = {
     'components/shared/useActionSheet.tsx',
     'app/wallet/**/*.{ts,tsx}',
     'app/ask/index.tsx',
+    'constants/locationScope.ts',
     'services/payments.services.ts',
     'services/location.services.ts',
     'store/wallet.store.ts',

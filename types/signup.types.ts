@@ -15,6 +15,7 @@ export interface UserDetailsFormProps {
   formData: SignupFormData;
   setFormData: React.Dispatch<React.SetStateAction<SignupFormData>>;
   nextStep: () => void;
+  prevStep?: () => void;
 }
 
 export interface PreferencesFormProps {

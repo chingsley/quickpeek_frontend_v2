@@ -405,11 +405,12 @@ const HomeScreen = () => {
         : `${item.questioner.name}`
       : null;
     const mainIcons = getMainStatusIcons(item, authUserId);
-    // Distance label only when the questioner limited answers to nearby users.
+    // Distance label only when the question is scope-gated (not ANYWHERE).
     const isOutgoing = item.userId === authUserId;
     const showDistance =
       !isOutgoing &&
-      item.restrictToNearby === true &&
+      item.locationScope != null &&
+      item.locationScope !== 'ANYWHERE' &&
       item.latitude != null &&
       item.longitude != null &&
       item.distanceKm != null;

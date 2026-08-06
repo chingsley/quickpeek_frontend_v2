@@ -31,24 +31,24 @@ export const validateAskForm = (values: AskFormValues): AskFormErrors => {
   const errors: AskFormErrors = {};
 
   if (values.title.trim().length < ASK_LIMITS.titleMin) {
-    errors.title = `Give your question a title (at least ${ASK_LIMITS.titleMin} characters).`;
+    errors.title = 'Enter a title.';
   }
 
   const price = parseFloat(values.price);
   if (values.price.trim() === '') {
-    errors.price = 'Enter the amount you want to pay.';
+    errors.price = 'Enter a price.';
   } else if (isNaN(price) || price <= 0) {
-    errors.price = 'Enter an amount greater than $0.';
+    errors.price = 'Enter a price greater than $0.';
   } else if (price > ASK_LIMITS.priceMax) {
     errors.price = `Price cannot exceed ${formatMoney(ASK_LIMITS.priceMax, 'USD')}`;
   }
 
   if (values.detail.trim().length < ASK_LIMITS.detailMin) {
-    errors.detail = `Describe what you need in at least ${ASK_LIMITS.detailMin} characters.`;
+    errors.detail = 'Add details about what you need.';
   }
 
   if (values.acceptanceCriteria.trim().length < ASK_LIMITS.criteriaMin) {
-    errors.acceptanceCriteria = `State what a good answer looks like (at least ${ASK_LIMITS.criteriaMin} characters).`;
+    errors.acceptanceCriteria = 'Describe what counts as a good answer.';
   }
 
   return errors;
