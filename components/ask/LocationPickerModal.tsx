@@ -32,7 +32,7 @@ export type LocationPick = {
   latitude: number;
   longitude: number;
   address: string;
-  /** Detected from the geocoder bbox; EXACT_SPOT for pin drops/drags. */
+  /** Detected from the geocoder bbox; AT_EXACT_ADDRESS for pin drops/drags. */
   scope: LocationScope;
 };
 
@@ -70,8 +70,8 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
   const [applyError, setApplyError] = useState<string | null>(null);
   /** True once the user has actually chosen something (suggestion, drag, GPS). */
   const [hasPicked, setHasPicked] = useState(false);
-  /** Scope detected from the picked suggestion's bbox (EXACT_SPOT for pins). */
-  const [pickedScope, setPickedScope] = useState<LocationScope>('EXACT_SPOT');
+  /** Scope detected from the picked suggestion's bbox (AT_EXACT_ADDRESS for pins). */
+  const [pickedScope, setPickedScope] = useState<LocationScope>('AT_EXACT_ADDRESS');
 
   const suppressSearchRef = useRef(false);
   const searchSeq = useRef(0);
@@ -98,7 +98,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCenter(start);
     setAddressLabel(initial?.address ?? '');
     setHasPicked(!!initial);
-    setPickedScope(initial?.scope ?? 'EXACT_SPOT');
+    setPickedScope(initial?.scope ?? 'AT_EXACT_ADDRESS');
     userMovedMapRef.current = false;
   }, [visible, initial]);
 
@@ -158,9 +158,9 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setAddressLabel(suggestion.label);
     setHasPicked(true);
     setApplyError(null);
-    // Geocoder bbox decides the scope; a bare point means an exact spot.
+    // Geocoder bbox decides the scope; a bare point means an exact address.
     setPickedScope(
-      suggestion.boundingBox ? detectLocationScope(suggestion.boundingBox) : 'EXACT_SPOT',
+      suggestion.boundingBox ? detectLocationScope(suggestion.boundingBox) : 'AT_EXACT_ADDRESS',
     );
     Keyboard.dismiss();
   };
@@ -186,7 +186,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     if (!userMovedMapRef.current) return;
     setHasPicked(true);
     setApplyError(null);
-    setPickedScope('EXACT_SPOT');
+    setPickedScope('AT_EXACT_ADDRESS');
     reverseGeocodeIntoLabel(region.latitude, region.longitude);
   };
 
@@ -206,7 +206,7 @@ const LocationPickerModal = ({ visible, initial, onApply, onClose }: LocationPic
     setCenter(next);
     setHasPicked(true);
     setApplyError(null);
-    setPickedScope('EXACT_SPOT');
+    setPickedScope('AT_EXACT_ADDRESS');
     reverseGeocodeIntoLabel(next.latitude, next.longitude);
   };
 

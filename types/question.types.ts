@@ -11,7 +11,7 @@ export enum QuestionStatus {
  * Who may respond to a location-pinned question. The numeric radius for each
  * gated tier resolves from market config server-side.
  */
-export type LocationScope = 'EXACT_SPOT' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
+export type LocationScope = 'AT_EXACT_ADDRESS' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
 
 export type TQuestionerRating = {
   averageRating: number;

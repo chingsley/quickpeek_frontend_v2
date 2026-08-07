@@ -179,7 +179,7 @@ describe('AskScreen location', () => {
     latitude: number;
     longitude: number;
     address: string;
-    scope?: 'EXACT_SPOT' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
+    scope?: 'AT_EXACT_ADDRESS' | 'WALKING' | 'NEIGHBOURHOOD' | 'CITY' | 'ANYWHERE';
   }) => {
     act(() => {
       screen.getByTestId('location-picker').props.onApply(pick);
@@ -196,7 +196,7 @@ describe('AskScreen location', () => {
     fireEvent.press(screen.getByLabelText('Choose location'));
     expect(screen.getByTestId('location-picker')).toBeTruthy();
 
-    applyPick({ latitude: 44.6, longitude: -63.6, address: '123, Main St, Halifax, NS', scope: 'EXACT_SPOT' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: '123, Main St, Halifax, NS', scope: 'AT_EXACT_ADDRESS' });
     expect(screen.queryByTestId('location-picker')).toBeNull();
     expect(screen.getByText('123, Main St, Halifax, NS')).toBeTruthy();
 
@@ -208,7 +208,7 @@ describe('AskScreen location', () => {
           latitude: 44.6,
           longitude: -63.6,
           address: '123, Main St, Halifax, NS',
-          locationScope: 'EXACT_SPOT',
+          locationScope: 'AT_EXACT_ADDRESS',
         }),
       ),
     );
@@ -231,7 +231,7 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'AT_EXACT_ADDRESS' });
     expect(screen.getByText('Halifax, NS')).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText('Remove location'));
@@ -254,14 +254,14 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'AT_EXACT_ADDRESS' });
 
     fireEvent.press(screen.getByLabelText('Choose location'));
     expect(screen.getByTestId('location-picker').props.initial).toEqual({
       latitude: 44.6,
       longitude: -63.6,
       address: 'Halifax, NS',
-      scope: 'EXACT_SPOT',
+      scope: 'AT_EXACT_ADDRESS',
     });
   });
 
@@ -269,7 +269,7 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.65, longitude: -63.57, address: '', scope: 'EXACT_SPOT' });
+    applyPick({ latitude: 44.65, longitude: -63.57, address: '', scope: 'AT_EXACT_ADDRESS' });
 
     expect(screen.queryByTestId('location-picker')).toBeNull();
     expect(screen.getByText('Search for a location')).toBeTruthy();
@@ -281,14 +281,14 @@ describe('AskScreen location', () => {
     render(<AskScreen />);
 
     fireEvent.press(screen.getByLabelText('Choose location'));
-    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'EXACT_SPOT' });
+    applyPick({ latitude: 44.6, longitude: -63.6, address: 'Halifax, NS', scope: 'AT_EXACT_ADDRESS' });
 
     // Chips appear with the detected scope pre-selected and concrete copy.
     expect(screen.getByText('Who can answer this?')).toBeTruthy();
     expect(screen.getByText(/within 300 m/)).toBeTruthy();
 
     // Override to ANYWHERE — helper and payload follow.
-    fireEvent.press(screen.getByText('Anyone can answer'));
+    fireEvent.press(screen.getByText('Any responder can answer, location irrelevant'));
     expect(screen.getByText('Location is shown for context only.')).toBeTruthy();
 
     fillValidForm();

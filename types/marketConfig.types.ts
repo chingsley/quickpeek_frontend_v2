@@ -4,7 +4,7 @@ export type TMarketConfig = {
   nearMeRadiusKm: number;
   reviewRevealWindowDays?: number;
   /** Location-scope tier radii (km), resolved server-side. */
-  radiusExactSpotKm: number;
+  radiusAtExactAddressKm: number;
   radiusWalkingKm: number;
   radiusNeighbourhoodKm: number;
   radiusCityKm: number;

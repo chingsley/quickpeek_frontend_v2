@@ -1,5 +1,6 @@
 import {
   formatLocationScopeSummary,
+  formatScopeOptionLabel,
   formatScopeRadius,
   getLocationScopeSummaryValue,
   LOCATION_SCOPE_TIERS,
@@ -10,7 +11,7 @@ import {
 describe('location scope constants', () => {
   it('lists the five tiers in order with labels and helpers', () => {
     expect(LOCATION_SCOPE_TIERS.map((t) => t.scope)).toEqual([
-      'EXACT_SPOT',
+      'AT_EXACT_ADDRESS',
       'WALKING',
       'NEIGHBOURHOOD',
       'CITY',
@@ -38,15 +39,15 @@ describe('formatScopeRadius', () => {
 
 describe('scopeRadiusHelper', () => {
   const radii = {
-    radiusExactSpotKm: 0.3,
+    radiusAtExactAddressKm: 0.3,
     radiusWalkingKm: 1,
     radiusNeighbourhoodKm: 5,
     radiusCityKm: 25,
   };
 
   it('appends the concrete radius for gated tiers', () => {
-    expect(scopeRadiusHelper('EXACT_SPOT', radii)).toBe(
-      'Only people right at this location can answer (within 300 m).',
+    expect(scopeRadiusHelper('AT_EXACT_ADDRESS', radii)).toBe(
+      'Only people at this exact address can answer (within 300 m).',
     );
     expect(scopeRadiusHelper('CITY', radii)).toContain('25 km');
   });
@@ -60,7 +61,7 @@ describe('scopeRadiusHelper', () => {
 
 describe('resolveScopeRadiusKm', () => {
   const radii = {
-    radiusExactSpotKm: 0.3,
+    radiusAtExactAddressKm: 0.3,
     radiusWalkingKm: 1,
     radiusNeighbourhoodKm: 5,
     radiusCityKm: 25,
@@ -80,10 +81,35 @@ describe('resolveScopeRadiusKm', () => {
   });
 });
 
+describe('formatScopeOptionLabel', () => {
+  const radii = {
+    radiusAtExactAddressKm: 0.3,
+    radiusWalkingKm: 1,
+    radiusNeighbourhoodKm: 5,
+    radiusCityKm: 25,
+  };
+
+  it('formats ask-screen option labels with live radii', () => {
+    expect(formatScopeOptionLabel('AT_EXACT_ADDRESS', radii)).toBe(
+      'Responders at exact address (within 0.3km from address)',
+    );
+    expect(formatScopeOptionLabel('WALKING', radii)).toBe(
+      'Responders within a walking distance (within 1km from address)',
+    );
+    expect(formatScopeOptionLabel('NEIGHBOURHOOD', radii)).toBe(
+      'Responders within the neighbourhood of this location',
+    );
+    expect(formatScopeOptionLabel('CITY', radii)).toBe('Any responder within the city');
+    expect(formatScopeOptionLabel('ANYWHERE', radii)).toBe(
+      'Any responder can answer, location irrelevant',
+    );
+  });
+});
+
 describe('getLocationScopeSummaryValue', () => {
   it('returns the bold zone descriptor for each tier', () => {
-    expect(getLocationScopeSummaryValue('EXACT_SPOT', 0.3)).toBe(
-      'at address (within 0.3km)',
+    expect(getLocationScopeSummaryValue('AT_EXACT_ADDRESS', 0.3)).toBe(
+      'at exact address (within 0.3km)',
     );
     expect(getLocationScopeSummaryValue('WALKING', 1)).toBe(
       'walking distance (within 1km)',
@@ -98,8 +124,8 @@ describe('getLocationScopeSummaryValue', () => {
 
 describe('formatLocationScopeSummary', () => {
   it('shows allowed-response zone and radius for gated scopes', () => {
-    expect(formatLocationScopeSummary('EXACT_SPOT', 0.3)).toBe(
-      'Allowed response zone: at address (within 0.3km)',
+    expect(formatLocationScopeSummary('AT_EXACT_ADDRESS', 0.3)).toBe(
+      'Allowed response zone: at exact address (within 0.3km)',
     );
     expect(formatLocationScopeSummary('WALKING', 1)).toBe(
       'Allowed response zone: walking distance (within 1km)',
@@ -121,7 +147,7 @@ describe('formatLocationScopeSummary', () => {
   it('falls back to client market config radii when API radius is absent', () => {
     expect(
       formatLocationScopeSummary('CITY', null, {
-        radiusExactSpotKm: 0.3,
+        radiusAtExactAddressKm: 0.3,
         radiusWalkingKm: 1,
         radiusNeighbourhoodKm: 5,
         radiusCityKm: 12,

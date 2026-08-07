@@ -1,11 +1,11 @@
 import FormField from '@/components/shared/FormField';
 import LocationPickerModal, { LocationPick } from '@/components/ask/LocationPickerModal';
+import { LocationScopeOptionList } from '@/components/ask/LocationScopeOptionList';
 import BackButton from '@/components/shared/BackButton';
 import CustomButton from '@/components/shared/CustomButton';
 import KeyboardAwareScreen from '@/components/shared/KeyboardAwareScreen';
 import { ScreenTitle } from '@/components/shared/ScreenTitle';
 import QuestionPublishedSheet from '@/components/ask/QuestionPublishedSheet';
-import PillChip from '@/components/shared/PillChip';
 import { colors } from '@/constants/colors';
 import { formFieldLabelStyles, FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { fonts } from '@/constants/fonts';
@@ -14,7 +14,6 @@ import { PRICE_INPUT_PROPS } from '@/constants/textInput';
 import { createQuestion } from '@/services/questions.services';
 import useAppStore from '@/store/app.store';
 import {
-  LOCATION_SCOPE_TIERS,
   scopeRadiusHelper,
 } from '@/constants/locationScope';
 import { resolveScopeRadii, useMarketConfigStore } from '@/store/marketConfig.store';
@@ -245,17 +244,11 @@ const AskScreen = () => {
 
         {includeLocation && (
           <View style={styles.scopeSection}>
-            <Text style={formFieldLabelStyles.label}>Who can answer this?</Text>
-            <View style={styles.scopeChips}>
-              {LOCATION_SCOPE_TIERS.map((tier) => (
-                <PillChip
-                  key={tier.scope}
-                  label={tier.label}
-                  active={locationScope === tier.scope}
-                  onPress={() => setLocationScope(tier.scope)}
-                />
-              ))}
-            </View>
+            <LocationScopeOptionList
+              value={locationScope}
+              radii={scopeRadii}
+              onChange={setLocationScope}
+            />
             <Text style={styles.helperText}>
               {scopeRadiusHelper(locationScope, scopeRadii)}
             </Text>
@@ -302,7 +295,12 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.BG_WHITE },
   scrollContent: { paddingHorizontal: 24, paddingVertical: 20, paddingBottom: 40 },
   pageTitleSpacing: { marginTop: 12, marginBottom: 8 },
-  subtitle: { fontFamily: 'roboto', fontSize: fonts.FONT_SIZE_SMALL, color: colors.MEDIUM_GRAY, marginBottom: 24 },
+  subtitle: {
+    fontFamily: 'roboto',
+    fontSize: fonts.FONT_SIZE_SMALL,
+    color: colors.MEDIUM_GRAY,
+    marginBottom: 24
+  },
   locationField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -320,22 +318,17 @@ const styles = StyleSheet.create({
     color: colors.TEXT_DARK,
   },
   locationFieldPlaceholder: {
-    color: colors.LIGHT_GRAY,
+    color: colors.PLACEHOLDER,
   },
   scopeSection: {
     marginTop: 12,
   },
-  scopeChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
   helperText: {
     fontFamily: 'roboto',
-    fontSize: fonts.FONT_SIZE_XS,
+    fontSize: fonts.FONT_SIZE_SMALL,
     color: colors.MEDIUM_GRAY,
-    marginTop: 4,
+    marginTop: 8,
+    lineHeight: 22,
   },
   submitError: {
     fontFamily: 'roboto',

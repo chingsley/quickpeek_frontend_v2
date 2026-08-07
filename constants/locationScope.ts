@@ -4,7 +4,7 @@ export type LocationScopeTier = {
   scope: LocationScope;
   /** market config key holding this tier's radius in km (null for ANYWHERE). */
   configKey:
-    | 'radiusExactSpotKm'
+    | 'radiusAtExactAddressKm'
     | 'radiusWalkingKm'
     | 'radiusNeighbourhoodKm'
     | 'radiusCityKm'
@@ -20,10 +20,10 @@ export type LocationScopeTier = {
  */
 export const LOCATION_SCOPE_TIERS: LocationScopeTier[] = [
   {
-    scope: 'EXACT_SPOT',
-    configKey: 'radiusExactSpotKm',
-    label: 'At this exact spot',
-    helper: 'Only people right at this location can answer',
+    scope: 'AT_EXACT_ADDRESS',
+    configKey: 'radiusAtExactAddressKm',
+    label: 'At exact address',
+    helper: 'Only people at this exact address can answer',
   },
   {
     scope: 'WALKING',
@@ -56,10 +56,10 @@ export const formatScopeRadius = (radiusKm: number): string =>
   radiusKm < 1 ? `${Math.round(radiusKm * 1000)} m` : `${radiusKm} km`;
 
 /** Question-detail summary radii — always kilometres, e.g. 0.3 → "0.3km". */
-const formatScopeRadiusKm = (radiusKm: number): string => `${radiusKm}km`;
+export const formatScopeRadiusKm = (radiusKm: number): string => `${radiusKm}km`;
 
 const RESPONSE_ZONE_NAMES: Record<LocationScope, string> = {
-  EXACT_SPOT: 'at address',
+  AT_EXACT_ADDRESS: 'at exact address',
   WALKING: 'walking distance',
   NEIGHBOURHOOD: 'neighbourhood',
   CITY: 'city',
@@ -93,10 +93,31 @@ export const scopeRadiusHelper = (
   return `${tier.helper} (within ${formatScopeRadius(radii[tier.configKey])}).`;
 };
 
-/** Question-detail allowed-response copy — e.g. "Allowed response zone: at address (within 0.3km)". */
+/** Ask-screen option label — radii resolve from market config. */
+export const formatScopeOptionLabel = (
+  scope: LocationScope,
+  radii: Record<string, number>,
+): string => {
+  switch (scope) {
+    case 'AT_EXACT_ADDRESS':
+      return `Responders at exact address (within ${formatScopeRadiusKm(radii.radiusAtExactAddressKm)} from address)`;
+    case 'WALKING':
+      return `Responders within a walking distance (within ${formatScopeRadiusKm(radii.radiusWalkingKm)} from address)`;
+    case 'NEIGHBOURHOOD':
+      return 'Responders within the neighbourhood of this location';
+    case 'CITY':
+      return 'Any responder within the city';
+    case 'ANYWHERE':
+      return 'Any responder can answer, location irrelevant';
+    default:
+      return '';
+  }
+};
+
+/** Question-detail allowed-response copy — e.g. "Allowed response zone: at exact address (within 0.3km)". */
 export const LOCATION_SCOPE_SUMMARY_PREFIX = 'Allowed response zone: ';
 
-/** Bold segment after the prefix — e.g. "at address (within 0.3km)" or "anywhere." */
+/** Bold segment after the prefix — e.g. "at exact address (within 0.3km)" or "anywhere." */
 export const getLocationScopeSummaryValue = (
   scope: LocationScope,
   radiusKm?: number | null,

@@ -34,8 +34,8 @@ export const colors = {
   DARK_GRAY: '#485460',
   TEXT_ON_PRIMARY_MUTED: 'rgba(255, 255, 255, 0.7)',
 
-  // Placeholders
-  PLACEHOLDER: '#7a7b80',
+  // Placeholders — visible but clearly below input text (TEXT_DARK / TEXT_BODY).
+  PLACEHOLDER: '#8a9199',
   PLACEHOLDER_SEARCH: '#a8b5db',
 
   // Semantic

@@ -167,7 +167,7 @@ describe('LocationPickerModal selection and apply', () => {
       latitude: 44.65,
       longitude: -63.57,
       address: 'Halifax, Nova Scotia, Canada',
-      scope: 'EXACT_SPOT',
+      scope: 'AT_EXACT_ADDRESS',
     } as LocationPick);
   });
 
@@ -191,14 +191,14 @@ describe('LocationPickerModal selection and apply', () => {
     );
   });
 
-  it('defaults to EXACT_SPOT when the suggestion has no bounding box', async () => {
+  it('defaults to AT_EXACT_ADDRESS when the suggestion has no bounding box', async () => {
     const onApply = jest.fn();
     renderPicker({ onApply });
     await typeAndSettle('halifa');
     fireEvent.press(screen.getByText('Downtown Halifax, Canada'));
     fireEvent.press(screen.getByText('Apply'));
     expect(onApply).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: 'EXACT_SPOT' }),
+      expect.objectContaining({ scope: 'AT_EXACT_ADDRESS' }),
     );
   });
 
@@ -227,7 +227,7 @@ describe('LocationPickerModal selection and apply', () => {
       latitude: 45.0,
       longitude: -64.0,
       address: '123, Main St, Halifax, NS',
-      scope: 'EXACT_SPOT',
+      scope: 'AT_EXACT_ADDRESS',
     });
   });
 
@@ -383,7 +383,7 @@ it('falls back to coordinates when applying before the geocode resolves', async 
     latitude: 45.0,
     longitude: -64.0,
     address: '45.00000, -64.00000',
-    scope: 'EXACT_SPOT',
+    scope: 'AT_EXACT_ADDRESS',
   });
 });
 

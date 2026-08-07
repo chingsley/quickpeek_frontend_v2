@@ -35,8 +35,8 @@ export function LocationScopeSummaryText({
 
 const styles = StyleSheet.create({
   value: {
-    // fontFamily: fonts.FONT_FAMILY_BOLD,
-    textDecorationLine: 'underline',
+    fontFamily: 'roboto-medium',
+    // textDecorationLine: 'underline',
     textTransform: 'capitalize',
   },
 });

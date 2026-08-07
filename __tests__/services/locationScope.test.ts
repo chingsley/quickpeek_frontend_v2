@@ -28,11 +28,11 @@ describe('calculateHaversineDistance', () => {
 });
 
 describe('detectLocationScope', () => {
-  it('buckets a building-sized box as EXACT_SPOT', () => {
+  it('buckets a building-sized box as AT_EXACT_ADDRESS', () => {
     // ~100 m diagonal.
     expect(
       detectLocationScope({ south: 44.6120, north: 44.6130, west: -63.6200, east: -63.6180 }),
-    ).toBe('EXACT_SPOT');
+    ).toBe('AT_EXACT_ADDRESS');
   });
 
   it('buckets a campus-sized box as WALKING', () => {

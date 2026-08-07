@@ -71,7 +71,7 @@ const FormField = ({
         Platform.OS === 'web' && styles.inputWeb,
       ]}
       placeholder={placeholder}
-      placeholderTextColor={colors.LIGHT_GRAY}
+      placeholderTextColor={colors.PLACEHOLDER}
       value={value}
       onChangeText={onChangeText}
       maxLength={maxLength}

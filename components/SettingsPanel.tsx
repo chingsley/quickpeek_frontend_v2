@@ -194,7 +194,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
             value={name}
             onChangeText={setName}
             placeholder="Your name"
-            placeholderTextColor={colors.MEDIUM_GRAY}
+            placeholderTextColor={colors.PLACEHOLDER}
           />
           <Text style={[formFieldLabelStyles.label, styles.fieldLabel]}>Username</Text>
           <TextInput
@@ -202,7 +202,7 @@ const SettingsPanel = ({ showTitle = true }: Props) => {
             value={username}
             onChangeText={setUsername}
             placeholder="username"
-            placeholderTextColor={colors.MEDIUM_GRAY}
+            placeholderTextColor={colors.PLACEHOLDER}
             autoCapitalize="none"
           />
           <CustomButton text="Save changes" onPress={handleSaveProfile} loading={loading} />

@@ -10,7 +10,7 @@ interface MarketConfigState {
 
 const DEFAULT_CONFIG: TMarketConfig = {
   nearMeRadiusKm: 5,
-  radiusExactSpotKm: 0.3,
+  radiusAtExactAddressKm: 0.3,
   radiusWalkingKm: 1,
   radiusNeighbourhoodKm: 5,
   radiusCityKm: 25,
@@ -49,7 +49,7 @@ export const selectNearMeRadiusKm = (state: MarketConfigState): number =>
  * this; a selector returning a fresh object would re-render-loop zustand.
  */
 export const resolveScopeRadii = (config: TMarketConfig | null) => ({
-  radiusExactSpotKm: config?.radiusExactSpotKm ?? DEFAULT_CONFIG.radiusExactSpotKm,
+  radiusAtExactAddressKm: config?.radiusAtExactAddressKm ?? DEFAULT_CONFIG.radiusAtExactAddressKm,
   radiusWalkingKm: config?.radiusWalkingKm ?? DEFAULT_CONFIG.radiusWalkingKm,
   radiusNeighbourhoodKm: config?.radiusNeighbourhoodKm ?? DEFAULT_CONFIG.radiusNeighbourhoodKm,
   radiusCityKm: config?.radiusCityKm ?? DEFAULT_CONFIG.radiusCityKm,

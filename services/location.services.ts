@@ -68,7 +68,7 @@ export const getLocationSuggestions = async (
  */
 export const detectLocationScope = (bbox: LocationBoundingBox): LocationScope => {
   const diagonalKm = calculateHaversineDistance(bbox.south, bbox.west, bbox.north, bbox.east);
-  if (diagonalKm < 0.5) return 'EXACT_SPOT';
+  if (diagonalKm < 0.5) return 'AT_EXACT_ADDRESS';
   if (diagonalKm < 2) return 'WALKING';
   if (diagonalKm < 8) return 'NEIGHBOURHOOD';
   return 'CITY';

@@ -129,7 +129,7 @@ const ReviewModal = ({
       <TextInput
         style={[styles.commentInput, windowClosed && styles.commentInputDisabled]}
         placeholder="Leave a comment (optional)"
-        placeholderTextColor={colors.MEDIUM_GRAY}
+        placeholderTextColor={colors.PLACEHOLDER}
         value={comment}
         onChangeText={setComment}
         multiline

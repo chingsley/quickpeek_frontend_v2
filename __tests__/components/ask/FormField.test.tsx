@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 import FormField from '@/components/shared/FormField';
-import { FORM_FIELD_INPUT_PADDING_HORIZONTAL } from '@/constants/formField';
 import { colors } from '@/constants/colors';
 
 describe('FormField', () => {
@@ -92,13 +91,13 @@ describe('FormField', () => {
     expect(screen.getByText('3 / 2000')).toBeTruthy();
   });
 
-  it('insets the label to align with pill input text', () => {
+  it('aligns the label with the input left edge', () => {
     render(<FormField label="Title" value="" onChangeText={jest.fn()} />);
     const label = screen.getByText('Title');
     const flat = Array.isArray(label.props.style)
       ? Object.assign({}, ...label.props.style.flat())
       : label.props.style;
-    expect(flat.paddingLeft).toBe(FORM_FIELD_INPUT_PADDING_HORIZONTAL);
+    expect(flat.paddingLeft).toBeUndefined();
   });
 
   it('forwards keyboard type, input mode, and multiline to the input', () => {

@@ -5,7 +5,7 @@ import { fonts } from './fonts';
 /** Horizontal padding inside pill / bordered form inputs. */
 export const FORM_FIELD_INPUT_PADDING_HORIZONTAL = 14;
 
-/** Shared label above form inputs — inset aligns with curved input text start. */
+/** Shared label above form inputs — flush with the input's left border. */
 export const formFieldLabelStyles = StyleSheet.create({
   label: {
     fontFamily: 'roboto-medium',
@@ -13,7 +13,6 @@ export const formFieldLabelStyles = StyleSheet.create({
     color: colors.TEXT_DARK,
     marginBottom: 8,
     marginTop: 12,
-    paddingLeft: FORM_FIELD_INPUT_PADDING_HORIZONTAL,
     textAlign: 'left',
   },
 });
