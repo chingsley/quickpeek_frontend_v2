@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const SignIn = () => {
   const router = useRouter();
   const { login } = useAuthStore();
-  const [email, setEmail] = useState('test03@quickpeek.com'); // TODO: Initialize to ''
+  const [email, setEmail] = useState('alice@quickpeek.com'); // TODO: Initialize to ''
   const [password, setPassword] = useState('password123'); // TODO: Initialize to ''
   const [isLoading, setIsLoading] = useState(false);
   const [showFieldErrors, setShowFieldErrors] = useState(false);

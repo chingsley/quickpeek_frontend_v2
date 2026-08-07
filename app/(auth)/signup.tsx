@@ -18,9 +18,9 @@ const Signup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { showActionSheet, actionSheet } = useActionSheet();
   const [formData, setFormData] = useState<SignupFormData>({
-    name: 'test03 quickpeek',
-    username: 'test03',
-    email: 'test03@quickpeek.com',
+    name: 'New User',
+    username: 'new_user',
+    email: 'newuser@quickpeek.com',
     password: 'password123',
     confirmPassword: 'password123',
     locationSharingEnabled: false,
