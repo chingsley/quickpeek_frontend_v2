@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import StripeProviderWrapper from '@/components/payment/StripeProviderWrapper';
 import { ensureApiConfigReady } from '@/config';
 import SocketService from '@/services/socket.services';
+import { syncPushTokenOnStartup } from '@/services/notifications.services';
 import { selectIsLoggedIn, useAuthStore } from '@/store/auth.store';
 import { useMarketConfigStore } from '@/store/marketConfig.store';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -31,6 +32,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (isLoggedIn) {
       SocketService.connect();
+      // Refresh the Expo push token on cold start — it can rotate between
+      // sessions, and a stale token silently stops delivery.
+      void syncPushTokenOnStartup();
     } else {
       SocketService.disconnect();
     }

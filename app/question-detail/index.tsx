@@ -33,6 +33,7 @@ import {
 } from '@/services/questions.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
+import { useActiveViewStore } from '@/store/activeView.store';
 import { useLiveLocationStore } from '@/store/liveLocation.store';
 import { AnswerRequestStatus, TAnswerRequest } from '@/types/answerRequest.types';
 import { LocationScope, QuestionStatus, TRejectedResponder } from '@/types/question.types';
@@ -406,6 +407,15 @@ const QuestionDetail = () => {
     getRejectionReasons().then(setRejectPresetReasons).catch(() => setRejectPresetReasons([]));
     getCloseReasons().then(setClosePresetReasons).catch(() => setClosePresetReasons([]));
   }, []);
+
+  // Mark this question as in-view so its own push banners are suppressed.
+  // Kept independent of the socket effect below, which bails out when the
+  // socket isn't connected yet.
+  useEffect(() => {
+    if (!questionId) return;
+    useActiveViewStore.getState().setActiveQuestionId(questionId);
+    return () => useActiveViewStore.getState().clearActiveQuestionId(questionId);
+  }, [questionId]);
 
   // Live updates: new/changed request → reload list
   useEffect(() => {

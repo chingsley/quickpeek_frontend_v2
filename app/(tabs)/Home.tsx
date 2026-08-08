@@ -239,12 +239,14 @@ const HomeScreen = () => {
     socket.on('request:new', refreshAll);
     socket.on('request:accepted', refreshAll);
     socket.on('request:rejected', refreshAll);
+    socket.on('question:new', refreshAll);
     socket.on('question:closed', refreshAll);
     return () => {
       socket.off('message:new', refreshAll);
       socket.off('request:new', refreshAll);
       socket.off('request:accepted', refreshAll);
       socket.off('request:rejected', refreshAll);
+      socket.off('question:new', refreshAll);
       socket.off('question:closed', refreshAll);
     };
   }, [isLoggedIn, refreshAll]);

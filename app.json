@@ -18,8 +18,7 @@
           "_react-native._tcp"
         ],
         "NSLocalNetworkUsageDescription": "Quickpeek needs access to your local network to connect to the Metro development server during development.",
-        "NSLocationWhenInUseUsageDescription": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Quickpeek uses your location in the background to keep your responder status up to date when location sharing is enabled."
+        "NSLocationWhenInUseUsageDescription": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder."
       }
     },
     "android": {
@@ -49,9 +48,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder.",
-          "locationAlwaysAndWhenInUsePermission": "Quickpeek uses your location in the background to keep your responder status up to date when location sharing is enabled.",
-          "isIosBackgroundLocationEnabled": true
+          "locationWhenInUsePermission": "If you turn on location sharing, Quickpeek uses your location so nearby users can find you as a responder."
         }
       ]
     ],

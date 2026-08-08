@@ -31,6 +31,7 @@ import {
 import { getReviewEligibility } from '@/services/reviews.services';
 import SocketService from '@/services/socket.services';
 import { useAuthStore } from '@/store/auth.store';
+import { useActiveViewStore } from '@/store/activeView.store';
 import { AnswerRequestStatus } from '@/types/answerRequest.types';
 import { TMessage, TRequestThread } from '@/types/message.types';
 import { TReviewEligibility } from '@/types/review.types';
@@ -211,6 +212,15 @@ const ChatScreen = () => {
       }
     })();
   }, [loadThread, requestId, router]);
+
+  // Mark this thread as in-view so the notification handler suppresses
+  // duplicate banners for its own activity. Kept independent of the socket
+  // effect below, which bails out when the socket isn't connected yet.
+  useEffect(() => {
+    if (!requestId) return;
+    useActiveViewStore.getState().setActiveRequestId(requestId);
+    return () => useActiveViewStore.getState().clearActiveRequestId(requestId);
+  }, [requestId]);
 
   useEffect(() => {
     if (!requestId) return;

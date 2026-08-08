@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { create } from 'zustand';
+import { reportLocationToBackend } from '@/services/locationReport.services';
 
 type LiveCoords = { lat: number; lng: number; };
 
@@ -54,7 +55,10 @@ async function readOnce(requestPermission: boolean): Promise<LiveCoords | null> 
       }),
       POSITION_TIMEOUT_MS,
     );
-    return { lat: loc.coords.latitude, lng: loc.coords.longitude };
+    const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+    // Persist for server-side question:new targeting (throttled internally).
+    reportLocationToBackend(coords);
+    return coords;
   } catch (error) {
     console.warn('Live location read failed', error);
     return null;

@@ -45,7 +45,8 @@ const SignIn = () => {
         deviceType,
         deviceToken: deviceToken,
         notificationsEnabled: !!deviceToken,
-        locationSharingEnabled: false,
+        // locationSharingEnabled intentionally omitted — login must not reset
+        // the user's saved preference (the server only writes provided fields).
       };
       const response = await loginUser(credentials);
 

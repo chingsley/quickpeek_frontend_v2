@@ -1,8 +1,42 @@
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { useActiveViewStore } from '@/store/activeView.store';
 
-// Get device token for notifications
+// Show a banner + sound only when the activity ISN'T already on screen.
+// The push payload's `data` carries the resource the notification is about;
+// if the user is viewing that exact chat/question, we suppress the banner so
+// they aren't pinged twice for the socket event they just saw arrive live.
+Notifications.setNotificationHandler({
+  handleNotification: async ({ request }) => {
+    const data = (request.content.data ?? {}) as Record<string, unknown>;
+    const { activeRequestId, activeQuestionId } = useActiveViewStore.getState();
+
+    const suppress =
+      (typeof data.answerRequestId === 'string' && data.answerRequestId === activeRequestId) ||
+      (typeof data.questionId === 'string' && data.questionId === activeQuestionId);
+
+    if (suppress) {
+      return { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false };
+    }
+
+    return {
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    };
+  },
+});
+
+/**
+ * Get the device's Expo push token, requesting permission if needed.
+ *
+ * Called at sign-in/sign-up AND on every cold start (token sync), so this must
+ * stay silent: no alerts and no noisy logging on the denied path, or a user who
+ * declined push would be interrupted every time they open the app.
+ * Returns '' when push is unavailable or permission was refused.
+ */
 async function registerForPushNotificationsAsync() {
   let token = '';
 
@@ -12,11 +46,6 @@ async function registerForPushNotificationsAsync() {
     if (Platform.OS === 'web') {
       return '';
     }
-
-    console.log({
-      'Constants.expoConfig?.extra?.eas?.projectId': Constants.expoConfig?.extra?.eas?.projectId,
-      'Constants.expoConfig?.slug': Constants.expoConfig?.slug,
-    });
 
     // Check permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -28,7 +57,6 @@ async function registerForPushNotificationsAsync() {
     }
 
     if (finalStatus !== 'granted') {
-      alert('Failed to get push token for push notification!');
       return '';
     }
 
