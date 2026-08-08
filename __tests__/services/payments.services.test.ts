@@ -71,7 +71,7 @@ describe('payments services', () => {
 
   it('starts payout onboarding', async () => {
     const payload = { bankCode: '058', accountNumber: '0123456789' };
-    const responseBody = { account, accountName: 'ADA LOVELACE' };
+    const responseBody = { account, accountName: 'KAMSI LOVELACE' };
     mockPost.mockResolvedValue({ data: { data: responseBody } });
     const result = await startPayoutOnboarding(payload);
     expect(mockPost).toHaveBeenCalledWith('/payments/accounts/onboarding', payload);

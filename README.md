@@ -3,7 +3,7 @@
 
 ## Folder structure
 /Users/kingsleyeneja/study_projects/my-app
-  s/quickpeek/quickpeek_frontend_v2/
+  s/quickpeek/quickpeek_frontend/
   ├───.gitignore
   ├───app.json
   ├───babel.config.js

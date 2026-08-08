@@ -1,16 +1,16 @@
 {
   "expo": {
     "name": "quickpeek",
-    "slug": "quickpeek_frontend_v2",
+    "slug": "quickpeek",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
-    "scheme": "quickpeekfrontendv2",
+    "scheme": "quickpeekfrontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chingsley.quickpeek-frontend-v2",
+      "bundleIdentifier": "com.chingsley.quickpeek-frontend",
       "infoPlist": {
         "MetroPackagerHost": "localhost",
         "MetroUseLanPackager": false,

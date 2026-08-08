@@ -11,7 +11,7 @@ import Constants from 'expo-constants';
 export const getAppDeepLink = (path: string): string => {
   const cleanPath = path.replace(/^\//, '');
   if (Constants.appOwnership !== 'expo') {
-    const scheme = Constants.expoConfig?.scheme ?? 'quickpeekfrontendv2';
+    const scheme = Constants.expoConfig?.scheme ?? 'quickpeekfrontend';
     return `${scheme}://${cleanPath}`;
   }
   const hostUri = Constants.expoConfig?.hostUri ?? 'localhost:8081';

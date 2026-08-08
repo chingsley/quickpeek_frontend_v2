@@ -66,14 +66,9 @@ async function registerForPushNotificationsAsync() {
     // Method 1: From app.json configuration (most reliable)
     projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
-    // Method 2: From slug (fallback)
+    // Method 2: EAS project UUID from app.json (last resort if expoConfig.extra is missing)
     if (!projectId) {
-      projectId = Constants.expoConfig?.slug;
-    }
-
-    // Method 3: Hardcoded as last resort (replace with your actual project ID)
-    if (!projectId) {
-      projectId = 'quickpeek_frontend_v2'; // This might need to be your actual EAS project ID
+      projectId = '83eb8615-b904-4d52-ac2c-fd4d498ff6d2';
     }
 
     if (projectId) {

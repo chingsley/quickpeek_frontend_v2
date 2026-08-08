@@ -36,7 +36,7 @@ jest.mock('@/components/shared/KeyboardAwareScreen', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: ({ children }: { children: React.ReactNode }) =>
+    default: ({ children }: { children: React.ReactNode; }) =>
       React.createElement(View, null, children),
   };
 });
@@ -71,7 +71,7 @@ beforeEach(() => {
 
 describe('WalletOnboardingScreen', () => {
   it('shows a loading indicator while fetching the account', () => {
-    mockGetStatus.mockImplementation(() => new Promise(() => {}));
+    mockGetStatus.mockImplementation(() => new Promise(() => { }));
     render(<WalletOnboardingScreen />);
     expect(screen.getByTestId('onboarding-loading')).toBeTruthy();
   });
@@ -171,7 +171,7 @@ describe('WalletOnboardingScreen', () => {
     mockGetStatus.mockResolvedValue(account({ provider: 'PAYSTACK', currency: 'NGN' }));
     mockStartOnboarding.mockResolvedValue({
       account: account({ provider: 'PAYSTACK', currency: 'NGN', payoutsEnabled: true, status: 'ACTIVE' }),
-      accountName: 'ADA LOVELACE',
+      accountName: 'KAMSI LOVELACE',
     });
     render(<WalletOnboardingScreen />);
 
@@ -185,7 +185,7 @@ describe('WalletOnboardingScreen', () => {
         accountNumber: '0123456789',
       }),
     );
-    expect(await screen.findByText(/ADA LOVELACE/)).toBeTruthy();
+    expect(await screen.findByText(/KAMSI LOVELACE/)).toBeTruthy();
     expect(screen.getByText(/payouts are active/i)).toBeTruthy();
   });
 

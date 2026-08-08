@@ -106,9 +106,9 @@ describe('shouldShowMakePayment', () => {
 describe('getAppDeepLink', () => {
   it('uses the app scheme outside Expo Go, always with a host', () => {
     mockConstants.appOwnership = 'standalone';
-    mockConstants.expoConfig = { scheme: 'quickpeekfrontendv2' };
+    mockConstants.expoConfig = { scheme: 'quickpeekfrontend' };
     expect(getAppDeepLink('/wallet/onboarding')).toBe(
-      'quickpeekfrontendv2://wallet/onboarding',
+      'quickpeekfrontend://wallet/onboarding',
     );
   });
 
@@ -116,7 +116,7 @@ describe('getAppDeepLink', () => {
     mockConstants.appOwnership = 'guest';
     mockConstants.expoConfig = {};
     expect(getAppDeepLink('wallet/onboarding')).toBe(
-      'quickpeekfrontendv2://wallet/onboarding',
+      'quickpeekfrontend://wallet/onboarding',
     );
   });
 

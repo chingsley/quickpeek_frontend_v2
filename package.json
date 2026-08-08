@@ -1,5 +1,5 @@
 {
-  "name": "quickpeek_frontend_v2",
+  "name": "quickpeek_frontend",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
